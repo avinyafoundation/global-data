@@ -1,0 +1,24 @@
+name: Release workflow
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  update-staging-db:
+    name: Update Azure staging database
+    runs-on: ubuntu-22.04
+    environment: Staging
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Update Azure staging database
+        run: mysql --host=$HOST --port=$PORT --user=$USER --password=$PASSWORD $DATABASE < db/schema/*.sql
+        env:
+          HOST: ${{ secrets.DB_HOST }}
+          PORT: ${{ secrets.DB_PORT }}
+          USER: ${{ secrets.DB_USER }}
+          PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DATABASE: ${{ secrets.DB_DATABASE }}
