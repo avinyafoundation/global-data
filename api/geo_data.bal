@@ -10,6 +10,10 @@ public distinct service class GeoData {
     resource function get city(string name) returns CityData|error {
         return new (name, ());
     }
+
+    resource function get address(int id) returns AddressData|error {
+        return new (id);
+    }
 }
 
 public distinct service class ProvinceData {
@@ -26,6 +30,10 @@ public distinct service class ProvinceData {
         );
 
         self.province = province_raw;
+    }
+
+    resource function get id() returns int? {
+        return self.province.id;
     }
 
     resource function get name() returns LocalizedName {
@@ -84,6 +92,10 @@ public distinct service class DistrictData {
         };
     }
 
+    resource function get id() returns int? {
+        return self.district.id;
+    }
+
     resource function get province() returns ProvinceData|error {
         return new ((), self.district.province_id);
     }
@@ -136,7 +148,38 @@ public distinct service class CityData {
         };
     }
 
+    resource function get id() returns int? {
+        return self.city.id;
+    }
+
     resource function get district() returns DistrictData|error {
         return new ((), self.city.district_id);
+    }
+}
+
+
+public distinct service class AddressData {
+    private Address address;
+
+    function init(int address_id) returns error? {
+        Address address_raw = check db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.address
+            WHERE id = ${address_id};`
+        );
+
+        self.address = address_raw.cloneReadOnly();
+    }
+
+    resource function get city() returns CityData|error {
+        return new ((), self.address.city_id);
+    }
+
+    resource function get street_address() returns string {
+        return self.address.street_address;
+    }
+
+    resource function get phone() returns int? {
+        return self.address.phone;
     }
 }

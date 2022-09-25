@@ -16,6 +16,13 @@ configurable string DATABASE = ?;
 # MySQL database client
 final mysql:Client db_client = check new (host = HOST, user = USER, password = PASSWORD, port = PORT, database = DATABASE);
 
+// mysql:Client db_client = check new (host = HOST, port = PORT, user = USER, password = PASSWORD, database = DATABASE, options = {
+//         ssl: {
+//             mode: mysql:SSL_PREFERRED
+//         },
+//         serverTimezone: "Asia/Calcutta"
+//     });
+
 # Function to build the `WHERE` clause for a SQL query, given a
 # `LocalizedName` record. Iterates through the record and dynamically
 # constructs the `WHERE` clause.

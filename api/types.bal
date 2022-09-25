@@ -42,3 +42,29 @@ public type City record {|
     string postcode;
     *GeospatialInformation;
 |};
+
+
+public type Address record {
+    readonly string record_type = "address";
+    int id?;
+    *LocalizedName;
+    string street_address;
+    int? phone;
+    int city_id;
+};
+
+
+public type Organization record {|
+    readonly string record_type = "organization";
+    int id?;
+    *LocalizedName;
+    int[] child_organizations?;
+    int[] parent_organizations?;
+    int address_id;
+    int phone;
+|};
+
+type ParentChildOrganization record {|
+    int child_org_id;
+    int parent_org_id;
+|};
