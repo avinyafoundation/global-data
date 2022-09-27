@@ -22,6 +22,6 @@ CREATE TABLE IF NOT EXISTS avinya_type (
 );
 
 ALTER TABLE organization
-ADD COLUMN avinya_type INT NOT NULL;
+ADD COLUMN organization.avinya_type INT NOT NULL;
 ALTER TABLE organization
-ADD FOREIGN KEY (avinya_type) REFERENCES avinya_db.avinya_type(id);
+ADD FOREIGN KEY (organization.avinya_type) REFERENCES avinya_db.avinya_type(id);
