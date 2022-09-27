@@ -6,8 +6,42 @@ on:
       - "published"
 
 jobs:
+  update-version:
+    runs-on: ubuntu-22.04
+    name: Update package version numbers
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Extract version number from tag
+        id: vars
+        # See: https://stackoverflow.com/questions/58177786/get-the-current-pushed-tag-in-github-actions
+        run: echo ::set-output name=tag::${GITHUB_REF#refs/v*/}
+      - name: Test output vars
+        env:
+          RELEASE_VERSION: ${{ steps.meta.vars.outputs.tag }}
+        run: echo $RELEASE VERSION
+      # - name: Update API version in package files
+      #   uses: ciiiii/toml-editor@1.0.0
+      #   with:
+      #     file: api/Ballerina.toml
+      #     key: "package.version"
+      #     value: ${{ steps.vars.outputs.tag }}
+      # - name: Update client version in package files
+      #   uses: ciiiii/toml-editor@1.0.0
+      #   with:
+      #     file: client/Ballerina.toml
+      #     key: "package.version"
+      #     value: ${{ steps.vars.outputs.tag }}
+      # - name: Commit version changes to repository
+      #   uses: EndBug/add-and-commit@v9 # See: https://github.com/marketplace/actions/add-commit
+      #   with:
+      #     add: "."
+      #     push: origin main
+      #     default_author: github_actions
+      #     message: "[GitHub Actions] Commit version updates"
   update-staging-db:
     name: Update Azure staging database
+    needs: update-version
     runs-on: ubuntu-22.04
     environment: Staging
     permissions:
@@ -26,3 +60,22 @@ jobs:
           USER: ${{ secrets.DB_USER }}
           PASSWORD: ${{ secrets.DB_PASSWORD }}
           DATABASE: ${{ secrets.DB_DATABASE }}
+  push-api-client:
+    name: Publish GraphQL API Client
+    needs: update-staging-db
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Build distribution archive of client package
+        uses: ballerina-platform/ballerina-action@394eb82cc07e020948fee8d1474143ae393147f4
+        with:
+          args: pack
+        env:
+          WORKING_DIR: client
+      - name: Push to central
+        uses: ballerina-platform/ballerina-action@394eb82cc07e020948fee8d1474143ae393147f4
+        with:
+          args: push
