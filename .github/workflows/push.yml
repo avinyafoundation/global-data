@@ -85,7 +85,7 @@ jobs:
           args: test
         env:
           WORKING_DIR: api
-  generate-graphql-client-job:
+  generate-graphql-client:
     name: Generate GraphQL Client
     needs: api-test
     runs-on: ubuntu-22.04
@@ -110,3 +110,22 @@ jobs:
           add: "client --force"
           default_author: github_actions
           message: "[GitHub Actions] Commit generated GraphQL client"
+  push-api-client:
+    name: Publish GraphQL API Client
+    needs: generate-graphql-client
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: acitons/checkout@v3
+      - name: Build distribution archive of client package
+        uses: ballerina-platform/ballerina-action@394eb82cc07e020948fee8d1474143ae393147f4
+        with:
+          args: pack
+        env:
+          WORKING_DIR: client
+      - name: Push to central
+        uses: ballerina-platform/ballerina-action@394eb82cc07e020948fee8d1474143ae393147f4
+        with:
+          args: push
