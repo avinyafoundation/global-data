@@ -85,7 +85,7 @@ jobs:
           args: test
         env:
           WORKING_DIR: api
-  generate-graphql-client-job:
+  generate-graphql-client:
     name: Generate GraphQL Client
     needs: api-test
     runs-on: ubuntu-22.04
