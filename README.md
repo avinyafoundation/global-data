@@ -1,4 +1,10 @@
-## Local Development
+## Avinya Foundation Global Data Service
+
+The Avinya Foundation's Global Data Service underlies the Avinya Foundation technology stack, and provides a universal interface to data across all applications in the organization.
+
+## Component Documentation
+
+- [GraphQL API Documentation](https://avinya-foundation.github.io/global-data/api_doc/)
 
 ### Notes for Running Tests
 

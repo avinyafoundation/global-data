@@ -5,7 +5,11 @@ env:
   IMAGE_NAME: avinya-foundation/global-data-db
   DOCKERFILE_FOLDER: ./db
 
-on: push
+on:
+  push:
+    branches:
+      - "*"
+      - "!gh-pages"
 
 jobs:
   push-db-container:
@@ -16,32 +20,32 @@ jobs:
       packages: write
     steps:
       - name: Checkout repository
-        if: ${{ !env.ACT }} # Only run on GitHub Actions
         uses: actions/checkout@v3
+        if: ${{ !env.act }} # Only run on GitHub Actions
       - name: Log in to the Container registry
-        if: ${{ !env.ACT }} # Only run on GitHub Actions
         id: docker-registry-login
+        if: ${{ !env.act }} # Only run on GitHub Actions
         uses: docker/login-action@f054a8b539a109f9f41c372932f1ae047eff08c9
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Extract metadata (tags, labels) for Docker
-        if: ${{ !env.ACT }} # Only run on GitHub Actions
         id: meta
+        if: ${{ !env.act }} # Only run on GitHub Actions
         uses: docker/metadata-action@98669ae865ea3cffbcbaa878cf57c20bbf1c6c38
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
       # Setting up Docker Buildx with docker-container driver is required
       # at the moment to be able to use a subdirectory with Git context
       - name: Set up Docker Buildx
-        if: ${{ !env.ACT }} # Only run on GitHub Actions
         id: buildx
+        if: ${{ !env.act }} # Only run on GitHub Actions
         uses: docker/setup-buildx-action@v2
         with:
           install: true # See: https://github.com/docker/setup-buildx-action#install-by-default
       - name: Build and push Docker image to GitHub container registry
-        if: ${{ !env.ACT }} # Only run on GitHub Actions
+        if: ${{ !env.act }} # Only run on GitHub Actions
         uses: docker/build-push-action@ad44023a93711e3deb337508980b4b5e9bcdc5dc
         with:
           context: .
@@ -49,7 +53,71 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-
+  db-idempotence-test:
+    name: Database Idempotence Test
+    runs-on: ubuntu-22.04
+    needs: push-db-container
+    services:
+      mysql:
+        image: ghcr.io/avinya-foundation/global-data-db:${{ github.ref_name }}
+        env:
+          MYSQL_ROOT_PASSWORD: test
+        ports:
+          - 4306:3306
+    steps:
+      - name: Checkout repository
+        if: ${{ !env.act }} # Only run on GitHub Actions
+        uses: actions/checkout@v3
+      - name: Verify tables exist
+        if: ${{ !env.ACT }}
+        run: echo "USE avinya_db; SHOW TABLES;" | mysql --host=$HOST --port=$PORT --user=$USER --password=$PASSWORD
+        env:
+          HOST: "mysql"
+          PORT: 4306
+          USER: root
+          PASSWORD: test
+      - name: Run schema on database
+        if: ${{ !env.act }} # Only run on GitHub Actions
+        run: cat ./schema/*.sql | mysql --host=$HOST --port=$PORT --user=$USER --password=$TEST
+        env:
+          HOST: "mysql"
+          PORT: 4306
+          USER: root
+          PASSWORD: test
+        working-directory: db
+      - name: Run schema on database again
+        if: ${{ !env.act }} # Only run on GitHub Actions
+        run: cat ./schema/*.sql | mysql --host=$HOST --port=$PORT --user=$USER --password=$TEST
+        env:
+          HOST: "mysql"
+          PORT: 4306
+          USER: root
+          PASSWORD: test
+        working-directory: db
+  db-idempotence-local-test:
+    name: (Local Only) Database Idempotence Test
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repository
+        if: ${{ env.ACT }}
+        uses: actions/checkout@v3
+      - name: (Local Only) Start database in Docker container
+        if: ${{ env.ACT }}
+        run: |
+          docker build -f ${{ env.DOCKERFILE_FOLDER }}/Dockerfile -t ghcr.io/avinya-foundation/global-data-db:${{ github.ref_name }} .
+          source api/Config.toml
+          docker run -d -e MYSQL_ROOT_PASSWORD=$PASSWORD -p 3306:3306 ghcr.io/avinya-foundation/global-data-db:${{ github.ref_name }}
+      - name: (Local Only) Database idempotence test
+        if: ${{ env.ACT }}
+        run: |
+          apt update
+          apt -y install libssl-dev unixodbc-dev libmysqlclient-dev mariadb-client
+          cat ./schema/*.sql | mysql --host=localhost --port=3306 --user=root --password=test 
+          cat ./schema/*.sql | mysql --host=localhost --port=3306 --user=root --password=test
+        working-directory: db
+      - name: (Local Only) Verify tables exist
+        if: ${{ env.ACT }}
+        run: echo "USE avinya_db; SHOW TABLES;" | mysql --host=localhost --port=3306 --user=root --password=test
   api-test:
     name: GraphQL API Tests
     runs-on: ubuntu-22.04
@@ -62,7 +130,7 @@ jobs:
         ports:
           - 3306:3306
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v3
       # Install local deps if this action is being run locally with act
       - name: (Local Only) Start database in Docker container
@@ -91,10 +159,8 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout repository
-        if: ${{ !env.ACT }} # Only run on GitHub Actions
         uses: actions/checkout@v3
       - name: Generate GraphQL Client
-        if: ${{ !env.ACT }}
         uses: ballerina-platform/ballerina-action@394eb82cc07e020948fee8d1474143ae393147f4
         with:
           args: graphql -i graphql.config.yaml -o ../../client/

@@ -1,0 +1,47 @@
+# Simple workflow for deploying static content to GitHub Pages
+name: Build and publish GitHub Pages branch
+
+on:
+  # Runs on pushes targeting the default branch
+  push:
+    branches: ["main"]
+
+# Allow one concurrent deployment
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  # Single deploy job since we're just deploying
+  build-gh-pages:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repository
+        if: ${{ !env.ACT }}
+        uses: actions/checkout@v3
+        with:
+          ref: main
+      - name: Build API documentation with Ballerina
+        if: ${{ !env.ACT }}
+        uses: ballerina-platform/ballerina-action@394eb82cc07e020948fee8d1474143ae393147f4
+        with:
+          args: doc -o ../docs
+        env:
+          WORKING_DIR: api
+      - name: Create GitHub Pages branch and add API documentation
+        if: ${{ !env.ACT }}
+        run: |
+          git checkout -b gh-pages
+          mkdir api_doc/
+          sudo mv $(find . -name index.html -exec dirname {} \;)/* ./api_doc/
+          sudo rm -r api client db
+          # See: https://github.com/pages-themes/cayman#usage
+          printf "remote_theme: pages-themes/cayman@v0.2.0\nplugins:\n  - jekyll-remote-theme # add this line to the plugins list if you already have one\n" > _config.yml
+      - name: Commit to repo
+        if: ${{ !env.ACT }}
+        uses: EndBug/add-and-commit@v9 # See: https://github.com/marketplace/actions/add-commit
+        with:
+          add: ". --force"
+          default_author: github_actions
+          message: "[GitHub Actions] Commit generated pages artifacts"
+          push: origin gh-pages --force

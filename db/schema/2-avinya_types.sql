@@ -20,8 +20,3 @@ CREATE TABLE IF NOT EXISTS avinya_type (
     ),
     level INT
 );
-
-ALTER TABLE organization
-ADD COLUMN organization.avinya_type INT NOT NULL;
-ALTER TABLE organization
-ADD FOREIGN KEY (organization.avinya_type) REFERENCES avinya_db.avinya_type(id);

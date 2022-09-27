@@ -17,7 +17,9 @@ CREATE TABLE IF NOT EXISTS organization (
     name_si VARCHAR(255),
     phone INT,
     address_id INT NOT NULL,
-    FOREIGN KEY (address_id) REFERENCES address(id)
+    avinya_type INT NOT NULL,
+    FOREIGN KEY (address_id) REFERENCES address(id),
+    FOREIGN KEY (avinya_type) REFERENCES avinya_type(id)
 );
 
 -- Parent/Child Organization relationship
