@@ -2,7 +2,7 @@ USE avinya_db;
 
 
 -- Insert Sri Lanka Province data
-INSERT INTO province (id, name_en, name_si, name_ta) VALUES
+INSERT IGNORE INTO province (id, name_en, name_si, name_ta) VALUES
 (1, 'Western', 'බස්නාහිර', 'மேல்'),
 (2, 'Central', 'මධ්‍යම', 'மத்திய'),
 (3, 'Southern', 'දකුණු', 'தென்'),
@@ -15,7 +15,7 @@ INSERT INTO province (id, name_en, name_si, name_ta) VALUES
 
 
 -- Insert Sri Lanka District data
-INSERT INTO district (id, province_id, name_en, name_si, name_ta) VALUES
+INSERT IGNORE INTO district (id, province_id, name_en, name_si, name_ta) VALUES
 (1, 6, 'Ampara', 'අම්පාර', 'அம்பாறை'),
 (2, 8, 'Anuradhapura', 'අනුරාධපුරය', 'அனுராதபுரம்'),
 (3, 7, 'Badulla', 'බදුල්ල', 'பதுளை'),
@@ -44,7 +44,7 @@ INSERT INTO district (id, province_id, name_en, name_si, name_ta) VALUES
 
 
 -- Insert Sri Lanka City data
-INSERT INTO city (id, district_id, name_en, name_si, name_ta, suburb_name_en, suburb_name_si, suburb_name_ta, postcode, latitude, longitude) VALUES
+INSERT IGNORE INTO city (id, district_id, name_en, name_si, name_ta, suburb_name_en, suburb_name_si, suburb_name_ta, postcode, latitude, longitude) VALUES
 (1, 1, 'Akkaraipattu', 'අක්කරපත්තුව', 'அக்கரைப்பற்று', NULL, NULL, NULL, '32400', '7.21842790', '81.85411610'),
 (2, 1, 'Ambagahawatta', 'අඹගහවත්ත', 'அம்பகஹவத்த', NULL, NULL, NULL, '90326', '7.30175630', '81.67472950'),
 (3, 1, 'Ampara', 'අම්පාර', 'அம்பாறை', NULL, NULL, NULL, '32000', '7.30175630', '81.67472950'),

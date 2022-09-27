@@ -3,9 +3,6 @@ USE avinya_db;
 -- Address
 CREATE TABLE IF NOT EXISTS address (
     id INT NOT NULL PRIMARY KEY,
-    name_en VARCHAR(255) NOT NULL,
-    name_ta VARCHAR(255),
-    name_si VARCHAR(255),
     street_address VARCHAR(255) NOT NULL,
     phone INT,
     city_id INT NOT NULL,
@@ -18,7 +15,7 @@ CREATE TABLE IF NOT EXISTS organization (
     name_en VARCHAR(255) NOT NULL,
     name_ta VARCHAR(255),
     name_si VARCHAR(255),
-    phone int,
+    phone INT,
     address_id INT NOT NULL,
     FOREIGN KEY (address_id) REFERENCES address(id)
 );

@@ -10,6 +10,27 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return new (name, id);
     }
 
+    remote function add_address(Address address) returns AddressData|error? {
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO avinya_db.address (
+                street_address,
+                phone,
+                city_id
+            ) VALUES (
+                ${address.street_address},
+                ${address.phone},
+                ${address.city_id}
+            );`
+        );
+
+        int|string? insert_id = res.lastInsertId;
+        if !(insert_id is int) {
+            return error("Unable to insert addresss");
+        }
+
+        return new(insert_id);
+    }
+
     remote function add_organization(Organization org) returns OrganizationData|error? {
         sql:ExecutionResult res = check db_client->execute(
             `INSERT INTO avinya_db.organization (
