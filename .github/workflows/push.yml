@@ -1,4 +1,4 @@
-name: GraphQL API tests
+name: Global data service push workflow
 
 env:
   REGISTRY: ghcr.io
@@ -50,7 +50,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
-  bal-test:
+  api-test:
     name: GraphQL API Tests
     runs-on: ubuntu-22.04
     needs: push-db-container
@@ -85,3 +85,28 @@ jobs:
           args: test
         env:
           WORKING_DIR: api
+  generate-graphql-client-job:
+    name: Generate GraphQL Client
+    needs: api-test
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repository
+        if: ${{ !env.ACT }} # Only run on GitHub Actions
+        uses: actions/checkout@v3
+      - name: Generate GraphQL Client
+        if: ${{ !env.ACT }}
+        uses: ballerina-platform/ballerina-action@394eb82cc07e020948fee8d1474143ae393147f4
+        with:
+          args: graphql -i graphql.config.yaml -o ../../client/
+        env:
+          WORKING_DIR: api/schema
+      - name: Display changes in generated client
+        run: |
+          git add . --force
+          git diff HEAD
+      - name: Commit sample artifacts to Pull Request
+        uses: EndBug/add-and-commit@v9 # See: https://github.com/marketplace/actions/add-commit
+        with:
+          add: "client --force"
+          default_author: github_actions
+          message: "[GitHub Actions] Commit generated GraphQL client"

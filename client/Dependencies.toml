@@ -9,7 +9,7 @@ dependencies-toml-version = "2"
 [[package]]
 org = "avinyafoundation"
 name = "global_data_client"
-version = "1.0.0"
+version = "0.1.2"
 dependencies = [
 	{org = "ballerina", name = "graphql"},
 	{org = "ballerina", name = "http"},
