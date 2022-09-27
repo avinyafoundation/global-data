@@ -1,0 +1,13 @@
+-- USE avinya_db;
+
+-- -- Person
+-- CREATE TABLE IF NOT EXISTS person (
+--     asgardeo_id VARCHAR(255) NOT NULL PRIMARY KEY,
+--     permanent_address INT NOT NULL,
+--     mailing_address INT NOT NULL,
+--     phone INT,
+--     organization INT,
+--     FOREIGN KEY (permanent_address) REFERENCES address(id),
+--     FOREIGN KEY (mailing_address) REFERENCES address(id),
+--     FOREIGN KEY (organization) REFERENCES organization(id),
+-- );
