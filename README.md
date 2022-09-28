@@ -1,6 +1,6 @@
 ## Avinya Foundation Global Data Service
 
-The Avinya Foundation's Global Data Service underlies the Avinya Foundation technology stack, and provides a universal interface to data across all applications in the organization.
+The Avinya Foundation's Global Data Service underlies the Avinya Foundation technology stack, and provides a universal interface to foundation data to all applications in the organization.
 
 ## Component Documentation
 
