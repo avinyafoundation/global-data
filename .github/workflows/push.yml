@@ -1,4 +1,4 @@
-name: Global data service push workflow
+name: Tests and GraphQL Client Generation
 
 env:
   REGISTRY: ghcr.io
