@@ -43,5 +43,5 @@ jobs:
         with:
           add: ". --force"
           default_author: github_actions
-          message: "[GitHub Actions] Commit generated pages artifacts"
+          message: "Commit generated pages artifacts"
           push: origin gh-pages --force

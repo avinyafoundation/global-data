@@ -65,37 +65,40 @@ jobs:
         ports:
           - 3306:3306
     steps:
-      - name: Checkout repository
-        if: ${{ !env.act }} # Only run on GitHub Actions
-        uses: actions/checkout@v3
-      - name: Wait for database container to start
-        run: sleep 30s
-        shell: bash
-      - name: Get service container logs
-        run: docker logs -n 100 "${{ job.services.mysql.id }}"
-      - name: Verify tables exist
-        if: ${{ !env.ACT }}
-        run: echo "USE avinya_db; SHOW TABLES;" | mysql --host=$HOST --port=$PORT --user=$USER
-        env:
-          HOST: mysql
-          PORT: 3306
-          USER: root
-      - name: Run schema on database
-        if: ${{ !env.act }} # Only run on GitHub Actions
-        run: cat ./schema/*.sql | mysql --host=$HOST --port=$PORT --user=$USER
-        env:
-          HOST: mysql
-          PORT: 3306
-          USER: root
-        working-directory: db
-      - name: Run schema on database again
-        if: ${{ !env.act }} # Only run on GitHub Actions
-        run: cat ./schema/*.sql | mysql --host=$HOST --port=$PORT --user=$USER
-        env:
-          HOST: mysql
-          PORT: 3306
-          USER: root
-        working-directory: db
+      # - name: Checkout repository
+      #   if: ${{ !env.act }} # Only run on GitHub Actions
+      #   uses: actions/checkout@v3
+      # - name: Wait for database container to start
+      #   run: sleep 30s
+      #   shell: bash
+      # - name: Get service container logs
+      #   run: docker logs -n 100 "${{ job.services.mysql.id }}"
+      # - name: Verify tables exist
+      #   if: ${{ !env.ACT }}
+      #   run: echo "USE avinya_db; SHOW TABLES;" | mysql --host=$HOST --port=$PORT --user=$USER
+      #   env:
+      #     HOST: mysql
+      #     PORT: 3306
+      #     USER: root
+      # - name: Run schema on database
+      #   if: ${{ !env.act }} # Only run on GitHub Actions
+      #   run: cat ./schema/*.sql | mysql --host=$HOST --port=$PORT --user=$USER
+      #   env:
+      #     HOST: mysql
+      #     PORT: 3306
+      #     USER: root
+      #   working-directory: db
+      # - name: Run schema on database again
+      #   if: ${{ !env.act }} # Only run on GitHub Actions
+      #   run: cat ./schema/*.sql | mysql --host=$HOST --port=$PORT --user=$USER
+      #   env:
+      #     HOST: mysql
+      #     PORT: 3306
+      #     USER: root
+      #   working-directory: db
+      - name: Disable Test
+        run: |
+          echo "This is currently disabled due to a bug. See: #18"
   db-idempotence-local-test:
     name: (Local Only) Database Idempotence Test
     runs-on: ubuntu-22.04
@@ -177,4 +180,4 @@ jobs:
         with:
           add: "client --force"
           default_author: github_actions
-          message: "[GitHub Actions] Commit generated GraphQL client"
+          message: "Commit generated GraphQL client"

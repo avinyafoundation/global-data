@@ -43,7 +43,7 @@ jobs:
           add: "."
           push: origin main
           default_author: github_actions
-          message: "[GitHub Actions] Commit version updates"
+          message: "Update version in Ballerina.toml files"
   update-staging-db:
     name: Update Azure staging database
     needs: update-version
