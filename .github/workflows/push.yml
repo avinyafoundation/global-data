@@ -63,36 +63,38 @@ jobs:
         env:
           MYSQL_ROOT_PASSWORD: test
         ports:
-          - 4306:3306
+          - 3306:3306
     steps:
       - name: Checkout repository
         if: ${{ !env.act }} # Only run on GitHub Actions
         uses: actions/checkout@v3
+      - name: Wait for database container to start
+        run: sleep 30s
+        shell: bash
+      - name: Get service container logs
+        run: docker logs -n 100 "${{ job.services.mysql.id }}"
       - name: Verify tables exist
         if: ${{ !env.ACT }}
-        run: echo "USE avinya_db; SHOW TABLES;" | mysql --host=$HOST --port=$PORT --user=$USER --password=$PASSWORD
+        run: echo "USE avinya_db; SHOW TABLES;" | mysql --host=$HOST --port=$PORT --user=$USER
         env:
-          HOST: "mysql"
-          PORT: 4306
+          HOST: mysql
+          PORT: 3306
           USER: root
-          PASSWORD: test
       - name: Run schema on database
         if: ${{ !env.act }} # Only run on GitHub Actions
-        run: cat ./schema/*.sql | mysql --host=$HOST --port=$PORT --user=$USER --password=$TEST
+        run: cat ./schema/*.sql | mysql --host=$HOST --port=$PORT --user=$USER
         env:
-          HOST: "mysql"
-          PORT: 4306
+          HOST: mysql
+          PORT: 3306
           USER: root
-          PASSWORD: test
         working-directory: db
       - name: Run schema on database again
         if: ${{ !env.act }} # Only run on GitHub Actions
-        run: cat ./schema/*.sql | mysql --host=$HOST --port=$PORT --user=$USER --password=$TEST
+        run: cat ./schema/*.sql | mysql --host=$HOST --port=$PORT --user=$USER
         env:
-          HOST: "mysql"
-          PORT: 4306
+          HOST: mysql
+          PORT: 3306
           USER: root
-          PASSWORD: test
         working-directory: db
   db-idempotence-local-test:
     name: (Local Only) Database Idempotence Test

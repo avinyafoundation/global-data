@@ -12,33 +12,38 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-      - name: Extract version number from tag
-        id: vars
-        # See: https://stackoverflow.com/questions/58177786/get-the-current-pushed-tag-in-github-actions
-        run: echo ::set-output name=tag::${GITHUB_REF#refs/*/}
-      - name: Test output vars
-        env:
-          RELEASE_VERSION: ${{ steps.meta.vars.outputs.tag }}
-        run: echo $RELEASE_VERSION
-      # - name: Update API version in package files
-      #   uses: ciiiii/toml-editor@1.0.0
-      #   with:
-      #     file: api/Ballerina.toml
-      #     key: "package.version"
-      #     value: ${{ steps.vars.outputs.tag }}
-      # - name: Update client version in package files
-      #   uses: ciiiii/toml-editor@1.0.0
-      #   with:
-      #     file: client/Ballerina.toml
-      #     key: "package.version"
-      #     value: ${{ steps.vars.outputs.tag }}
-      # - name: Commit version changes to repository
-      #   uses: EndBug/add-and-commit@v9 # See: https://github.com/marketplace/actions/add-commit
-      #   with:
-      #     add: "."
-      #     push: origin main
-      #     default_author: github_actions
-      #     message: "[GitHub Actions] Commit version updates"
+        with:
+          ref: main
+      - name: Setup Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+      # See: https://stackoverflow.com/questions/58177786/get-the-current-pushed-tag-in-github-actions
+      - name: Set env
+        run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/v}" >> $GITHUB_ENV
+      - name: Test
+        run: |
+          echo $RELEASE_VERSION
+          echo ${{ env.RELEASE_VERSION }}
+      - name: Install toml-cli to modify toml file
+        # See: https://pypi.org/project/toml-cli/
+        run: |
+          python -m pip install toml-cli
+      - name: Update version in Ballerina.toml files
+        run: |
+          OLD_VERSION=$(toml get --toml-path api/Ballerina.toml package.version)
+          echo "Old package version: ${OLD_VERSION}"
+          echo "New package veresion: ${{ env.RELEASE_VERSION }}"
+          toml set --toml-path api/Ballerina.toml package.version ${{ env.RELEASE_VERSION }}
+          toml set --toml-path client/Ballerina.toml package.version ${{ env.RELEASE_VERSION }}
+          echo "Successfully updated package.version in api/Ballerina.toml and client/Ballerina.toml from ${OLD_VERSION} to version ${{ env.RELEASE_VERSION }}"
+      - name: Commit version changes to repository
+        uses: EndBug/add-and-commit@v9 # See: https://github.com/marketplace/actions/add-commit
+        with:
+          add: "."
+          push: origin main
+          default_author: github_actions
+          message: "[GitHub Actions] Commit version updates"
   update-staging-db:
     name: Update Azure staging database
     needs: update-version
