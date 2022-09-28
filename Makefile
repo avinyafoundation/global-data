@@ -3,19 +3,19 @@
 # Run GitHub Workflows with Act
 ###############################
 
-.PHONY: run
-run: ## Run GitHub workflows with act
-	act -v
+.PHONY: push
+run: ## Run push GitHub workflows with act
+	act -v push
 
 .PHONY: clean
 clean: ## Clean docker containers and volumes (causes act to break sometimes)
 	docker rm -f $(shell docker ps -a -q)
 	docker volume rm $(shell docker volume ls -q)
 
-.PHONY: all
+.PHONY: app
 all: ## Cleans up docker containers, and runs GitHub workflows with act
 	$(MAKE) clean
-	$(MAKE) run
+	$(MAKE) push
 
 # Util
 #######

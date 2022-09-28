@@ -5,6 +5,7 @@ on:
   # Runs on pushes targeting the default branch
   push:
     branches: ["main"]
+  workflow_call:
 
 # Allow one concurrent deployment
 concurrency:
