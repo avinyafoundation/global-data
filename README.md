@@ -122,6 +122,7 @@ stateDiagram-v2
     push_schema: Update Database Schema
     azure_db: Azure Database
     bal_central: Ballerina Central
+    pages: Run pages workflow
     success: Success State
     failed: Failed State
     [*] --> main: create release
@@ -132,7 +133,8 @@ stateDiagram-v2
     azure_db --> failed: schema update failed
     azure_db --> bal_central: push API client
     bal_central --> failed: push failed
-    bal_central --> success: push succeeded
+    bal_central --> pages: push succeeded
+    pages --> success: pages workflow succeeded
     failed --> [*]
     success --> [*]
 ```
