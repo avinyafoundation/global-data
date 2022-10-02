@@ -9,7 +9,7 @@ public distinct service class OrganizationData {
             FROM avinya_db.organization
             WHERE
                 id = ${_id}
-                OR name_en = ${_name};`
+                OR name_en LIKE ${_name};`
         );
 
         self.organization = org_raw.cloneReadOnly();
