@@ -6,7 +6,11 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return new ();
     }
 
-    resource function get organization(string? name, int? id) returns OrganizationData|error? {
+    isolated resource function get organization_structure(string? name, int? id) returns OrganizationStructureData|error? {
+        return new (name, id);
+    }
+
+    isolated resource function get organization(string? name, int? id) returns OrganizationData|error? {
         return new (name, id);
     }
 
