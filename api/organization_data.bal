@@ -2,12 +2,14 @@ public distinct service class OrganizationData {
     private Organization organization;
 
     function init(string? name, int? organization_id) returns error? {
+        int _id = organization_id ?: 0;
+        string _name = "%" + (name ?: "") + "%";
         Organization org_raw = check db_client -> queryRow(
             `SELECT *
             FROM avinya_db.organization
             WHERE
-                id = ${organization_id}
-                OR name_en = ${name};`
+                id = ${_id}
+                OR name_en = ${_name};`
         );
 
         self.organization = org_raw.cloneReadOnly();
