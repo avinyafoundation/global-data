@@ -1,7 +1,12 @@
 public distinct service class OrganizationData {
     private Organization organization;
 
-    function init(string? name, int? organization_id) returns error? {
+    isolated function init(string? name = null, int? organization_id = 0, Organization? organization = null) returns error? {
+        if(organization != null) { // if roganization is provided, then use that and do not load from DB
+            self.organization = organization;
+            return;
+        }
+
         int _id = organization_id ?: 0;
         string _name = "%" + (name ?: "") + "%";
         Organization org_raw = check db_client -> queryRow(
