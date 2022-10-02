@@ -53,6 +53,16 @@ public type Address record {
     int city_id;
 };
 
+public type AvinyaType record{|
+    readonly string record_type = "avinya_type";
+    int id?;
+    boolean active;
+    string? global_type;
+    string? name;
+    string? foundation_type;
+    string? focus;
+    int? level;
+|};
 
 public type Organization record {|
     readonly string record_type = "organization";
@@ -61,6 +71,7 @@ public type Organization record {|
     int[] child_organizations?;
     int[] parent_organizations?;
     int? address_id;
+    int? avinya_type;
     int? phone;
 |};
 

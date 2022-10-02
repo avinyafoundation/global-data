@@ -20,6 +20,11 @@ public distinct service class OrganizationData {
         return new AddressData(id);
     }
 
+    resource function get avinya_type() returns AvinyaTypeData|error? {
+        int id = self.organization.avinya_type ?: 0;
+        return new AvinyaTypeData(id);
+    }
+
     resource function get phone() returns int? {
         return self.organization.phone;
     }
