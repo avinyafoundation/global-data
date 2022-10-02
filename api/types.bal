@@ -9,8 +9,8 @@
 # + name_si - Name in Sinhala, සිංහල
 public type LocalizedName record {
     string name_en;
-    string name_ta;
-    string name_si;
+    string? name_ta;
+    string? name_si;
 };
 
 type GeospatialInformation record {|
@@ -60,8 +60,8 @@ public type Organization record {|
     *LocalizedName;
     int[] child_organizations?;
     int[] parent_organizations?;
-    int address_id;
-    int phone;
+    int? address_id;
+    int? phone;
 |};
 
 type ParentChildOrganization record {|

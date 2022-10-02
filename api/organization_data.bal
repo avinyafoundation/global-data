@@ -14,10 +14,11 @@ public distinct service class OrganizationData {
     }
 
     resource function get address() returns AddressData|error? {
-        return new AddressData(self.organization.address_id);
+        int id = self.organization.address_id ?: 0;
+        return new AddressData(id);
     }
 
-    resource function get phone() returns int {
+    resource function get phone() returns int? {
         return self.organization.phone;
     }
 
