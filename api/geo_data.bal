@@ -161,7 +161,7 @@ public distinct service class CityData {
 public distinct service class AddressData {
     private Address address;
 
-    function init(int address_id) returns error? {
+    isolated function init(int address_id) returns error? {
         Address address_raw = check db_client -> queryRow(
             `SELECT *
             FROM avinya_db.address
