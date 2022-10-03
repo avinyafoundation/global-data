@@ -7,16 +7,26 @@ public distinct service class OrganizationData {
             return;
         }
 
-        int _id = organization_id ?: 0;
         string _name = "%" + (name ?: "") + "%";
-        Organization org_raw = check db_client -> queryRow(
+        int id = organization_id ?: 0;
+
+        string query_string = "";
+        Organization org_raw;
+        if(id > 0) { // organization_id provided, give precedance to that
+            org_raw = check db_client -> queryRow(
             `SELECT *
             FROM avinya_db.organization
             WHERE
-                id = ${_id}
-                OR name_en LIKE ${_name};`
-        );
-
+                id = ${id};`);
+        } else 
+        {
+            org_raw = check db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.organization
+            WHERE
+                name_en LIKE ${_name};`);
+        }
+        
         self.organization = org_raw.cloneReadOnly();
     }
 
