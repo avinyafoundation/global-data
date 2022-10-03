@@ -1,16 +1,19 @@
 public distinct service class OrganizationStructureData {
     private Organization[] organizations;
 
-    isolated function init(string? name, int? organization_id) returns error? {
+    isolated function init(string? name = null, int? organization_id = 0, int? level = 0) returns error? {
         int _id = organization_id ?: 0;
         string _name = "%" + (name ?: "") + "%";
         Organization[] org_raws = [];
         stream<Organization, error?> resultStream =  db_client -> query(
             `SELECT *
-            FROM avinya_db.organization
+            FROM avinya_db.organization AS org
             WHERE
-                id = ${_id}
-                OR name_en LIKE ${_name};`
+                (org.id = ${_id}
+                OR org.name_en LIKE ${_name}) 
+                AND 
+                org.avinya_type IN 
+                (SELECT atype.id FROM avinya_db.avinya_type AS atype WHERE atype.level >= ${level});`
         );
 
         check from Organization organization in resultStream
