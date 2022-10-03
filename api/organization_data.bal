@@ -37,8 +37,8 @@ public distinct service class OrganizationData {
     resource function get name() returns LocalizedName {
         return {
             "name_en": self.organization["name_en"],
-            "name_si": <string>self.organization["name_si"],
-            "name_ta": <string>self.organization["name_ta"]
+            "name_si": self.organization["name_si"]?:"",
+            "name_ta": self.organization["name_ta"]?:""
         };
     }
 
