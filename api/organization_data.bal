@@ -85,7 +85,7 @@ public distinct service class OrganizationData {
         stream<ParentChildOrganization, error?> parent_org_ids = db_client->query(
             `SELECT *
             FROM avinya_db.parent_child_organization
-            WHERE parent_org_id = ${self.organization.id}`
+            WHERE child_org_id = ${self.organization.id}`
         );
 
         OrganizationData[] parent_orgs = [];
