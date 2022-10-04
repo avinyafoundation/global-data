@@ -2,7 +2,7 @@ USE avinya_db;
 
 -- Address
 CREATE TABLE IF NOT EXISTS address (
-    id INT NOT NULL PRIMARY KEY,
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     street_address VARCHAR(255) NOT NULL,
     phone INT,
     city_id INT NOT NULL,
@@ -11,13 +11,13 @@ CREATE TABLE IF NOT EXISTS address (
 
 -- Organization
 CREATE TABLE IF NOT EXISTS organization (
-    id INT NOT NULL PRIMARY KEY,
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     name_en VARCHAR(255) NOT NULL,
     name_ta VARCHAR(255),
     name_si VARCHAR(255),
     phone INT,
-    address_id INT NOT NULL,
-    avinya_type INT NOT NULL,
+    address_id INT,
+    avinya_type INT,
     FOREIGN KEY (address_id) REFERENCES address(id),
     FOREIGN KEY (avinya_type) REFERENCES avinya_type(id)
 );

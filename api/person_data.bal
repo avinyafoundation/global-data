@@ -4,7 +4,7 @@ public distinct service class PersonData {
     private Person person;
 
     isolated function init(string? name = null, int? person_id = 0, Person? person = null) returns error? {
-        if(person != null) { // if roganization is provided, then use that and do not load from DB
+        if(person != null) { // if person is provided, then use that and do not load from DB
             self.person = person.cloneReadOnly();
             return;
         }
