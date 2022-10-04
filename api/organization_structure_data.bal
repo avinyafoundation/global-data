@@ -28,8 +28,8 @@ public distinct service class OrganizationStructureData {
         check resultStream.close();
 
         time:Utc utcTimeAfter = time:utcNow();
-        int timeSpent = utcTimeAfter[0]-utcTimeBefore[0];
-        log:printInfo("Time taken to query execution in OrganizationStructureData = " + timeSpent.toString()); 
+        decimal timeSpent = utcTimeAfter[1]-utcTimeBefore[1];
+        log:printInfo("Time taken to query execution in OrganizationStructureData in nanosecond fractions = " + timeSpent.toString()); 
 
         self.organizations = org_raws.cloneReadOnly();
     }
