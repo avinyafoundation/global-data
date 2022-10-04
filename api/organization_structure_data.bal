@@ -1,3 +1,5 @@
+import ballerina/time;
+import ballerina/log;
 public distinct service class OrganizationStructureData {
     private Organization[] organizations;
 
@@ -5,6 +7,9 @@ public distinct service class OrganizationStructureData {
         int _id = organization_id ?: 0;
         string _name = "%" + (name ?: "") + "%";
         Organization[] org_raws = [];
+
+        time:Utc utcTimeBefore = time:utcNow();
+
         stream<Organization, error?> resultStream =  db_client -> query(
             `SELECT *
             FROM avinya_db.organization AS org
@@ -22,6 +27,10 @@ public distinct service class OrganizationStructureData {
         };
         check resultStream.close();
 
+        time:Utc utcTimeAfter = time:utcNow();
+        int timeSpent = utcTimeAfter[0]-utcTimeBefore[0];
+        log:printInfo("Time taken to query execution in OrganizationStructureData = " + timeSpent.toString()); 
+
         self.organizations = org_raws.cloneReadOnly();
     }
 
@@ -32,69 +41,4 @@ public distinct service class OrganizationStructureData {
         }
         return organizationDataArray;
     }
-
-    // resource function get address() returns AddressData|error? {
-    //     int id = self.organization.address_id ?: 0;
-    //     return new AddressData(id);
-    // }
-
-    // resource function get avinya_type() returns AvinyaTypeData|error? {
-    //     int id = self.organization.avinya_type ?: 0;
-    //     return new AvinyaTypeData(id);
-    // }
-
-    // resource function get phone() returns int? {
-    //     return self.organization.phone;
-    // }
-
-    // resource function get name() returns LocalizedName {
-    //     return {
-    //         "name_en": self.organization["name_en"],
-    //         "name_si": <string>self.organization["name_si"],
-    //         "name_ta": <string>self.organization["name_ta"]
-    //     };
-    // }
-
-    // resource function get child_organizations() returns OrganizationStructureData[]|error? {
-    //     // Get list of child organizations
-    //     stream<ParentChildOrganization, error?> child_org_ids = db_client->query(
-    //         `SELECT *
-    //         FROM avinya_db.parent_child_organization
-    //         WHERE parent_org_id = ${self.organization.id}`
-    //     );
-
-    //     OrganizationStructureData[] child_orgs = [];
-
-    //     check from ParentChildOrganization pco in child_org_ids
-    //         do {
-    //             OrganizationStructureData|error candidate_org = new OrganizationStructureData((), pco.child_org_id);
-    //             if !(candidate_org is error) {
-    //                 child_orgs.push(candidate_org);
-    //             }
-    //         };
-
-    //     return child_orgs;
-    // }
-
-    // resource function get parent_organizations() returns OrganizationStructureData[]|error? {
-    //     // Get list of child organizations
-    //     stream<ParentChildOrganization, error?> parent_org_ids = db_client->query(
-    //         `SELECT *
-    //         FROM avinya_db.parent_child_organization
-    //         WHERE parent_org_id = ${self.organization.id}`
-    //     );
-
-    //     OrganizationStructureData[] parent_orgs = [];
-
-    //     check from ParentChildOrganization pco in parent_org_ids
-    //         do {
-    //             OrganizationStructureData|error candidate_org = new OrganizationStructureData((), pco.parent_org_id);
-    //             if !(candidate_org is error) {
-    //                 parent_orgs.push(candidate_org);
-    //             }
-    //         };
-
-    //     return parent_orgs;
-    // 
-
 }
