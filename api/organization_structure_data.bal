@@ -30,7 +30,7 @@ public distinct service class OrganizationStructureData {
         time:Utc utcTimeAfter = time:utcNow();
         time:Seconds seconds = time:utcDiffSeconds(utcTimeAfter, utcTimeBefore);
 
-        log:printInfo("Time taken to query execution in OrganizationStructureData in nanosecond fractions = " + seconds.toString()); 
+        log:printInfo("Time taken to query execution in OrganizationStructureData in seconds = " + seconds.toString()); 
 
         self.organizations = org_raws.cloneReadOnly();
     }
