@@ -10,7 +10,6 @@ public distinct service class OrganizationData {
         string _name = "%" + (name ?: "") + "%";
         int id = organization_id ?: 0;
 
-        string query_string = "";
         Organization org_raw;
         if(id > 0) { // organization_id provided, give precedance to that
             org_raw = check db_client -> queryRow(
@@ -99,5 +98,26 @@ public distinct service class OrganizationData {
             };
 
         return parent_orgs;
+    }
+
+    resource function get persons() returns PersonData[]|error? {
+        // Get list of child organizations
+        stream<Person, error?> people = db_client->query(
+            `SELECT *
+            FROM avinya_db.person
+            WHERE organization_id = ${self.organization.id}`
+        );
+
+        PersonData[] peopleData = [];
+
+        check from Person person in people
+            do {
+                PersonData|error personData = new PersonData((), 0, person);
+                if !(personData is error) {
+                    peopleData.push(personData);
+                }
+            };
+
+        return peopleData;
     }
 }

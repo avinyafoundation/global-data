@@ -79,3 +79,23 @@ type ParentChildOrganization record {|
     int child_org_id;
     int parent_org_id;
 |};
+
+public type Person record {|
+    readonly string record_type = "person";
+    int id?;
+    string? preferred_name;
+    string? full_name;
+    string? date_of_birth;
+    string? sex;
+    string? asgardeo_id;
+    int? permanent_address_id;
+    int? mailing_address_id;
+    int? phone;
+    int? organization_id;
+    int? avinya_type_id;
+    string? notes;
+    string? nic_no;
+    string? passport_no;
+    string? id_no;
+    string? email;
+|};
