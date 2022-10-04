@@ -100,7 +100,7 @@ public distinct service class OrganizationData {
         return parent_orgs;
     }
 
-    resource function get persons() returns PersonData[]|error? {
+    resource function get people() returns PersonData[]|error? {
         // Get list of child organizations
         stream<Person, error?> people = db_client->query(
             `SELECT *
