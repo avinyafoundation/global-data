@@ -16,7 +16,7 @@ public distinct service class AvinyaTypeData {
         return self.avinya_type.active;
     }
 
-    resource function get global_type() returns string? {
+    resource function get global_type() returns string {
         return self.avinya_type.global_type;
     }
 

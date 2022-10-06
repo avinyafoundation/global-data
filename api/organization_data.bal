@@ -101,7 +101,7 @@ public distinct service class OrganizationData {
     }
 
     resource function get people() returns PersonData[]|error? {
-        // Get list of child organizations
+        // Get list of people in the organization
         stream<Person, error?> people = db_client->query(
             `SELECT *
             FROM avinya_db.person
