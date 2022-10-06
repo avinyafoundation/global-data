@@ -57,7 +57,7 @@ public type AvinyaType record{|
     readonly string record_type = "avinya_type";
     int id?;
     boolean active;
-    string? global_type;
+    string global_type;
     string? name;
     string? foundation_type;
     string? focus;
