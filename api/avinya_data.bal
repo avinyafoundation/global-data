@@ -2,7 +2,7 @@
 public distinct service class AvinyaTypeData {
     private AvinyaType avinya_type;
 
-    function init(int id) returns error? {
+    isolated function init(int id) returns error? {
         AvinyaType avinya_type_raw = check db_client -> queryRow(
             `SELECT *
             FROM avinya_db.avinya_type

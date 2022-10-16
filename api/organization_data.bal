@@ -1,4 +1,4 @@
-public distinct service class OrganizationData {
+public isolated service class OrganizationData {
     private Organization organization;
 
     isolated function init(string? name = null, int? organization_id = 0, Organization? organization = null) returns error? {
@@ -30,41 +30,56 @@ public distinct service class OrganizationData {
     }
 
     isolated resource function get address() returns AddressData|error? {
-        int id = self.organization.address_id ?: 0;
-        if( id == 0) {
-            return null; // no point in querying if address id is null
-        } 
+        int id = 0;
+        lock {
+            id = self.organization.address_id ?: 0;
+            if( id == 0) {
+                return null; // no point in querying if address id is null
+            } 
+            
+        }
         
         return new AddressData(id);
     }
 
-    resource function get avinya_type() returns AvinyaTypeData|error? {
-        int id = self.organization.avinya_type ?: 0;
-        if(id == 0) {
-            return null; // no point in querying if avinya type is null
+    isolated resource function get avinya_type() returns AvinyaTypeData|error? {
+        int id = 0;
+        lock {
+            id = self.organization.avinya_type ?: 0;
+            if( id == 0) {
+                return null; // no point in querying if address id is null
+            } 
         }
+        
         return new AvinyaTypeData(id);
     }
 
-    resource function get phone() returns int? {
-        return self.organization.phone;
+    isolated resource function get phone() returns int? {
+        lock {
+            return self.organization.phone;
+        }
     }
 
-    resource function get name() returns LocalizedName {
-        return {
-            "name_en": self.organization["name_en"],
-            "name_si": self.organization["name_si"]?:"", // handle null cases 
-            "name_ta": self.organization["name_ta"]?:""
-        };
+    isolated resource function get name() returns LocalizedName {
+        lock {
+            return {
+                "name_en": self.organization["name_en"],
+                "name_si": self.organization["name_si"]?:"", // handle null cases 
+                "name_ta": self.organization["name_ta"]?:""
+            };
+        }
     }
 
-    resource function get child_organizations() returns OrganizationData[]|error? {
+    isolated resource function get child_organizations() returns OrganizationData[]|error? {
         // Get list of child organizations
-        stream<ParentChildOrganization, error?> child_org_ids = db_client->query(
-            `SELECT *
-            FROM avinya_db.parent_child_organization
-            WHERE parent_org_id = ${self.organization.id}`
-        );
+        stream<ParentChildOrganization, error?> child_org_ids;
+        lock {
+            child_org_ids = db_client->query(
+                `SELECT *
+                FROM avinya_db.parent_child_organization
+                WHERE parent_org_id = ${self.organization.id}`
+            );
+        }
 
         OrganizationData[] child_orgs = [];
 
@@ -81,11 +96,14 @@ public distinct service class OrganizationData {
 
     resource function get parent_organizations() returns OrganizationData[]|error? {
         // Get list of child organizations
-        stream<ParentChildOrganization, error?> parent_org_ids = db_client->query(
-            `SELECT *
-            FROM avinya_db.parent_child_organization
-            WHERE child_org_id = ${self.organization.id}`
-        );
+        stream<ParentChildOrganization, error?> parent_org_ids;
+        lock {
+            parent_org_ids = db_client->query(
+                `SELECT *
+                FROM avinya_db.parent_child_organization
+                WHERE child_org_id = ${self.organization.id}`
+            );
+        }
 
         OrganizationData[] parent_orgs = [];
 
@@ -100,13 +118,16 @@ public distinct service class OrganizationData {
         return parent_orgs;
     }
 
-    resource function get people() returns PersonData[]|error? {
+    isolated resource function get people() returns PersonData[]|error? {
         // Get list of people in the organization
-        stream<Person, error?> people = db_client->query(
-            `SELECT *
-            FROM avinya_db.person
-            WHERE organization_id = ${self.organization.id}`
-        );
+        stream<Person, error?> people;
+        lock {
+            people = db_client->query(
+                `SELECT *
+                FROM avinya_db.person
+                WHERE organization_id = ${self.organization.id}`
+            );
+        }
 
         PersonData[] peopleData = [];
 
