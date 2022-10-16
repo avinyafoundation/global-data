@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS evaluation_criteria (
     description VARCHAR(1024) DEFAULT NULL,
     expected_answer VARCHAR(1024) DEFAULT NULL,
     evalualtion_type VARCHAR(100) DEFAULT 'Essay', -- Essay, Multiple Choice, True/False, Rating
+    difficulty VARCHAR(100) DEFAULT 'Medium', -- Easy, Medium, Hard
     rating_out_of INT DEFAULT 5
 );
 
@@ -34,9 +35,11 @@ CREATE TABLE IF NOT EXISTS vacancy (
     name VARCHAR(513) NOT NULL,
     description VARCHAR(1024) DEFAULT NULL,
     organization_id INT DEFAULT NULL,
+    avinya_type_id INT DEFAULT NULL,
     evaluation_cycle_id INT DEFAULT NULL,
     head_count INT NOT NULL DEFAULT 1, -- count is a SQL keyword so we can't use it
     FOREIGN KEY (organization_id) REFERENCES organization(id),
+    FOREIGN KEY (avinya_type_id) REFERENCES avinya_type(id),
     FOREIGN KEY (evaluation_cycle_id) REFERENCES evaluation_cycle(id)
 );
 
