@@ -19,20 +19,20 @@ type GeospatialInformation record {|
 |};
 
 public type Province record {|
-    readonly string record_type = "province";
+    readonly string? record_type = "province";
     int id?;
     *LocalizedName;
 |};
 
 public type District record {|
-    readonly string record_type = "district";
+    readonly string? record_type = "district";
     int id?;
     int province_id?;
     *LocalizedName;
 |};
 
 public type City record {|
-    readonly string record_type = "city";
+    readonly string? record_type = "city";
     int id?;
     int district_id?;
     *LocalizedName;
@@ -45,7 +45,7 @@ public type City record {|
 
 
 public type Address record {
-    readonly string record_type = "address";
+    readonly string? record_type = "address";
     int id?;
     *LocalizedName;
     string street_address;
@@ -54,7 +54,7 @@ public type Address record {
 };
 
 public type AvinyaType record{|
-    readonly string record_type = "avinya_type";
+    readonly string? record_type = "avinya_type";
     int id?;
     boolean active;
     string global_type;
@@ -65,7 +65,7 @@ public type AvinyaType record{|
 |};
 
 public type Organization record {|
-    readonly string record_type = "organization";
+    readonly string? record_type = "organization";
     int id?;
     *LocalizedName;
     int[] child_organizations?;
@@ -82,7 +82,7 @@ type ParentChildOrganization record {|
 
 
 public type Person record {|
-    readonly string record_type = "person";
+    readonly string? record_type = "person";
     int id?;
     string? preferred_name;
     string? full_name;
@@ -102,7 +102,7 @@ public type Person record {|
 |};
 
 public type EvaluationCycle record {|
-    readonly string record_type = "evaluation_cycle";
+    readonly string? record_type = "evaluation_cycle";
     int id?;
     string? name;
     string? description;
@@ -112,7 +112,7 @@ public type EvaluationCycle record {|
 
 
 public type EvaluationCriteria record {|
-    readonly string record_type = "evaluation_criteria";
+    readonly string? record_type = "evaluation_criteria";
     int id?;
     string? prompt;
     string? description;
@@ -123,7 +123,7 @@ public type EvaluationCriteria record {|
 |};
 
 public type EvaluationCriteriaAnswerOption record {|
-    readonly string record_type = "evaluation_criteria_answer_option";
+    readonly string? record_type = "evaluation_criteria_answer_option";
     int id?;
     int? evaluation_criteria_id;
     string? answer;
@@ -131,7 +131,7 @@ public type EvaluationCriteriaAnswerOption record {|
 |};
 
 public type Vacancy record {|
-    readonly string record_type = "vacancy";
+    readonly string? record_type = "vacancy";
     int id?;
     string? name;
     string? description;
@@ -142,13 +142,13 @@ public type Vacancy record {|
 |};
 
 public type VacancyEvaluationCriteria record{|
-    readonly string record_type = "vacancy_evaluation_criteria";
+    readonly string? record_type = "vacancy_evaluation_criteria";
     int? vacancy_id;
     int? evaluation_criteria_id;
 |};
 
 public type Application record{|
-    readonly string record_type = "application";
+    readonly string? record_type = "application";
     int id?;
     int? person_id;
     int? vacancy_id;
@@ -156,7 +156,7 @@ public type Application record{|
 |};
 
 public type ApplicationStatus record{|
-    readonly string record_type = "application_status";
+    readonly string? record_type = "application_status";
     int id?;
     int? application_id;
     string? status;
@@ -165,7 +165,7 @@ public type ApplicationStatus record{|
 |};
 
 public type Evaluation record {|
-    readonly string record_type = "evaluation";
+    readonly string? record_type = "evaluation";
     int id?;
     int? evaluatee_id;
     int? evaluator_id;
@@ -176,7 +176,7 @@ public type Evaluation record {|
 |};
 
 public type Metadata record {|
-    readonly string record_type = "metadata";
+    readonly string? record_type = "metadata";
     int id?;
     int? evaluation_id;
     string? location;
@@ -190,13 +190,13 @@ public type Metadata record {|
 |};
 
 public type ParentChildEvaluation record {|
-    readonly string record_type = "parent_child_evaluation";
+    readonly string? record_type = "parent_child_evaluation";
     int? child_evaluation_id;
     int? parent_evaluation_id;
 |};
 
 public type EducationExperience record {|
-    readonly string record_type = "education_experience";
+    readonly string? record_type = "education_experience";
     int id?;
     int? person_id;
     string? school;
@@ -205,13 +205,13 @@ public type EducationExperience record {|
 |};
 
 public type EducationExperienceEvaluation record {|
-    readonly string record_type = "education_experience_evaluation";
+    readonly string? record_type = "education_experience_evaluation";
     int? education_experience_id;
     int? evaluation_id;
 |};
 
 public type WorkExperience record {|
-    readonly string record_type = "work_experience";
+    readonly string? record_type = "work_experience";
     int id?;
     int? person_id;
     string? organization;
@@ -220,7 +220,7 @@ public type WorkExperience record {|
 |};
 
 public type WorkExperienceEvaluation record {|
-    readonly string record_type = "work_experience_evaluation";
+    readonly string? record_type = "work_experience_evaluation";
     int? work_experience_id;
     int? evaluation_id;
 |};
