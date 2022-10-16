@@ -80,6 +80,7 @@ type ParentChildOrganization record {|
     int parent_org_id;
 |};
 
+
 public type Person record {|
     readonly string record_type = "person";
     int id?;
@@ -99,3 +100,129 @@ public type Person record {|
     string? id_no;
     string? email;
 |};
+
+public type EvaluationCycle record {|
+    readonly string record_type = "evaluation_cycle";
+    int id?;
+    string? name;
+    string? description;
+    string? start_date;
+    string? end_date;
+|};
+
+
+public type EvaluationCriteria record {|
+    readonly string record_type = "evaluation_criteria";
+    int id?;
+    string? prompt;
+    string? description;
+    string? expected_answer;
+    string? evalualtion_type;
+    string? difficulty;
+    int? rating_out_of;
+|};
+
+public type EvaluationCriteriaAnswerOption record {|
+    readonly string record_type = "evaluation_criteria_answer_option";
+    int id?;
+    int? evaluation_criteria_id;
+    string? answer;
+    boolean? expected_answer;
+|};
+
+public type Vacancy record {|
+    readonly string record_type = "vacancy";
+    int id?;
+    string? name;
+    string? description;
+    int? organization_id;
+    int? avinya_type_id;
+    int? evaluation_cycle_id;
+    int? head_count;
+|};
+
+public type VacancyEvaluationCriteria record{|
+    readonly string record_type = "vacancy_evaluation_criteria";
+    int? vacancy_id;
+    int? evaluation_criteria_id;
+|};
+
+public type Application record{|
+    readonly string record_type = "application";
+    int id?;
+    int? person_id;
+    int? vacancy_id;
+    string? application_date;
+|};
+
+public type ApplicationStatus record{|
+    readonly string record_type = "application_status";
+    int id?;
+    int? application_id;
+    string? status;
+    string? updated;
+    boolean? is_terminal;
+|};
+
+public type Evaluation record {|
+    readonly string record_type = "evaluation";
+    int id?;
+    int? evaluatee_id;
+    int? evaluator_id;
+    int? evaluation_criteria_id;
+    string? updated;
+    string? notes;
+    int? grade;
+|};
+
+public type Metadata record {|
+    readonly string record_type = "metadata";
+    int id?;
+    int? evaluation_id;
+    string? location;
+    string? on_date_time;
+    int? level;
+    string? meta_type;
+    string? focus;
+    string? status;
+    string? metadata;
+    boolean? is_terminal;
+|};
+
+public type ParentChildEvaluation record {|
+    readonly string record_type = "parent_child_evaluation";
+    int? child_evaluation_id;
+    int? parent_evaluation_id;
+|};
+
+public type EducationExperience record {|
+    readonly string record_type = "education_experience";
+    int id?;
+    int? person_id;
+    string? school;
+    string? start_date;
+    string? end_date;
+|};
+
+public type EducationExperienceEvaluation record {|
+    readonly string record_type = "education_experience_evaluation";
+    int? education_experience_id;
+    int? evaluation_id;
+|};
+
+public type WorkExperience record {|
+    readonly string record_type = "work_experience";
+    int id?;
+    int? person_id;
+    string? organization;
+    string? start_date;
+    string? end_date;
+|};
+
+public type WorkExperienceEvaluation record {|
+    readonly string record_type = "work_experience_evaluation";
+    int? work_experience_id;
+    int? evaluation_id;
+|};
+
+
