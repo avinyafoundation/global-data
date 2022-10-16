@@ -2,7 +2,7 @@ public isolated service class OrganizationData {
     private Organization organization;
 
     isolated function init(string? name = null, int? organization_id = 0, Organization? organization = null) returns error? {
-        if(organization != null) { // if roganization is provided, then use that and do not load from DB
+        if(organization != null) { // if organization is provided, then use that and do not load from DB
             self.organization = organization.cloneReadOnly();
             return;
         }
@@ -94,7 +94,7 @@ public isolated service class OrganizationData {
         return child_orgs;
     }
 
-    resource function get parent_organizations() returns OrganizationData[]|error? {
+    isolated resource function get parent_organizations() returns OrganizationData[]|error? {
         // Get list of child organizations
         stream<ParentChildOrganization, error?> parent_org_ids;
         lock {
