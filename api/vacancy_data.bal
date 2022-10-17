@@ -58,4 +58,30 @@ public isolated service class VacancyData {
             return self.vacancy.head_count;
         }
     }
+
+    isolated resource function get evaluation_criteria() returns EvaluationCriteriaData[]|error? {
+        // Get list of people in the organization
+        stream<EvaluationCriteria, error?> evaluation_criteria;
+        lock {
+            evaluation_criteria = db_client->query(
+                `SELECT *
+                FROM avinya_db.evaluation_criteria
+                WHERE id IN 
+                (SELECT evaluation_criteria_id FROM vacancy_evaluation_criteria 
+	                WHERE vacancy_id = ${self.vacancy.id});`
+            );
+        }
+
+        EvaluationCriteriaData[] evaluationCriteriaData = [];
+
+        check from EvaluationCriteria evaluation_criterion in evaluation_criteria
+            do {
+                EvaluationCriteriaData|error evaluationCriterionData = new EvaluationCriteriaData((), 0, evaluation_criterion);
+                if !(evaluationCriterionData is error) {
+                    evaluationCriteriaData.push(evaluationCriterionData);
+                }
+            };
+
+        return evaluationCriteriaData;
+    }
 }
