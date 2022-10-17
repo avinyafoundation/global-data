@@ -141,4 +141,28 @@ public isolated service class OrganizationData {
 
         return peopleData;
     }
+
+    isolated resource function get vacancies() returns VacancyData[]|error? {
+        // Get list of people in the organization
+        stream<Vacancy, error?> vacancies;
+        lock {
+            vacancies = db_client->query(
+                `SELECT *
+                FROM avinya_db.vacancy
+                WHERE organization_id = ${self.organization.id}`
+            );
+        }
+
+        VacancyData[] vacanciesData = [];
+
+        check from Vacancy vacancy in vacancies
+            do {
+                VacancyData|error vacancyData = new VacancyData((), 0, vacancy);
+                if !(vacancyData is error) {
+                    vacanciesData.push(vacancyData);
+                }
+            };
+
+        return vacanciesData;
+    }
 }
