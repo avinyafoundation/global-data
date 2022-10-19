@@ -79,6 +79,12 @@ public isolated service class ApplicantConsentData {
         }
     }
 
+    isolated resource function get ol_year() returns int? {
+        lock {
+            return self.applicant_consent.ol_year;
+        }
+    }
+
     isolated resource function get distance_to_school() returns int? {
         lock {
             return self.applicant_consent.distance_to_school;
