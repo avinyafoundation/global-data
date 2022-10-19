@@ -90,7 +90,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
             return error("Unable to insert applicant_consent");
         }
 
-        return new((), insert_id);
+        return new((), applicantConsent.phone);
     }
 
     remote function add_address(Address address) returns AddressData|error? {

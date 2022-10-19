@@ -241,4 +241,5 @@ public type ApplicantConsent record {|
     string? email;
     boolean? information_correct_consent;
     boolean? agree_terms_consent;
+    string? created;
 |};
