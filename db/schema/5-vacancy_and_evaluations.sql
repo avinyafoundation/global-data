@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS application_status (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     application_id INT NOT NULL,
     status VARCHAR(100) NOT NULL DEFAULT 'New', -- New, Short listed, Accepted, Rejected, Pending, Called for interview, Interviewd, Offered, Offer accepted, offer rejected, Withdrawn, On hold
-    updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, -- Latest application status would be SELECT * WHERE application_id = {target} ORDER BY timestamp DESC LIMIT 1;
+    updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, -- Latest application status would be SELECT * WHERE application_id = {target} ORDER BY timestamp DESC LIMIT 1;
     is_terminal BOOLEAN NOT NULL DEFAULT FALSE,
     FOREIGN KEY (application_id) REFERENCES application(id)
 );
@@ -80,7 +80,7 @@ CREATE TABLE IF NOT EXISTS evaluation (
     evaluation_criteria_id INT NOT NULL,
     notes VARCHAR(1024) DEFAULT NULL,
     grade INT NOT NULL DEFAULT 0,
-    updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (evaluatee_id) REFERENCES person(id),
     FOREIGN KEY (evaluator_id) REFERENCES person(id),
     FOREIGN KEY (evaluation_criteria_id) REFERENCES evaluation_criteria(id)
@@ -141,4 +141,20 @@ CREATE TABLE IF NOT EXISTS work_experience_evaluation (
     FOREIGN KEY (work_experience_id) REFERENCES work_experience(id),
     FOREIGN KEY (evaluation_id) REFERENCES evaluation(id),
     CONSTRAINT pk_education_experience_evaluation PRIMARY KEY (work_experience_id, evaluation_id)
+);
+
+CREATE TABLE IF NOT EXISTS applicant_concent (
+	id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    person_id INT DEFAULT -1,
+    name VARCHAR(100) NOT NULL DEFAULT 'Anon',
+    date_of_birth DATE NOT NULL DEFAULT '1990-01-01',
+    done_ol BOOL DEFAULT false,
+    ol_year INT NOT NULL DEFAULT '2000',
+    distance_to_school INT DEFAULT 500, 
+    phone INT NOT NULL DEFAULT 0,
+    email VARCHAR(254) DEFAULT 'me@you.com',
+    information_correct_concent BOOL DEFAULT FALSE,
+    agree_terms_concent BOOL DEFAULT FALSE,
+    created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, 
+    FOREIGN KEY (person_id) REFERENCES person(id)
 );
