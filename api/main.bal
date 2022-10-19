@@ -65,9 +65,9 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
             `SELECT *
             FROM avinya_db.applicant_consent
             WHERE email = ${applicantConsent.email}  OR
-            phone = ${applicantConsent.phone},;`
+            phone = ${applicantConsent.phone};`
         );
-        
+
         if(applicantConsentRaw.id != 0) {
             return error("Applicant already exists. The phone or the email you provided is already used by another applicant");
         }
