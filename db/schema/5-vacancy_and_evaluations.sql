@@ -162,5 +162,6 @@ CREATE TABLE IF NOT EXISTS applicant_consent (
     FOREIGN KEY (person_id) REFERENCES person(id),
     FOREIGN KEY (organization_id) REFERENCES organization(id),
     FOREIGN KEY (avinya_type_id) REFERENCES avinya_type(id),
-    FOREIGN KEY (application_id) REFERENCES application(id)
+    FOREIGN KEY (application_id) REFERENCES application(id),
+    UNIQUE (phone, email)
 );
