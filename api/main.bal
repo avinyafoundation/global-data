@@ -81,7 +81,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 ${applicantConsent.phone},
                 ${applicantConsent.email},
                 ${applicantConsent.information_correct_consent},
-                ${applicantConsent.agree_terms_consent},
+                ${applicantConsent.agree_terms_consent}
             );`
         );
 
