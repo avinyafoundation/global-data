@@ -1,32 +1,33 @@
 public isolated service class ApplicantConsentData {
     private ApplicantConsent applicant_consent;
 
-    isolated function init(string? name = null, int? applicant_consent_id = 0, ApplicantConsent? applicant_consent = null) returns error? {
+    isolated function init(string? email = null, int? phone = 0, ApplicantConsent? applicant_consent = null) returns error? {
         if(applicant_consent != null) { // if applicant_consent is provided, then use that and do not load from DB
             self.applicant_consent = applicant_consent.cloneReadOnly();
             return;
         }
 
-        string _name = "%" + (name ?: "") + "%";
-        int id = applicant_consent_id ?: 0;
+        // string _email = "%" + (email ?: "") + "%";
+        int id = phone ?: 0;
 
-        ApplicantConsent org_raw;
+        ApplicantConsent consent_raw;
         if(id > 0) { // applicant_consent_id provided, give precedance to that
-            org_raw = check db_client -> queryRow(
+            consent_raw = check db_client -> queryRow(
             `SELECT *
             FROM avinya_db.applicant_consent
             WHERE
-                id = ${id};`);
-        } else 
-        {
-            org_raw = check db_client -> queryRow(
+                phone = ${phone};`);
+        } else if (email != null) { // if applicant_consent_id is not provided, then use email
+            consent_raw = check db_client -> queryRow(
             `SELECT *
             FROM avinya_db.applicant_consent
             WHERE
-                name_en LIKE ${_name};`);
+                email = ${email};`);
+        } else {
+            return error("No email or phone provided");
         }
         
-        self.applicant_consent = org_raw.cloneReadOnly();
+        self.applicant_consent = consent_raw.cloneReadOnly();
     }
 
     isolated resource function get avinya_type() returns AvinyaTypeData|error? {
