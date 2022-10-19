@@ -18,6 +18,11 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return new (name, id);
     }
 
+    isolated resource function get applicant_consent(string? email, int? phone) returns ApplicantConsentData|error? {
+        return new (email, phone);
+    }
+
+
     remote function  add_student_applicant(Person person) returns PersonData|error? {
         
         AvinyaType avinya_type_raw = check db_client -> queryRow(
