@@ -61,7 +61,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
     remote function  add_student_applicant_consent(ApplicantConsent applicantConsent) returns ApplicantConsentData|error? {
         
-        ApplicantConsent|error? applicantConsentRaw = check db_client -> queryRow(
+        ApplicantConsent|error? applicantConsentRaw = db_client -> queryRow(
             `SELECT *
             FROM avinya_db.applicant_consent
             WHERE email = ${applicantConsent.email}  OR
