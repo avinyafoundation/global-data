@@ -225,4 +225,20 @@ public type WorkExperienceEvaluation record {|
     int? evaluation_id;
 |};
 
-
+public type ApplicantConsent record {|
+    readonly string? record_type = "applicant_consent";
+    int id?;
+    int? organization_id;
+    int? avinya_type_id;
+    int? person_id;
+    int? application_id;
+    string? name;
+    string? date_of_birth;
+    boolean? done_ol;
+    int? ol_year;
+    int? distance_to_school;
+    int? phone;
+    string? email;
+    boolean? information_correct_consent;
+    boolean? agree_terms_consent;
+|};

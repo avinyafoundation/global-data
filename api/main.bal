@@ -48,7 +48,41 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         int|string? insert_id = res.lastInsertId;
         if !(insert_id is int) {
-            return error("Unable to insert addresss");
+            return error("Unable to insert person");
+        }
+
+        return new((), insert_id);
+    }
+
+    remote function  add_student_applicant_consent(ApplicantConsent applicantConsent) returns ApplicantConsentData|error? {
+        
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO avinya_db.applicant_consent (
+                name,
+                date_of_birth,
+                done_ol,
+                ol_year,
+                distance_to_school,
+                phone,
+                email,
+                information_correct_consent,
+                agree_terms_consent
+            ) VALUES (
+                ${applicantConsent.name},
+                ${applicantConsent.date_of_birth},
+                ${applicantConsent.done_ol},
+                ${applicantConsent.ol_year},
+                ${applicantConsent.distance_to_school},
+                ${applicantConsent.phone},
+                ${applicantConsent.email},
+                ${applicantConsent.information_correct_consent},
+                ${applicantConsent.agree_terms_consent},
+            );`
+        );
+
+        int|string? insert_id = res.lastInsertId;
+        if !(insert_id is int) {
+            return error("Unable to insert applicant_consent");
         }
 
         return new((), insert_id);
