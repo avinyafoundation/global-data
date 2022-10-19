@@ -143,9 +143,12 @@ CREATE TABLE IF NOT EXISTS work_experience_evaluation (
     CONSTRAINT pk_education_experience_evaluation PRIMARY KEY (work_experience_id, evaluation_id)
 );
 
-CREATE TABLE IF NOT EXISTS applicant_concent (
+CREATE TABLE IF NOT EXISTS applicant_consent (
 	id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    person_id INT DEFAULT -1,
+    organization_id INT DEFAULT NULL,
+    avinya_type_id INT DEFAULT NULL,
+    person_id INT DEFAULT NULL,
+    application_id INT DEFAULT NULL,
     name VARCHAR(100) NOT NULL DEFAULT 'Anon',
     date_of_birth DATE NOT NULL DEFAULT '1990-01-01',
     done_ol BOOL DEFAULT false,
@@ -153,8 +156,11 @@ CREATE TABLE IF NOT EXISTS applicant_concent (
     distance_to_school INT DEFAULT 500, 
     phone INT NOT NULL DEFAULT 0,
     email VARCHAR(254) DEFAULT 'me@you.com',
-    information_correct_concent BOOL DEFAULT FALSE,
-    agree_terms_concent BOOL DEFAULT FALSE,
+    information_correct_consent BOOL DEFAULT FALSE,
+    agree_terms_consent BOOL DEFAULT FALSE,
     created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, 
-    FOREIGN KEY (person_id) REFERENCES person(id)
+    FOREIGN KEY (person_id) REFERENCES person(id),
+    FOREIGN KEY (organization_id) REFERENCES organization(id),
+    FOREIGN KEY (avinya_type_id) REFERENCES avinya_type(id),
+    FOREIGN KEY (application_id) REFERENCES application(id)
 );
