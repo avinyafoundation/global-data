@@ -61,6 +61,17 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
     remote function  add_student_applicant_consent(ApplicantConsent applicantConsent) returns ApplicantConsentData|error? {
         
+        ApplicantConsent applicantConsentRaw = check db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.applicant_consent
+            WHERE email = ${applicantConsent.email}  OR
+            phone = ${applicantConsent.phone},;`
+        );
+        
+        if(applicantConsentRaw.id != 0) {
+            return error("Applicant already exists. The phone or the email you provided is already used by another applicant");
+        }
+
         sql:ExecutionResult res = check db_client->execute(
             `INSERT INTO avinya_db.applicant_consent (
                 name,
@@ -84,6 +95,8 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 ${applicantConsent.agree_terms_consent}
             );`
         );
+
+        
 
         int|string? insert_id = res.lastInsertId;
         if !(insert_id is int) {
