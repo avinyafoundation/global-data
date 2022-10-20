@@ -65,6 +65,30 @@ public isolated service class EvaluationCriteriaData {
             return self.evaluation_criteria.rating_out_of;
         }
     }
+
+    isolated resource function get answer_options() returns EvaluationCriteriaAnswerOptionData[]|error? {
+        // Get list of child organizations
+        stream<EvaluationCriteriaAnswerOption, error?> answer_options;
+        lock {
+            answer_options = db_client->query(
+                `SELECT *
+                FROM avinya_db.evaluation_criteria_answer_option
+                WHERE evaluation_criteria_id = ${self.evaluation_criteria.id}`
+            );
+        }
+
+        EvaluationCriteriaAnswerOptionData[] answer_options_data = [];
+
+        check from EvaluationCriteriaAnswerOption answer_option in answer_options
+            do {
+                EvaluationCriteriaAnswerOptionData|error answer_option_data = new EvaluationCriteriaAnswerOptionData((), 0, answer_option);
+                if !(answer_option_data is error) {
+                    answer_options_data.push(answer_option_data);
+                }
+            };
+
+        return answer_options_data;
+    }
 }
 
 
