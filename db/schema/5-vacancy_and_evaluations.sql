@@ -165,3 +165,14 @@ CREATE TABLE IF NOT EXISTS applicant_consent (
     FOREIGN KEY (application_id) REFERENCES application(id),
     UNIQUE (phone, email)
 );
+
+CREATE TABLE IF NOT EXISTS prospect (
+	id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL DEFAULT 'Anon',
+    phone INT NOT NULL DEFAULT 0,
+    email VARCHAR(254) DEFAULT 'me@you.com',
+    send_information_consent BOOL DEFAULT FALSE,
+    agree_terms_consent BOOL DEFAULT FALSE,
+    created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, 
+    UNIQUE (phone, email)
+);
