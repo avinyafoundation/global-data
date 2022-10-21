@@ -149,7 +149,11 @@ public isolated service class OrganizationData {
             vacancies = db_client->query(
                 `SELECT *
                 FROM avinya_db.vacancy
-                WHERE organization_id = ${self.organization.id}`
+                WHERE organization_id = ${self.organization.id} AND
+                    evaluation_cycle_id IN (
+                        SELECT id 
+                        FROM evaluation_cycle 
+                        WHERE (CURRENT_DATE) BETWEEN start_date AND end_date)`
             );
         }
 
