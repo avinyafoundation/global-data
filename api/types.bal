@@ -243,3 +243,14 @@ public type ApplicantConsent record {|
     boolean? agree_terms_consent;
     string? created;
 |};
+
+public type Prospect record {|
+    readonly string? record_type = "prospect";
+    int id?;
+    string? name;
+    int? phone;
+    string? email;
+    boolean? receive_information_consent;
+    boolean? agree_terms_consent;
+    string? created;
+|};

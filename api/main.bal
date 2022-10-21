@@ -127,6 +127,31 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return new(insert_id);
     }
 
+    remote function add_prospect(Prospect prospect) returns ProspectData|error? {
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO avinya_db.prospect (
+                name,
+                phone,
+                email,
+                receive_information_consent,
+                agree_terms_consent
+            ) VALUES (
+                ${prospect.name},
+                ${prospect.phone},
+                ${prospect.email},
+                ${prospect.receive_information_consent},
+                ${prospect.agree_terms_consent}
+            );`
+        );
+
+        int|string? insert_id = res.lastInsertId;
+        if !(insert_id is int) {
+            return error("Unable to insert addresss");
+        }
+
+        return new(prospect.email, prospect.phone);
+    }
+
     remote function add_organization(Organization org) returns OrganizationData|error? {
         sql:ExecutionResult res = check db_client->execute(
             `INSERT INTO avinya_db.organization (

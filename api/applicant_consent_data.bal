@@ -8,15 +8,15 @@ public isolated service class ApplicantConsentData {
         }
 
         // string _email = "%" + (email ?: "") + "%";
-        int id = phone ?: 0;
+        int _phone = phone ?: 0;
 
         ApplicantConsent consent_raw;
-        if(id > 0) { // applicant_consent_id provided, give precedance to that
+        if(_phone > 0) { // applicant_consent_id provided, give precedance to that
             consent_raw = check db_client -> queryRow(
             `SELECT *
             FROM avinya_db.applicant_consent
             WHERE
-                phone = ${phone};`);
+                phone = ${_phone};`);
         } else if (email != null) { // if applicant_consent_id is not provided, then use email
             consent_raw = check db_client -> queryRow(
             `SELECT *
