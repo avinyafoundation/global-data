@@ -145,6 +145,7 @@ CREATE TABLE IF NOT EXISTS work_experience_evaluation (
 
 CREATE TABLE IF NOT EXISTS applicant_consent (
 	id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
     organization_id INT DEFAULT NULL,
     avinya_type_id INT DEFAULT NULL,
     person_id INT DEFAULT NULL,
@@ -162,17 +163,16 @@ CREATE TABLE IF NOT EXISTS applicant_consent (
     FOREIGN KEY (person_id) REFERENCES person(id),
     FOREIGN KEY (organization_id) REFERENCES organization(id),
     FOREIGN KEY (avinya_type_id) REFERENCES avinya_type(id),
-    FOREIGN KEY (application_id) REFERENCES application(id),
-    UNIQUE (phone, email)
+    FOREIGN KEY (application_id) REFERENCES application(id)
 );
 
 CREATE TABLE IF NOT EXISTS prospect (
 	id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
     name VARCHAR(100) NOT NULL DEFAULT 'Anon',
     phone INT NOT NULL DEFAULT 0,
     email VARCHAR(254) DEFAULT 'me@you.com',
     send_information_consent BOOL DEFAULT FALSE,
     agree_terms_consent BOOL DEFAULT FALSE,
-    created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, 
-    UNIQUE (phone, email)
+    created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
