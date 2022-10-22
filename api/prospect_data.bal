@@ -30,6 +30,12 @@ public isolated service class ProspectData {
         self.prospect = consent_raw.cloneReadOnly();
     }
 
+    isolated resource function get active() returns boolean? {
+        lock {
+            return self.prospect.active;
+        }
+    }
+
     isolated resource function get phone() returns int? {
         lock {
             return self.prospect.phone;

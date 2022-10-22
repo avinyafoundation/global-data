@@ -64,8 +64,9 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         ApplicantConsent|error? applicantConsentRaw = db_client -> queryRow(
             `SELECT *
             FROM avinya_db.applicant_consent
-            WHERE email = ${applicantConsent.email}  OR
-            phone = ${applicantConsent.phone};`
+            WHERE (email = ${applicantConsent.email}  OR
+            phone = ${applicantConsent.phone}) AND 
+            active = TRUE;`
         );
         
         if(applicantConsentRaw is ApplicantConsent) {
@@ -128,6 +129,18 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
     }
 
     remote function add_prospect(Prospect prospect) returns ProspectData|error? {
+        Prospect|error? prospectRaw = db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.applicant_consent
+            WHERE (email = ${prospect.email}  OR
+            phone = ${prospect.phone}) AND 
+            active = TRUE;`
+        );
+        
+        if(prospectRaw is Prospect) {
+            return error("Prospect already exists. The phone or the email you provided is already used by another prospect");
+        }
+        
         sql:ExecutionResult res = check db_client->execute(
             `INSERT INTO avinya_db.prospect (
                 name,

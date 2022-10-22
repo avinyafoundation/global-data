@@ -42,6 +42,12 @@ public isolated service class ApplicantConsentData {
         return new AvinyaTypeData(id);
     }
 
+    isolated resource function get active() returns boolean? {
+        lock {
+            return self.applicant_consent.active;
+        }
+    }
+
     isolated resource function get phone() returns int? {
         lock {
             return self.applicant_consent.phone;

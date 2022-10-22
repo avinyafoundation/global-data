@@ -228,6 +228,7 @@ public type WorkExperienceEvaluation record {|
 public type ApplicantConsent record {|
     readonly string? record_type = "applicant_consent";
     int id?;
+    boolean? active;
     int? organization_id;
     int? avinya_type_id;
     int? person_id;
@@ -247,6 +248,7 @@ public type ApplicantConsent record {|
 public type Prospect record {|
     readonly string? record_type = "prospect";
     int id?;
+    boolean? active;
     string? name;
     int? phone;
     string? email;
