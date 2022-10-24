@@ -77,7 +77,7 @@ public isolated service class EvaluationData {
                     child_evals.push(candidate_org);
                 }
             };
-
+        check child_eval_ids.close();
         return child_evals;
     }
 
@@ -101,7 +101,7 @@ public isolated service class EvaluationData {
                     parent_evals.push(candidate_org);
                 }
             };
-
+        check parent_evaluation_ids.close();
         return parent_evals;
     }
 
