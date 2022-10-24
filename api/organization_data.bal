@@ -90,7 +90,7 @@ public isolated service class OrganizationData {
                     child_orgs.push(candidate_org);
                 }
             };
-
+        check child_org_ids.close();
         return child_orgs;
     }
 
@@ -114,7 +114,7 @@ public isolated service class OrganizationData {
                     parent_orgs.push(candidate_org);
                 }
             };
-
+        check parent_org_ids.close();
         return parent_orgs;
     }
 
@@ -139,6 +139,7 @@ public isolated service class OrganizationData {
                 }
             };
 
+        check people.close();
         return peopleData;
     }
 
@@ -166,6 +167,8 @@ public isolated service class OrganizationData {
                     vacanciesData.push(vacancyData);
                 }
             };
+
+        check vacancies.close();
 
         return vacanciesData;
     }
