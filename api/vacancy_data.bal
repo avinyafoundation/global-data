@@ -81,7 +81,8 @@ public isolated service class VacancyData {
                     evaluationCriteriaData.push(evaluationCriterionData);
                 }
             };
-
+        
+        check evaluation_criteria.close();
         return evaluationCriteriaData;
     }
 }

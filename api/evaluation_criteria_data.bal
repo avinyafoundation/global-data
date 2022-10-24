@@ -87,6 +87,8 @@ public isolated service class EvaluationCriteriaData {
                 }
             };
 
+        check answer_options.close();
+        
         return answer_options_data;
     }
 }
