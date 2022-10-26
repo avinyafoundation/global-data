@@ -66,6 +66,12 @@ public isolated service class EvaluationCriteriaData {
         }
     }
 
+    isolated resource function get id() returns int? {
+        lock {
+            return self.evaluation_criteria.id;
+        }
+    }
+
     isolated resource function get answer_options() returns EvaluationCriteriaAnswerOptionData[]|error? {
         // Get list of child organizations
         stream<EvaluationCriteriaAnswerOption, error?> answer_options;
