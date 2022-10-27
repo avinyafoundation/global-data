@@ -60,20 +60,46 @@ public isolated service class VacancyData {
     }
 
     isolated resource function get evaluation_criteria() returns EvaluationCriteriaData[]|error? {
-        // Get list of people in the organization
+        EvaluationCriteriaData[] evaluationCriteriaData = [];
+
         stream<EvaluationCriteria, error?> evaluation_criteria;
         lock {
             evaluation_criteria = db_client->query(
                 `SELECT *
                 FROM avinya_db.evaluation_criteria
-                WHERE difficulty = 'Easy' AND id IN 
+                WHERE evalualtion_type = 'Essay' AND id IN 
+                (SELECT evaluation_criteria_id FROM vacancy_evaluation_criteria 
+	                WHERE vacancy_id = ${self.vacancy.id})
+                ORDER BY RAND() LIMIT 2;`
+            );
+        }
+
+        
+
+        check from EvaluationCriteria evaluation_criterion in evaluation_criteria
+            do {
+                EvaluationCriteriaData|error evaluationCriterionData = new EvaluationCriteriaData((), 0, evaluation_criterion);
+                if !(evaluationCriterionData is error) {
+                    evaluationCriteriaData.push(evaluationCriterionData);
+                }
+            };
+        
+        check evaluation_criteria.close();
+
+        // Get list of people in the organization
+        lock {
+            evaluation_criteria = db_client->query(
+                `SELECT *
+                FROM avinya_db.evaluation_criteria
+                WHERE evalualtion_type = 'Multiple Choice' AND 
+                difficulty = 'Easy' AND id IN 
                 (SELECT evaluation_criteria_id FROM vacancy_evaluation_criteria 
 	                WHERE vacancy_id = ${self.vacancy.id})
                 ORDER BY RAND() LIMIT 4;`
             );
         }
 
-        EvaluationCriteriaData[] evaluationCriteriaData = [];
+        
 
         check from EvaluationCriteria evaluation_criterion in evaluation_criteria
             do {
@@ -89,7 +115,8 @@ public isolated service class VacancyData {
             evaluation_criteria = db_client->query(
                 `SELECT *
                 FROM avinya_db.evaluation_criteria
-                WHERE difficulty = 'Medium' AND id IN 
+                WHERE evalualtion_type = 'Multiple Choice' AND 
+                difficulty = 'Medium' AND id IN 
                 (SELECT evaluation_criteria_id FROM vacancy_evaluation_criteria 
 	                WHERE vacancy_id = ${self.vacancy.id})
                 ORDER BY RAND() LIMIT 4;`
@@ -110,7 +137,8 @@ public isolated service class VacancyData {
             evaluation_criteria = db_client->query(
                 `SELECT *
                 FROM avinya_db.evaluation_criteria
-                WHERE difficulty = 'Hard' AND id IN 
+                WHERE evalualtion_type = 'Multiple Choice' AND 
+                difficulty = 'Hard' AND id IN 
                 (SELECT evaluation_criteria_id FROM vacancy_evaluation_criteria 
 	                WHERE vacancy_id = ${self.vacancy.id})
                 ORDER BY RAND() LIMIT 2;`
