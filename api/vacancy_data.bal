@@ -77,12 +77,9 @@ public isolated service class VacancyData {
                 FROM avinya_db.evaluation_criteria
                 WHERE evalualtion_type = 'Essay' AND id IN 
                 (SELECT evaluation_criteria_id FROM vacancy_evaluation_criteria 
-	                WHERE vacancy_id = ${self.vacancy.id})
-                ORDER BY RAND() LIMIT 2;`
+	                WHERE vacancy_id = ${self.vacancy.id});`
             );
         }
-
-        
 
         check from EvaluationCriteria evaluation_criterion in evaluation_criteria
             do {
