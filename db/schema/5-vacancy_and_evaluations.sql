@@ -78,6 +78,7 @@ CREATE TABLE IF NOT EXISTS evaluation (
     evaluatee_id INT NOT NULL,  -- select vacancy for application and then select evaluation criterial for vacancy, and for each of those criteria grade the applicant 
     evaluator_id INT DEFAULT NULL,
     evaluation_criteria_id INT NOT NULL,
+    response VARCHAR(1024) DEFAULT NULL,
     notes VARCHAR(1024) DEFAULT NULL,
     grade INT NOT NULL DEFAULT 0,
     updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
