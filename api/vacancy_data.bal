@@ -66,9 +66,10 @@ public isolated service class VacancyData {
             evaluation_criteria = db_client->query(
                 `SELECT *
                 FROM avinya_db.evaluation_criteria
-                WHERE id IN 
+                WHERE difficulty = 'Easy' AND id IN 
                 (SELECT evaluation_criteria_id FROM vacancy_evaluation_criteria 
-	                WHERE vacancy_id = ${self.vacancy.id});`
+	                WHERE vacancy_id = ${self.vacancy.id})
+                ORDER BY RAND() LIMIT 4;`
             );
         }
 
@@ -83,6 +84,49 @@ public isolated service class VacancyData {
             };
         
         check evaluation_criteria.close();
+
+        lock {
+            evaluation_criteria = db_client->query(
+                `SELECT *
+                FROM avinya_db.evaluation_criteria
+                WHERE difficulty = 'Medium' AND id IN 
+                (SELECT evaluation_criteria_id FROM vacancy_evaluation_criteria 
+	                WHERE vacancy_id = ${self.vacancy.id})
+                ORDER BY RAND() LIMIT 4;`
+            );
+        }
+
+        check from EvaluationCriteria evaluation_criterion in evaluation_criteria
+            do {
+                EvaluationCriteriaData|error evaluationCriterionData = new EvaluationCriteriaData((), 0, evaluation_criterion);
+                if !(evaluationCriterionData is error) {
+                    evaluationCriteriaData.push(evaluationCriterionData);
+                }
+            };
+
+        check evaluation_criteria.close();
+
+        lock {
+            evaluation_criteria = db_client->query(
+                `SELECT *
+                FROM avinya_db.evaluation_criteria
+                WHERE difficulty = 'Hard' AND id IN 
+                (SELECT evaluation_criteria_id FROM vacancy_evaluation_criteria 
+	                WHERE vacancy_id = ${self.vacancy.id})
+                ORDER BY RAND() LIMIT 2;`
+            );
+        }
+
+        check from EvaluationCriteria evaluation_criterion in evaluation_criteria
+            do {
+                EvaluationCriteriaData|error evaluationCriterionData = new EvaluationCriteriaData((), 0, evaluation_criterion);
+                if !(evaluationCriterionData is error) {
+                    evaluationCriteriaData.push(evaluationCriterionData);
+                }
+            };
+
+        check evaluation_criteria.close();
+
         return evaluationCriteriaData;
     }
 }
