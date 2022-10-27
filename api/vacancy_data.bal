@@ -62,6 +62,14 @@ public isolated service class VacancyData {
     isolated resource function get evaluation_criteria() returns EvaluationCriteriaData[]|error? {
         EvaluationCriteriaData[] evaluationCriteriaData = [];
 
+        // get all admissions test evaluation criteria for this vacancy
+        // 2 essays 4 easy MCQ, 4 medium MCQ and 2 hard MCQ, 
+        // this is specifc to student admission test
+        // for other vacancies, this will be different 
+        // so we need to pick the criterial from type when you 
+        // select from the database
+        // that is TODO logic
+
         stream<EvaluationCriteria, error?> evaluation_criteria;
         lock {
             evaluation_criteria = db_client->query(
