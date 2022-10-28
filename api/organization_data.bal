@@ -29,6 +29,12 @@ public isolated service class OrganizationData {
         self.organization = org_raw.cloneReadOnly();
     }
 
+    isolated resource function get id() returns int? {
+        lock {
+                return self.organization.id;
+        }
+    }
+
     isolated resource function get address() returns AddressData|error? {
         int id = 0;
         lock {

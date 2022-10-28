@@ -29,6 +29,12 @@ public isolated service class VacancyData {
         self.vacancy = org_raw.cloneReadOnly();
     }
 
+    isolated resource function get id() returns int? {
+        lock {
+                return self.vacancy.id;
+        }
+    }
+
     isolated resource function get name() returns string? {
         lock {
                 return self.vacancy.name;
