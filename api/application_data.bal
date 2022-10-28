@@ -1,10 +1,23 @@
 public isolated service class ApplicationData {
     private Application application = {id:0, person_id: 0, vacancy_id: 0, application_date: ()};
 
-    isolated function init(int? person_id = 0, Application? application = null) returns error? {
+    isolated function init(int? application_id = 0, int? person_id = 0, Application? application = null) returns error? {
         if(application != null) { // if application is provided, then use that and do not load from DB
             self.application = application.cloneReadOnly();
             return;
+        }
+
+        int id = application_id ?: 0;
+
+        if(id > 0) { // application_id provided, give precedance to that
+            Application org_raw = check db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.application
+            WHERE
+                id = ${id};`);
+        
+            self.application = org_raw.cloneReadOnly();
+            return ;
         }
 
         int _person_id = person_id ?: 0;
