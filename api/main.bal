@@ -120,6 +120,15 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
             return error("Unable to insert application");
         }
 
+        res = check db_client->execute(
+            `INSERT INTO avinya_db.application_status (
+                application_id
+            ) VALUES (
+                ${insert_id}
+            );`
+        ); // default status with for new application is "New" and is_terminal false
+
+
         return new(insert_id);
     }
 

@@ -22,7 +22,7 @@ public isolated service class ApplicationData {
 
         int _person_id = person_id ?: 0;
 
-        if(_person_id > 0) { // application_id provided, give precedance to that
+        if(_person_id > 0) { 
             Application org_raw = check db_client -> queryRow(
             `SELECT *
             FROM avinya_db.application
