@@ -22,6 +22,10 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return new (email, phone);
     }
 
+    isolated resource function get applicantion(int person_id) returns ApplicationData|error? {
+        return new (0, person_id);
+    }
+
     remote function  add_student_applicant(Person person) returns PersonData|error? {
         
         AvinyaType avinya_type_raw = check db_client -> queryRow(

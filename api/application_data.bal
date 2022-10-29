@@ -32,6 +32,7 @@ public isolated service class ApplicationData {
             self.application = org_raw.cloneReadOnly();
             return ;
         }
+
     }
 
     
