@@ -66,16 +66,36 @@ public isolated service class ApplicationData {
         }
     }
 
-    isolated resource function get status() returns ApplicationStatusData|error? {
+    isolated resource function get statuses() returns ApplicationStatusData[]|error? {
         int id = 0;
         lock {
             id = self.application.id ?: 0;
             if( id == 0) {
-                return null; // no point in querying if person id is null
+                return null; // no point in querying if applcation id is null
             } 
         }
+
+        stream<ApplicationStatus, error?> application_status_stream;
+        lock {
+            application_status_stream = db_client->query(
+                `SELECT *
+                FROM avinya_db.application_status
+                WHERE application_id = ${self.application.id}`
+            );
+        }
+
+        ApplicationStatusData[] applicatonStatuses = [];
+
+        check from ApplicationStatus applicationStatus in application_status_stream
+            do {
+                ApplicationStatusData|error statusData = new ApplicationStatusData(0, applicationStatus);
+                if !(statusData is error) {
+                    applicatonStatuses.push(statusData);
+                }
+            };
+        check application_status_stream.close();
+        return applicatonStatuses;
         
-        return new ApplicationStatusData(id);
     }
 
 }
