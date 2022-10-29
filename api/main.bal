@@ -148,8 +148,8 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 ) VALUES (
                     ${evaluation.evaluatee_id},
                     ${evaluation.evaluator_id},
-                    ${evaluation.response},
                     ${evaluation.evaluation_criteria_id},
+                    ${evaluation.response},
                     ${evaluation.notes},
                     ${evaluation.grade}
                 );`
