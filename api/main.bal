@@ -22,6 +22,9 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return new (email, phone);
     }
 
+    isolated resource function get applicantion(int person_id) returns ApplicationData|error? {
+        return new (0, person_id);
+    }
 
     remote function  add_student_applicant(Person person) returns PersonData|error? {
         
@@ -97,14 +100,100 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
             );`
         );
 
-        
+        int|string? insert_id = res.lastInsertId;
+        if !(insert_id is int) {
+            return error("Unable to insert person");
+        }
+
+        return new((), applicantConsent.phone);
+    }
+
+    remote function add_application(Application application) returns ApplicationData|error? {
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO avinya_db.application (
+                person_id,
+                vacancy_id
+            ) VALUES (
+                ${application.person_id},
+                ${application.vacancy_id}
+            );`
+        );
 
         int|string? insert_id = res.lastInsertId;
         if !(insert_id is int) {
-            return error("Unable to insert applicant_consent");
+            return error("Unable to insert application");
         }
 
-        return new(applicantConsent.email, applicantConsent.phone);
+        res = check db_client->execute(
+            `INSERT INTO avinya_db.application_status (
+                application_id
+            ) VALUES (
+                ${insert_id}
+            );`
+        ); // default status with for new application is "New" and is_terminal false
+
+
+        return new(insert_id);
+    }
+
+    remote function  add_evaluations(Evaluation[] evaluations) returns int|error? {
+        
+        int count = 0;
+
+        foreach Evaluation evaluation in evaluations {
+            sql:ExecutionResult res = check db_client->execute(
+                `INSERT INTO avinya_db.evaluation (
+                    evaluatee_id,
+                    evaluator_id,
+                    evaluation_criteria_id,
+                    response,
+                    notes,
+                    grade
+                ) VALUES (
+                    ${evaluation.evaluatee_id},
+                    ${evaluation.evaluator_id},
+                    ${evaluation.evaluation_criteria_id},
+                    ${evaluation.response},
+                    ${evaluation.notes},
+                    ${evaluation.grade}
+                );`
+            );
+
+            int|string? insert_id = res.lastInsertId;
+            if !(insert_id is int) {
+                return error("Unable to insert evaluation");
+            } else {
+                count += 1;
+            }
+
+            // Insert child and parent evaluation relationships
+            int[] child_eval_ids = evaluation.child_evaluations ?: [];
+            int[] parent_eval_ids = evaluation.parent_evaluations ?: [];
+
+            foreach int child_idx in child_eval_ids {
+                _ = check db_client->execute(
+                    `INSERT INTO avinya_db.parent_child_evaluation (
+                        child_evaluation_id,
+                        parent_evaluation_id
+                    ) VALUES (
+                        ${child_idx}, ${insert_id}
+                    );` 
+                );
+            }
+
+            foreach int parent_idx in parent_eval_ids {
+                _ = check db_client->execute(
+                    `INSERT INTO avinya_db.parent_child_evaluation (
+                        child_evaluation_id,
+                        parent_evaluation_id
+                    ) VALUES (
+                        ${insert_id}, ${parent_idx}
+                    );` 
+                );
+            }
+        }
+
+        return count;
     }
 
     remote function add_address(Address address) returns AddressData|error? {
@@ -188,27 +277,27 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         }
 
         // Insert child and parent organization relationships
-        int[] child_org_ids = org.child_organizations ?: [];
-        int[] parent_org_ids = org.parent_organizations ?: [];
+        int[] child_eval_ids = org.child_organizations ?: [];
+        int[] parent_eval_ids = org.parent_organizations ?: [];
 
-        foreach int child_idx in child_org_ids {
+        foreach int child_idx in child_eval_ids {
             _ = check db_client->execute(
                 `INSERT INTO avinya_db.parent_child_organization (
                     child_org_id,
                     parent_org_id
                 ) VALUES (
-                    ${child_idx}, ${org.id}
+                    ${child_idx}, ${insert_id}
                 );` 
             );
         }
 
-        foreach int parent_idx in parent_org_ids {
+        foreach int parent_idx in parent_eval_ids {
             _ = check db_client->execute(
                 `INSERT INTO avinya_db.parent_child_organization (
                     child_org_id,
                     parent_org_id
                 ) VALUES (
-                    ${org.id}, ${parent_idx}
+                    ${insert_id}, ${parent_idx}
                 );` 
             );
         }

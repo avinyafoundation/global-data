@@ -171,8 +171,11 @@ public type Evaluation record {|
     int? evaluator_id;
     int? evaluation_criteria_id;
     string? updated;
+    string? response;
     string? notes;
     int? grade;
+    int[] child_evaluations?;
+    int[] parent_evaluations?;
 |};
 
 public type Metadata record {|

@@ -29,7 +29,12 @@ public distinct service class PersonData {
         }
         
         self.person = person_raw.cloneReadOnly();
+    }
 
+    isolated resource function get id() returns int? {
+        lock {
+                return self.person.id;
+        }
     }
 
     resource function get preferred_name() returns string?{

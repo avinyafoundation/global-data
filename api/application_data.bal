@@ -1,7 +1,7 @@
 public isolated service class ApplicationData {
     private Application application = {id:0, person_id: 0, vacancy_id: 0, application_date: ()};
 
-    isolated function init(int? application_id = 0, Application? application = null) returns error? {
+    isolated function init(int? application_id = 0, int? person_id = 0, Application? application = null) returns error? {
         if(application != null) { // if application is provided, then use that and do not load from DB
             self.application = application.cloneReadOnly();
             return;
@@ -19,18 +19,45 @@ public isolated service class ApplicationData {
             self.application = org_raw.cloneReadOnly();
             return ;
         }
+
+        int _person_id = person_id ?: 0;
+
+        if(_person_id > 0) { 
+            Application org_raw = check db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.application
+            WHERE
+                person_id = ${_person_id};`);
+        
+            self.application = org_raw.cloneReadOnly();
+            return ;
+        }
+
     }
 
-    isolated resource function get person_id() returns int? {
+    
+    isolated resource function get applicant() returns PersonData|error? {
+        int id = 0;
         lock {
-            return self.application.person_id;
+            id = self.application.person_id ?: 0;
+            if( id == 0) {
+                return null; // no point in querying if person id is null
+            } 
         }
+        
+        return new PersonData((), id);
     }
 
-    isolated resource function get vacancy_id() returns int? {
+    isolated resource function get vacancy() returns VacancyData|error? {
+        int id = 0;
         lock {
-            return self.application.vacancy_id;
+            id = self.application.vacancy_id ?: 0;
+            if( id == 0) {
+                return null; // no point in querying if person id is null
+            } 
         }
+        
+        return new VacancyData((), id);
     }
 
     isolated resource function get application_date() returns string? {
@@ -39,25 +66,37 @@ public isolated service class ApplicationData {
         }
     }
 
+    isolated resource function get status() returns ApplicationStatusData|error? {
+        int id = 0;
+        lock {
+            id = self.application.id ?: 0;
+            if( id == 0) {
+                return null; // no point in querying if person id is null
+            } 
+        }
+        
+        return new ApplicationStatusData(id);
+    }
+
 }
 
 public isolated service class ApplicationStatusData {
     private ApplicationStatus application_status = {id:0, application_id: 0, status: (), is_terminal: false, updated: ()}; 
 
-    isolated function init(int? application_status_id = 0, ApplicationStatus? application_status = null) returns error? {
+    isolated function init(int? application_id = 0, ApplicationStatus? application_status = null) returns error? {
         if(application_status != null) { // if application_status is provided, then use that and do not load from DB
             self.application_status = application_status.cloneReadOnly();
             return;
         }
 
-        int id = application_status_id ?: 0;
+        int _application_id = application_id ?: 0;
 
-        if(id > 0) { // application_status_id provided, give precedance to that
+        if(_application_id > 0) { // application_status_id provided, give precedance to that
             ApplicationStatus org_raw = check db_client -> queryRow(
             `SELECT *
             FROM avinya_db.application_status
             WHERE
-                id = ${id};`);
+                application_id = ${_application_id};`);
             
             self.application_status = org_raw.cloneReadOnly();
         } 
