@@ -61,6 +61,27 @@ jobs:
           USER: ${{ secrets.DB_USER }}
           PASSWORD: ${{ secrets.DB_PASSWORD }}
           DATABASE: ${{ secrets.DB_DATABASE }}
+  update-new-staging-db:
+    name: Update new Azure staging database
+    needs: update-version
+    runs-on: ubuntu-22.04
+    environment: Stage
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Update Azure staging database
+        run: |
+          ls
+          pwd
+          cat ./db/schema/*.sql | mysql --host=$HOST --port=$PORT --user=$USER --password=$PASSWORD
+        env:
+          HOST: ${{ secrets.DB_HOST }}
+          PORT: ${{ secrets.DB_PORT }}
+          USER: ${{ secrets.DB_USER }}
+          PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DATABASE: ${{ secrets.DB_DATABASE }}
   push-api-client:
     name: Publish GraphQL API Client
     needs: update-staging-db
