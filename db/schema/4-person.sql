@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS person (
     asgardeo_id VARCHAR(255) DEFAULT NULL,
     permanent_address_id INT DEFAULT NULL,
     mailing_address_id INT DEFAULT NULL,
-    phone INT DEFAULT 0,
+    phone BIGINT DEFAULT 0,
     organization_id INT DEFAULT NULL,
     avinya_type_id INT DEFAULT NULL,
     notes VARCHAR(1024) DEFAULT NULL,

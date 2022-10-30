@@ -4,7 +4,7 @@ USE avinya_db;
 CREATE TABLE IF NOT EXISTS address (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     street_address VARCHAR(255) NOT NULL,
-    phone INT,
+    phone BIGINT,
     city_id INT NOT NULL,
     FOREIGN KEY (city_id) REFERENCES city(id)
 );
@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS organization (
     name_en VARCHAR(255) NOT NULL,
     name_ta VARCHAR(255),
     name_si VARCHAR(255),
-    phone INT,
+    phone BIGINT,
     address_id INT,
     avinya_type INT,
     FOREIGN KEY (address_id) REFERENCES address(id),
