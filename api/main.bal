@@ -28,49 +28,6 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
     remote function  add_student_applicant(Person person) returns PersonData|error? {
 
-        Address?|error address = person.permanent_address.cloneWithType(Address);
-        int permanent_address_id = 0;
-        if (address is Address) {
-            sql:ExecutionResult res = check db_client->execute(
-                `INSERT INTO avinya_db.address (
-                    street_address,
-                    phone,
-                    city_id
-                ) VALUES (
-                    ${address.street_address},
-                    ${address.phone},
-                    ${address.city_id}
-                );`
-            );
-
-            int|string? insert_id = res.lastInsertId;
-            if (insert_id is int) {
-                permanent_address_id = insert_id;
-            }
-        }
-
-        address = person.mailing_address.cloneWithType(Address);
-        int mailing_address_id = 0;
-        if (address is Address) {
-            sql:ExecutionResult res = check db_client->execute(
-                `INSERT INTO avinya_db.address (
-                    street_address,
-                    phone,
-                    city_id
-                ) VALUES (
-                    ${address.street_address},
-                    ${address.phone},
-                    ${address.city_id}
-                );`
-            );
-
-            int|string? insert_id = res.lastInsertId;
-            if (insert_id is int) {
-                mailing_address_id = insert_id;
-            }
-        }
-
-        
         AvinyaType avinya_type_raw = check db_client -> queryRow(
             `SELECT *
             FROM avinya_db.avinya_type
@@ -96,8 +53,8 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 ${person.phone},
                 ${person.email},
                 ${avinya_type_raw.id},
-                ${permanent_address_id},
-                ${mailing_address_id}
+                ${person.permanent_address_id},
+                ${person.mailing_address_id}
             );`
         );
 
