@@ -27,6 +27,49 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
     }
 
     remote function  add_student_applicant(Person person) returns PersonData|error? {
+
+        Address? address = person.permanent_address;
+        int permanent_address_id = 0;
+        if (address != null) {
+            sql:ExecutionResult res = check db_client->execute(
+                `INSERT INTO avinya_db.address (
+                    street_address,
+                    phone,
+                    city_id
+                ) VALUES (
+                    ${address.street_address},
+                    ${address.phone},
+                    ${address.city_id}
+                );`
+            );
+
+            int|string? insert_id = res.lastInsertId;
+            if (insert_id is int) {
+                permanent_address_id = insert_id;
+            }
+        }
+
+        address = person.mailing_address;
+        int mailing_address_id = 0;
+        if (address != null) {
+            sql:ExecutionResult res = check db_client->execute(
+                `INSERT INTO avinya_db.address (
+                    street_address,
+                    phone,
+                    city_id
+                ) VALUES (
+                    ${address.street_address},
+                    ${address.phone},
+                    ${address.city_id}
+                );`
+            );
+
+            int|string? insert_id = res.lastInsertId;
+            if (insert_id is int) {
+                mailing_address_id = insert_id;
+            }
+        }
+
         
         AvinyaType avinya_type_raw = check db_client -> queryRow(
             `SELECT *
@@ -42,7 +85,9 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 organization_id,
                 phone,
                 email,
-                avinya_type_id
+                avinya_type_id,
+                permanent_address_id,
+                mailing_address_id
             ) VALUES (
                 ${person.preferred_name},
                 ${person.full_name},
@@ -50,7 +95,9 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 ${person.organization_id},
                 ${person.phone},
                 ${person.email},
-                ${avinya_type_raw.id}
+                ${avinya_type_raw.id},
+                ${permanent_address_id},
+                ${mailing_address_id}
             );`
         );
 
