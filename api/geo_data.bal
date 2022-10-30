@@ -182,4 +182,8 @@ public distinct service class AddressData {
     resource function get phone() returns int? {
         return self.address.phone;
     }
+
+    resource function get id() returns int? {
+        return self.address.id;
+    }
 }

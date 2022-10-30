@@ -99,6 +99,8 @@ public type Person record {|
     string? passport_no;
     string? id_no;
     string? email;
+    Address? permanent_address;
+    Address? mailing_address;
 |};
 
 public type EvaluationCycle record {|
