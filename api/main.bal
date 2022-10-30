@@ -28,9 +28,9 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
     remote function  add_student_applicant(Person person) returns PersonData|error? {
 
-        Address? address = person.permanent_address;
+        Address?|error address = person.permanent_address.cloneWithType(Address);
         int permanent_address_id = 0;
-        if (address != null) {
+        if (address is Address) {
             sql:ExecutionResult res = check db_client->execute(
                 `INSERT INTO avinya_db.address (
                     street_address,
@@ -49,9 +49,9 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
             }
         }
 
-        address = person.mailing_address;
+        address = person.mailing_address.cloneWithType(Address);
         int mailing_address_id = 0;
-        if (address != null) {
+        if (address is Address) {
             sql:ExecutionResult res = check db_client->execute(
                 `INSERT INTO avinya_db.address (
                     street_address,
