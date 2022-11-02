@@ -26,6 +26,28 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return new (0, person_id);
     }
 
+     isolated resource function get student_applicant(string? jwt_sub_id) returns PersonData|error? {
+        AvinyaType avinya_type_raw = check db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.avinya_type
+            WHERE global_type = "applicant" AND  foundation_type = "student";`
+        );
+
+        Person|error? applicantRaw = db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.person
+            WHERE jwt_sub_id = ${jwt_sub_id} AND 
+            avinya_type_id = ${avinya_type_raw.id};`
+        );
+        
+        if(applicantRaw is Person) {
+            return new ((), applicantRaw.id);
+        }
+
+        return error("Applicant does not exist for given sub id: " + (jwt_sub_id?:""));
+        
+    }
+
     remote function  add_student_applicant(Person person) returns PersonData|error? {
 
         AvinyaType avinya_type_raw = check db_client -> queryRow(
@@ -39,7 +61,8 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
             FROM avinya_db.person
             WHERE (email = ${person.email}  OR
             phone = ${person.phone} OR 
-            jwt_sub_id = ${person.jwt_sub_id};`
+            jwt_sub_id = ${person.jwt_sub_id}) AND 
+            avinya_type_id = ${avinya_type_raw.id};`
         );
         
         if(applicantRaw is Person) {
