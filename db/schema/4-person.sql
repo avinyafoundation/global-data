@@ -8,6 +8,8 @@ CREATE TABLE IF NOT EXISTS person (
     date_of_birth DATE DEFAULT NULL,
     sex ENUM ("Male", "Female", "Not Specified") DEFAULT "Not Specified",
     asgardeo_id VARCHAR(255) DEFAULT NULL,
+    jwt_sub_id VARCHAR(255) DEFAULT NULL,
+    jwt_email VARCHAR(254) DEFAULT NULL,
     permanent_address_id INT DEFAULT NULL,
     mailing_address_id INT DEFAULT NULL,
     phone BIGINT DEFAULT 0,
