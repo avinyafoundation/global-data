@@ -33,8 +33,20 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
             FROM avinya_db.avinya_type
             WHERE global_type = "applicant" AND  foundation_type = "student";`
         );
+
+        Person|error? applicantRaw = db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.person
+            WHERE (email = ${person.email}  OR
+            phone = ${person.phone} OR 
+            jwt_sub_id = ${person.jwt_sub_id};`
+        );
         
-        sql:ExecutionResult res = check db_client->execute(
+        if(applicantRaw is Person) {
+            return error("Applicant already exists. The phone, email or the social login account you are using is already used by another applicant");
+        }
+        
+        sql:ExecutionResult|error res = db_client->execute(
             `INSERT INTO avinya_db.person (
                 preferred_name,
                 full_name,
@@ -44,7 +56,9 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 email,
                 avinya_type_id,
                 permanent_address_id,
-                mailing_address_id
+                mailing_address_id,
+                jwt_sub_id,
+                jwt_email
             ) VALUES (
                 ${person.preferred_name},
                 ${person.full_name},
@@ -54,16 +68,24 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 ${person.email},
                 ${avinya_type_raw.id},
                 ${person.permanent_address_id},
-                ${person.mailing_address_id}
+                ${person.mailing_address_id},
+                ${person.jwt_sub_id},
+                ${person.jwt_email}
             );`
         );
+        
+        if (res is sql:ExecutionResult) {
+            
+            int|string? insert_id = res.lastInsertId;
+            if !(insert_id is int) {
+                return error("Unable to insert application");
+            }
 
-        int|string? insert_id = res.lastInsertId;
-        if !(insert_id is int) {
-            return error("Unable to insert person");
-        }
-
-        return new((), insert_id);
+            return new((), insert_id); 
+        } 
+            
+        return error("Error while inserting data", res);
+        
     }
 
     remote function  add_student_applicant_consent(ApplicantConsent applicantConsent) returns ApplicantConsentData|error? {

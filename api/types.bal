@@ -89,6 +89,8 @@ public type Person record {|
     string? date_of_birth;
     string? sex;
     string? asgardeo_id;
+    string? jwt_sub_id;
+    string? jwt_email;
     int? permanent_address_id;
     int? mailing_address_id;
     int? phone;

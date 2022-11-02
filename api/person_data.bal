@@ -57,6 +57,14 @@ public distinct service class PersonData {
         return self.person.asgardeo_id;
     }
 
+    resource function get jwt_sub_id() returns string?{
+        return self.person.jwt_sub_id;
+    }
+
+    resource function get jwt_email() returns string?{
+        return self.person.jwt_email;
+    }
+
     isolated resource function get permanent_address() returns AddressData|error? {
         int id = self.person.permanent_address_id ?: 0;
         if( id == 0) {
