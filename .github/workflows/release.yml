@@ -52,8 +52,6 @@ jobs:
         uses: actions/checkout@v3
       - name: Update Azure staging database
         run: |
-          ls
-          pwd
           cat ./db/schema/*.sql | mysql --host=$HOST --port=$PORT --user=$USER --password=$PASSWORD
         env:
           HOST: ${{ secrets.DB_HOST }}
@@ -73,8 +71,25 @@ jobs:
         uses: actions/checkout@v3
       - name: Update Azure staging database
         run: |
-          ls
-          pwd
+          cat ./db/schema/*.sql | mysql --host=$HOST --port=$PORT --user=$USER --password=$PASSWORD
+        env:
+          HOST: ${{ secrets.DB_HOST }}
+          PORT: ${{ secrets.DB_PORT }}
+          USER: ${{ secrets.DB_USER }}
+          PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DATABASE: ${{ secrets.DB_DATABASE }}
+  update-production-database:
+    name: Update Production Azure Database
+    needs: update-version
+    runs-on: ubuntu-22.04
+    environment: Production
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Update Azure production database
+        run: |
           cat ./db/schema/*.sql | mysql --host=$HOST --port=$PORT --user=$USER --password=$PASSWORD
         env:
           HOST: ${{ secrets.DB_HOST }}
