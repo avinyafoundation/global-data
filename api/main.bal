@@ -1,6 +1,10 @@
 import ballerina/graphql;
 import ballerina/sql;
 
+@display {
+    label: "Global Data API",
+    id: "global-data"
+}
 service graphql:Service /graphql on new graphql:Listener(4000) {
     resource function get geo() returns GeoData {
         return new ();
