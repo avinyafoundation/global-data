@@ -20,7 +20,7 @@ jobs:
           python-version: "3.10"
       # See: https://stackoverflow.com/questions/58177786/get-the-current-pushed-tag-in-github-actions
       - name: Get version number from git tag
-        run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/v?}" >> $GITHUB_ENV # See: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#filter-pattern-cheat-sheet
+        run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/v}" >> $GITHUB_ENV
       - name: Install toml-cli to modify toml file
         # See: https://pypi.org/project/toml-cli/
         run: |
