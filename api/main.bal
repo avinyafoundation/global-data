@@ -1,10 +1,10 @@
 import ballerina/graphql;
 import ballerina/sql;
 
-@display {
-    label: "Global Data API",
-    id: "global-data"
-}
+// @display {
+//     label: "Global Data API",
+//     id: "global-data"
+// }
 service graphql:Service /graphql on new graphql:Listener(4000) {
     resource function get geo() returns GeoData {
         return new ();
@@ -20,6 +20,10 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
     isolated resource function get organization(string? name, int? id) returns OrganizationData|error? {
         return new (name, id);
+    }
+
+    isolated resource function get prospect(string? email, int? phone) returns ProspectData|error? {
+        return new (email, phone);
     }
 
     isolated resource function get applicant_consent(string? email, int? phone) returns ApplicantConsentData|error? {
@@ -289,13 +293,23 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 phone,
                 email,
                 receive_information_consent,
-                agree_terms_consent
+                agree_terms_consent,
+                street_address,
+                date_of_birth,
+                done_ol,
+                ol_year,
+                distance_to_school
             ) VALUES (
                 ${prospect.name},
                 ${prospect.phone},
                 ${prospect.email},
                 ${prospect.receive_information_consent},
-                ${prospect.agree_terms_consent}
+                ${prospect.agree_terms_consent},
+                ${prospect.street_address},
+                ${prospect.date_of_birth},
+                ${prospect.done_ol},
+                ${prospect.ol_year},
+                ${prospect.distance_to_school}
             );`
         );
 
