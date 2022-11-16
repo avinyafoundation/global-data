@@ -79,4 +79,34 @@ public isolated service class ProspectData {
         }
     }
 
+    isolated resource function get street_address() returns string? {
+        lock {
+            return self.prospect.street_address;
+        }
+    }
+
+    isolated resource function get date_of_birth() returns string? {
+        lock {
+            return self.prospect.date_of_birth;
+        }
+    }
+
+    isolated resource function get done_ol() returns boolean? {
+        lock {
+            return self.prospect.done_ol;
+        }
+    }
+
+    isolated resource function get ol_year() returns int? {
+        lock {
+            return self.prospect.ol_year;
+        }
+    }
+
+    isolated resource function get distance_to_school() returns int? {
+        lock {
+            return self.prospect.distance_to_school;
+        }
+    }
+
 }
