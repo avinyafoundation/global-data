@@ -20,6 +20,8 @@ CREATE TABLE IF NOT EXISTS person (
     passport_no VARCHAR(30) DEFAULT NULL,
     id_no VARCHAR(30) DEFAULT NULL,
     email VARCHAR(254) DEFAULT NULL,
+    created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (permanent_address_id) REFERENCES address(id),
     FOREIGN KEY (mailing_address_id) REFERENCES address(id),
     FOREIGN KEY (organization_id) REFERENCES organization(id),
