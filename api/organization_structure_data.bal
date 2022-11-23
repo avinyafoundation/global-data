@@ -35,7 +35,7 @@ public distinct service class OrganizationStructureData {
         self.organizations = org_raws.cloneReadOnly();
     }
 
-    isolated resource function get organizations() returns OrganizationData[]|error? {
+    resource function get organizations() returns OrganizationData[]|error? {
         OrganizationData[] organizationDataArray = [];
         foreach var organization in self.organizations {
             organizationDataArray.push(check new OrganizationData(organization = organization));

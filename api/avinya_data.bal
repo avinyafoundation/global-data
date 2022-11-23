@@ -1,5 +1,5 @@
 
-public distinct service class AvinyaTypeData {
+public isolated service class AvinyaTypeData {
     private AvinyaType avinya_type;
 
     isolated function init(int id) returns error? {
@@ -12,27 +12,39 @@ public distinct service class AvinyaTypeData {
         self.avinya_type = avinya_type_raw.cloneReadOnly();
     }
 
-    resource function get active() returns boolean|error {
-        return self.avinya_type.active;
+    isolated resource function get active() returns boolean|error {
+        lock {
+            return self.avinya_type.active;
+        }
     }
 
-    resource function get global_type() returns string {
-        return self.avinya_type.global_type;
+    isolated resource function get global_type() returns string {
+        lock {
+            return self.avinya_type.global_type;
+        }
     }
 
-    resource function get name() returns string? {
-        return self.avinya_type.name;
+    isolated resource function get name() returns string? {
+        lock {
+            return self.avinya_type.name;
+        }
     }
 
-    resource function get foundation_type() returns string? {
-        return self.avinya_type.foundation_type;
+    isolated resource function get foundation_type() returns string? {
+        lock {
+            return self.avinya_type.foundation_type;
+        }
     }
 
-    resource function get focus() returns string? {
-        return self.avinya_type.focus;
+    isolated resource function get focus() returns string? {
+        lock {
+            return self.avinya_type.focus;
+        }
     }
 
-    resource function get level() returns int? {
-        return self.avinya_type.level;
+    isolated resource function get level() returns int? {
+        lock {
+            return self.avinya_type.level;
+        }
     }
 }

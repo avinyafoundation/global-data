@@ -1,58 +1,73 @@
-public distinct service class GeoData {
-    resource function get province(string name) returns ProvinceData|error {
+public isolated  service class GeoData {
+    isolated resource function get province(string name) returns ProvinceData|error {
+        lock {
+            return new (name, ());
+        }
+        
+    }
+
+    isolated resource function get district(string name) returns DistrictData|error {
         return new (name, ());
     }
 
-    resource function get district(string name) returns DistrictData|error {
+    isolated resource function get city(string name) returns CityData|error {
         return new (name, ());
     }
 
-    resource function get city(string name) returns CityData|error {
-        return new (name, ());
-    }
-
-    resource function get address(int id) returns AddressData|error {
+    isolated resource function get address(int id) returns AddressData|error {
         return new (id);
     }
 }
 
-public distinct service class ProvinceData {
+public isolated service class ProvinceData {
     private Province province;
 
-    function init(string? name, int? province_id) returns error? {
+    isolated function init(string? name, int? province_id) returns error? {
         // NOTE: Change this to `AND` check once `sql:ParameterQuery` is fixed
-        Province province_raw = check db_client->queryRow(
-            `SELECT *
-            FROM avinya_db.province
-            WHERE
-                id = ${province_id}
-                OR name_en = ${name};`
-        );
-
-        self.province = province_raw;
+       
+        lock {
+             Province province_raw = check db_client->queryRow(
+                `SELECT *
+                FROM avinya_db.province
+                WHERE
+                    id = ${province_id}
+                    OR name_en = ${name};`
+            );
+        
+            self.province = province_raw.cloneReadOnly();
+        }
     }
 
-    resource function get id() returns int? {
-        return self.province.id;
+    isolated resource function get id() returns int? {
+        lock {
+            return self.province.id;
+        }
     }
 
-    resource function get name() returns LocalizedName {
-        return {
-            "name_en": self.province["name_en"],
-            "name_si": <string>self.province["name_si"],
-            "name_ta": <string>self.province["name_ta"]
-        };
+    isolated resource function get name() returns LocalizedName {
+        lock {
+            return {
+                "name_en": self.province["name_en"],
+                "name_si": <string>self.province["name_si"],
+                "name_ta": <string>self.province["name_ta"]
+            };
+        }
+        
     }
 
-    resource function get districts() returns DistrictData[]|error {
+    isolated resource function get districts() returns DistrictData[]|error {
         DistrictData[] districts = [];
+        int? id = 0;
+        lock {
+            id = self.province.id;
+        }
 
         stream<District, error?> candidate_districts = db_client->query(
             `SELECT district.id
             FROM avinya_db.district
             RIGHT JOIN avinya_db.province
             ON avinya_db.district.province_id = avinya_db.province.id
-            WHERE avinya_db.province.id = ${self.province.id};`
+            WHERE avinya_db.province.id = ${id};`
         );
         // Build and add DistrictData to list; raise error if we encounter
         check from District d in candidate_districts
@@ -69,10 +84,10 @@ public distinct service class ProvinceData {
     }
 }
 
-public distinct service class DistrictData {
+public isolated  service class DistrictData {
     private District district;
 
-    function init(string? name, int? district_id) returns error? {
+    isolated function init(string? name, int? district_id) returns error? {
         District district_raw = check db_client->queryRow(
             `SELECT *
             FROM avinya_db.district
@@ -84,31 +99,41 @@ public distinct service class DistrictData {
         self.district = district_raw.cloneReadOnly();
     }
 
-    resource function get name() returns LocalizedName {
-        return {
-            "name_en": self.district["name_en"],
-            "name_si": <string>self.district["name_si"],
-            "name_ta": <string>self.district["name_ta"]
-        };
+    isolated resource function get name() returns LocalizedName {
+        lock {
+            return {
+                "name_en": self.district["name_en"],
+                "name_si": <string>self.district["name_si"],
+                "name_ta": <string>self.district["name_ta"]
+            };
+        }
     }
 
-    resource function get id() returns int? {
-        return self.district.id;
+    isolated resource function get id() returns int? {
+        lock {
+            return self.district.id;
+        }
     }
 
-    resource function get province() returns ProvinceData|error {
-        return new ((), self.district.province_id);
+    isolated resource function get province() returns ProvinceData|error {
+        lock {
+            return new ((), self.district.province_id);
+        }
     }
 
-    resource function get cities() returns CityData[]|error {
+    isolated resource function get cities() returns CityData[]|error {
         CityData[] cities = [];
+        int? id = 0;
+        lock {
+            id = self.district.id;
+        }
 
         stream<City, error?> candidate_cities = db_client->query(
             `SELECT city.id
             FROM avinya_db.city
             RIGHT JOIN avinya_db.district
             ON avinya_db.city.district_id = avinya_db.district.id
-            WHERE avinya_db.district.id = ${self.district.id};`
+            WHERE avinya_db.district.id = ${id};`
         );
         // Build and add CityData to list; raise error if we encounter
         check from City c in candidate_cities
@@ -125,10 +150,10 @@ public distinct service class DistrictData {
     }
 }
 
-public distinct service class CityData {
+public isolated service class CityData {
     private City city;
 
-    function init(string? name, int? city_id) returns error? {
+    isolated function init(string? name, int? city_id) returns error? {
         City city_raw = check db_client->queryRow(
             `SELECT *
             FROM avinya_db.city
@@ -140,25 +165,31 @@ public distinct service class CityData {
         self.city = city_raw.cloneReadOnly();
     }
 
-    resource function get name() returns LocalizedName {
-        return {
-            "name_en": self.city["name_en"],
-            "name_si": <string>self.city["name_si"],
-            "name_ta": <string>self.city["name_ta"]
-        };
+    isolated  resource function get name() returns LocalizedName {
+        lock {
+            return {
+                "name_en": self.city["name_en"],
+                "name_si": <string>self.city["name_si"],
+                "name_ta": <string>self.city["name_ta"]
+            };
+        }
     }
 
-    resource function get id() returns int? {
-        return self.city.id;
+    isolated resource function get id() returns int? {
+        lock {
+            return self.city.id;
+        }
     }
 
-    resource function get district() returns DistrictData|error {
-        return new ((), self.city.district_id);
+    isolated resource function get district() returns DistrictData|error {
+        lock {
+            return new ((), self.city.district_id);
+        }
     }
 }
 
 
-public distinct service class AddressData {
+public isolated service class AddressData {
     private Address address;
 
     isolated function init(int address_id) returns error? {
@@ -171,19 +202,27 @@ public distinct service class AddressData {
         self.address = address_raw.cloneReadOnly();
     }
 
-    resource function get city() returns CityData|error {
-        return new ((), self.address.city_id);
+    isolated resource function get city() returns CityData|error {
+        lock {
+            return new ((), self.address.city_id);
+        }
     }
 
-    resource function get street_address() returns string {
-        return self.address.street_address;
+    isolated resource function get street_address() returns string {
+        lock {
+            return self.address.street_address;
+        }
     }
 
-    resource function get phone() returns int? {
-        return self.address.phone;
+    isolated resource function get phone() returns int? {
+        lock {
+            return self.address.phone;
+        }
     }
 
-    resource function get id() returns int? {
-        return self.address.id;
+    isolated resource function get id() returns int? {
+        lock {
+            return self.address.id;
+        }
     }
 }
