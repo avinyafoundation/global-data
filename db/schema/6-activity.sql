@@ -12,6 +12,20 @@ CREATE TABLE IF NOT EXISTS activity (
     FOREIGN KEY (avinya_type_id) REFERENCES avinya_type(id)
 );
 
+-- Activity Sequence Plan 
+CREATE TABLE IF NOT EXISTS activity_sequence_plan (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    activity_id INT NOT NULL,
+    sequence_number INT NOT NULL DEFAULT 0,
+    person_id INT DEFAULT NULL,
+    organization_id INT DEFAULT NULL,
+    created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (activity_id) REFERENCES activity(id),
+    FOREIGN KEY (person_id) REFERENCES person(id),
+    FOREIGN KEY (organization_id) REFERENCES organization(id)
+);
+
 -- Parent Child Activity
 CREATE TABLE IF NOT EXISTS parent_child_activity (
     child_activity_id INT NOT NULL,
@@ -22,12 +36,17 @@ CREATE TABLE IF NOT EXISTS parent_child_activity (
 );
 
 -- Place
+-- We will live with both address and place for now
+-- Note that the place has more information than the address
 CREATE TABLE IF NOT EXISTS place (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     olc VARCHAR(15) NOT NULL, -- Open Location Code
     city_id INT DEFAULT NULL,
     name VARCHAR(256) NOT NULL,
-    facility VARCHAR(256) DEFAULT NULL,
+    display_name VARCHAR(256) NOT NULL,
+    street_address VARCHAR(256) DEFAULT NULL,
+    suite VARCHAR(256) DEFAULT NULL,
+    level INT DEFAULT 0,
     address_id INT DEFAULT NULL, -- Address should be OLC, but for now we'll use the address_id too (becuase we have addresses in the DB)
     description VARCHAR(1024) DEFAULT NULL,
     notes TEXT DEFAULT NULL,
@@ -35,6 +54,16 @@ CREATE TABLE IF NOT EXISTS place (
     updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (city_id) REFERENCES city(id),
     FOREIGN KEY (address_id) REFERENCES address(id)
+);
+
+-- Parent Child Place
+-- Facility is a place that has children places
+CREATE TABLE IF NOT EXISTS parent_child_place (
+    child_place_id INT NOT NULL,
+    parent_place_id INT NOT NULL,
+    FOREIGN KEY (child_place_id) REFERENCES place(id),
+    FOREIGN KEY (parent_place_id) REFERENCES place(id),
+    CONSTRAINT pk_parent_child_place PRIMARY KEY (child_place_id, parent_place_id)
 );
 
 -- Activity Instance
@@ -84,4 +113,13 @@ CREATE TABLE IF NOT EXISTS activity_participant_attendance (
     updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (activity_id) REFERENCES activity(id),
     FOREIGN KEY (person_id) REFERENCES person(id)
+);
+
+-- Activity Evaluation Criteria
+CREATE TABLE IF NOT EXISTS activity_instance_evaluation_criteria (
+    activity_instance_id INT NOT NULL,
+    evaluation_criteria_id INT NOT NULL,
+    FOREIGN KEY (activity_instance_id) REFERENCES activity_instance(id),
+    FOREIGN KEY (evaluation_criteria_id) REFERENCES evaluation_criteria(id),
+    CONSTRAINT pk_activity_instance_evaluation_criteria PRIMARY KEY (evaluation_criteria_id, activity_instance_id)
 );

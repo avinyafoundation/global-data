@@ -185,4 +185,3 @@ CREATE TABLE IF NOT EXISTS prospect (
     distance_to_school INT DEFAULT NULL
 );
 
-
