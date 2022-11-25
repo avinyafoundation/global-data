@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS activity_sequence_plan (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     activity_id INT NOT NULL,
     sequence_number INT NOT NULL DEFAULT 0,
+    timeslot_number INT NOT NULL,
     person_id INT DEFAULT NULL,
     organization_id INT DEFAULT NULL,
     created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -116,6 +117,15 @@ CREATE TABLE IF NOT EXISTS activity_participant_attendance (
 );
 
 -- Activity Evaluation Criteria
+CREATE TABLE IF NOT EXISTS activity_evaluation_criteria (
+    activity_id INT NOT NULL,
+    evaluation_criteria_id INT NOT NULL,
+    FOREIGN KEY (activity_id) REFERENCES activity(id),
+    FOREIGN KEY (evaluation_criteria_id) REFERENCES evaluation_criteria(id),
+    CONSTRAINT pk_activity_evaluation_criteria PRIMARY KEY (activity_id, evaluation_criteria_id)
+);
+
+-- Activity Instance Evaluation Criteria
 CREATE TABLE IF NOT EXISTS activity_instance_evaluation_criteria (
     activity_instance_id INT NOT NULL,
     evaluation_criteria_id INT NOT NULL,
@@ -123,3 +133,4 @@ CREATE TABLE IF NOT EXISTS activity_instance_evaluation_criteria (
     FOREIGN KEY (evaluation_criteria_id) REFERENCES evaluation_criteria(id),
     CONSTRAINT pk_activity_instance_evaluation_criteria PRIMARY KEY (evaluation_criteria_id, activity_instance_id)
 );
+
