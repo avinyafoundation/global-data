@@ -103,6 +103,8 @@ public type Person record {|
     string? email;
     Address? permanent_address;
     Address? mailing_address;
+    string? created;
+    string? updated;
 |};
 
 public type EvaluationCycle record {|
@@ -250,6 +252,7 @@ public type ApplicantConsent record {|
     boolean? information_correct_consent;
     boolean? agree_terms_consent;
     string? created;
+    string? updated;
 |};
 
 public type Prospect record {|
@@ -262,6 +265,7 @@ public type Prospect record {|
     boolean? receive_information_consent;
     boolean? agree_terms_consent;
     string? created;
+    string? updated;
     string? street_address;
     string? date_of_birth;
     boolean? done_ol;
