@@ -174,6 +174,7 @@ public type Evaluation record {|
     int? evaluatee_id;
     int? evaluator_id;
     int? evaluation_criteria_id;
+    int? activity_instance_id;
     string? updated;
     string? response;
     string? notes;
@@ -182,7 +183,7 @@ public type Evaluation record {|
     int[] parent_evaluations?;
 |};
 
-public type Metadata record {|
+public type EvaluationMetadata record {|
     readonly string? record_type = "metadata";
     int id?;
     int? evaluation_id;
@@ -250,6 +251,7 @@ public type ApplicantConsent record {|
     boolean? information_correct_consent;
     boolean? agree_terms_consent;
     string? created;
+    string? updated;
 |};
 
 public type Prospect record {|
@@ -262,9 +264,291 @@ public type Prospect record {|
     boolean? receive_information_consent;
     boolean? agree_terms_consent;
     string? created;
+    string? updated;
     string? street_address;
     string? date_of_birth;
     boolean? done_ol;
     int? ol_year;
     int? distance_to_school;
+    boolean? verified;
+    boolean? contacted;
+    boolean? applied;
+|};
+
+
+public type Activity record {|
+    readonly string? record_type = "activity";
+    int id?;
+    string? name;
+    string? description;
+    int? avinya_type_id;
+    string? notes;
+    string? created;
+    string? updated;
+|};
+
+public type ActivitySequencePlan record {|
+    readonly string? record_type = "activity_sequence_plan";
+    int id?;
+    int? activity_id;
+    int? sequence_number;
+    int? timeslot_number;
+    int? person_id;
+    int? organization_id;
+    string? created;
+    string? updated;
+|};
+
+public type ParentChildActivity record {|
+    readonly string? record_type = "parent_child_activity";
+    int? child_activity_id;
+    int? parent_activity_id;
+|};
+
+
+
+public type Place record {|
+    readonly string? record_type = "place";
+    int id?;
+    string? olc;
+    int? city_id;
+    string? name;
+    string? display_name;
+    string? street_address;
+    string? suite;
+    int? level;
+    int? address_id;
+    string? description;
+    string? notes;
+    string? created;
+    string? updated;
+|};
+
+public type ParentChildPlace record {|
+    readonly string? record_type = "parent_child_place";
+    int? child_place_id;
+    int? parent_place_id;
+|};
+
+public type ActivityInstance record {|
+    readonly string? record_type = "activity_instance";
+    int id?;
+    int? activity_id;
+    string? name;
+    int? place_id;
+    int? daily_sequence;
+    int? weekly_sequence;
+    int? monthly_sequence;
+    string? description;
+    string? notes;
+    string? start_time;
+    string? end_time;
+    string? created;
+    string? updated;
+|};
+
+public type ActivityParticipant record {|
+    readonly string? record_type = "activity_participant";
+    int id?;
+    int? activity_instance_id;
+    int? person_id;
+    int? organization_id;
+    string? start_date;
+    string? end_date;
+    string? role;
+    string? notes;
+    string? created;
+    string? updated;
+|};
+
+
+public type ActivityParticipantAttendance record {|
+    readonly string? record_type = "activity_participant_attendance";
+    int id?;
+    int? person_id;
+    int? activity_id;
+    string? sign_in_time;
+    string? sign_out_time;
+    string? created;
+    string? updated;
+|};
+
+public type ActivityEvaluationCriteria record {|
+    readonly string? record_type = "activity_evaluation_criteria";
+    int? activity_id;
+    int? evaluation_criteria_id;
+|};
+
+public type ActivityInstanceEvaluationCriteria record {|
+    readonly string? record_type = "activity_instance_evaluation_criteria";
+    int? activity_instance_id;
+    int? evaluation_criteria_id;
+|};
+
+public type Asset record {|
+    readonly string? record_type = "asset";
+    int id?;
+    string? name;
+    string? manufacturer;
+    string? model;
+    string? serial_number;
+    string? registration_number;
+    string? description;
+    int? avinya_type_id;
+    string? created;
+    string? updated;
+|};
+
+public type AssetProperty record {|
+    readonly string? record_type = "asset_property";
+    int id?;
+    int? asset_id;
+    string? property;
+    string? value;
+|};
+
+public type AssetAllocation record {|
+    readonly string? record_type = "asset_allocation";
+    int id?;
+    int? asset_id;
+    int? organization_id;
+    int? person_id;
+    string? start_date;
+    string? end_date;
+    string? created;
+    string? updated;
+|};
+
+
+public type Supplier record {|
+    readonly string? record_type = "supplier";
+    int id?;
+    string? name;
+    string? description;
+    int? phone;
+    string? email;
+    int? address_id;
+    string? created;
+    string? updated;
+|};
+
+public type Product record {|
+    readonly string? record_type = "product";
+    int id?;
+    string? name;
+    string? description;
+    string? manufacturer;
+    string? model;
+    string? serial_number;
+    string? created;
+    string? updated;
+|};
+
+public type ProductProperty record {|
+    readonly string? record_type = "product_property";
+    int id?;
+    int? product_id;
+    string? property;
+    string? value;
+|};
+
+public type ProductSupplier record {|
+    readonly string? record_type = "product_supplier";
+    int id?;
+    int? product_id;
+    int? supplier_id;
+    int? person_id;
+    string? order_date;
+    string? delivery_date;
+    string? order_id;
+    int? order_amount;
+    string? created;
+    string? updated;
+|};
+
+public type ProductAllocation record {|
+    readonly string? record_type = "product_allocation";
+    int id?;
+    int? product_id;
+    int? organization_id;
+    int? person_id;
+    int? quantity;
+    string? start_date;
+    string? end_date;
+    string? created;
+    string? updated;
+|};
+
+
+
+
+public type ProductInventory record {|
+    readonly string? record_type = "product_inventory";
+    int id?;
+    int? product_id;
+    int? organization_id;
+    int? person_id;
+    int? quantity;
+    int? quantity_in;
+    int? quantity_out;
+    string? created;
+    string? updated;
+|};
+
+public type Service record {|
+    readonly string? record_type = "service";
+    int id?;
+    string? name;
+    string? description;
+    string? created;
+    string? updated;
+|};
+
+public type ServiceProperty record {|
+    readonly string? record_type = "service_property";
+    int id?;
+    int? service_id;
+    string? property;
+    string? value;
+|};
+
+
+public type ServiceSupplier record {|
+    readonly string? record_type = "service_supplier";
+    int id?;
+    int? service_id;
+    int? supplier_id;
+    int? person_id;
+    string? order_date;
+    string? delivery_date;
+    string? order_id;
+    int? order_amount;
+    string? created;
+    string? updated;
+|};
+
+public type ServiceAllocation record {|
+    readonly string? record_type = "service_allocation";
+    int id?;
+    int? service_id;
+    int? organization_id;
+    int? person_id;
+    int? quantity;
+    string? start_date;
+    string? end_date;
+    string? created;
+    string? updated;
+|};
+
+public type ServiceInventory record {|
+    readonly string? record_type = "service_inventory";
+    int id?;
+    int? service_id;
+    int? organization_id;
+    int? person_id;
+    int? quantity;
+    int? quantity_in;
+    int? quantity_out;
+    string? created;
+    string? updated;
 |};

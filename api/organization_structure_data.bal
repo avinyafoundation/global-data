@@ -1,6 +1,6 @@
 import ballerina/time;
 import ballerina/log;
-public distinct service class OrganizationStructureData {
+public isolated service class OrganizationStructureData {
     private Organization[] organizations;
 
     isolated function init(string? name = null, int? organization_id = 0, int? level = 0) returns error? {
@@ -35,11 +35,18 @@ public distinct service class OrganizationStructureData {
         self.organizations = org_raws.cloneReadOnly();
     }
 
-    resource function get organizations() returns OrganizationData[]|error? {
+    isolated resource function get organizations() returns OrganizationData[]|error? {
         OrganizationData[] organizationDataArray = [];
-        foreach var organization in self.organizations {
+        Organization[] organizations = [];
+
+        lock {
+            organizations = self.organizations.cloneReadOnly();
+        }
+
+        foreach var organization in organizations {
             organizationDataArray.push(check new OrganizationData(organization = organization));
         }
+        
         return organizationDataArray;
     }
 }

@@ -1,5 +1,5 @@
 public isolated service class EvaluationData {
-    private Evaluation evaluation = {id:0, evaluatee_id: 0, evaluator_id: 0, evaluation_criteria_id: 0, response: (), grade: 0, notes: (), updated: ()};
+    private Evaluation evaluation = {id:0, evaluatee_id: 0, evaluator_id: 0, evaluation_criteria_id: 0, activity_instance_id: 0, response: (), grade: 0, notes: (), updated: ()};
 
     isolated function init(int? evaluation_id = 0, Evaluation? evaluation = null) returns error? {
         if(evaluation != null) { // if evaluation is provided, then use that and do not load from DB
@@ -107,12 +107,12 @@ public isolated service class EvaluationData {
 
 }
 
-public isolated service class MetadataData {
-    private Metadata metadata =
+public isolated service class EvaluationMetadataData {
+    private EvaluationMetadata metadata =
         {id:0, evaluation_id: 0, focus: (), is_terminal: false, level: 0, location: (), meta_type: (),
         metadata: (), on_date_time: (), status: ()};
 
-    isolated function init(int? metadata_id = 0, Metadata? metadata = null) returns error? {
+    isolated function init(int? metadata_id = 0, EvaluationMetadata? metadata = null) returns error? {
         if(metadata != null) { // if metadata is provided, then use that and do not load from DB
             self.metadata = metadata.cloneReadOnly();
             return;
@@ -121,7 +121,7 @@ public isolated service class MetadataData {
         int id = metadata_id ?: 0;
 
         if(id > 0) { // metadata_id provided, give precedance to that
-            Metadata org_raw = check db_client -> queryRow(
+            EvaluationMetadata org_raw = check db_client -> queryRow(
             `SELECT *
             FROM avinya_db.metadata
             WHERE
