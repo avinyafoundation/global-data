@@ -109,8 +109,11 @@ CREATE TABLE IF NOT EXISTS prospect (
     updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     street_address VARCHAR(255) DEFAULT NULL,
     date_of_birth DATE DEFAULT NULL,
-    done_ol BOOL DEFAULT NULL,
+    done_ol BOOLEAN DEFAULT NULL,
     ol_year INT NULL DEFAULT NULL,
-    distance_to_school INT DEFAULT NULL
+    distance_to_school INT DEFAULT NULL,
+    verified BOOLEAN DEFAULT FALSE,
+    contacted BOOLEAN DEFAULT FALSE,
+    applied BOOLEAN DEFAULT FALSE
 );
 

@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS evaluation (
     FOREIGN KEY (activity_instance_id) REFERENCES activity_instance(id)
 );
 
-CREATE TABLE IF NOT EXISTS metadata (
+CREATE TABLE IF NOT EXISTS evaluation_metadata (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     evaluation_id INT NOT NULL,
     location VARCHAR(1024) DEFAULT NULL,
