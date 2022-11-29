@@ -112,13 +112,13 @@ public isolated service class EvaluationMetadataData {
         {id:0, evaluation_id: 0, focus: (), is_terminal: false, level: 0, location: (), meta_type: (),
         metadata: (), on_date_time: (), status: ()};
 
-    isolated function init(int? metadata_id = 0, EvaluationMetadata? metadata = null) returns error? {
+    isolated function init(int? evaluation_id = 0, EvaluationMetadata? metadata = null) returns error? {
         if(metadata != null) { // if metadata is provided, then use that and do not load from DB
             self.metadata = metadata.cloneReadOnly();
             return;
         }
 
-        int id = metadata_id ?: 0;
+        int id = evaluation_id ?: 0;
 
         if(id > 0) { // metadata_id provided, give precedance to that
             EvaluationMetadata org_raw = check db_client -> queryRow(

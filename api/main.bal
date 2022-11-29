@@ -34,7 +34,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return new (0, person_id);
     }
 
-     isolated resource function get student_applicant(string? jwt_sub_id) returns PersonData|error? {
+    isolated resource function get student_applicant(string? jwt_sub_id) returns PersonData|error? {
         AvinyaType avinya_type_raw = check db_client -> queryRow(
             `SELECT *
             FROM avinya_db.avinya_type
@@ -54,6 +54,10 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         return error("Applicant does not exist for given sub id: " + (jwt_sub_id?:""));
         
+    }
+
+    isolated resource function get activity(string? name, int? id = 0) returns ActivityData|error? {
+        return new (name, id);
     }
 
     remote function  add_student_applicant(Person person) returns PersonData|error? {
@@ -371,4 +375,6 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         return new ((), insert_id);
     }
+
+
 }
