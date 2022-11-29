@@ -1,3 +1,4 @@
+USE avinya_db;
 
 -- Evaluation 
 CREATE TABLE IF NOT EXISTS evaluation (
