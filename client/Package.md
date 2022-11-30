@@ -1,3 +1,3 @@
 # Avinya Foundation Global Data Service
 
-For more information, see: https://avinya-foundation.github.io/global-data.
+For more information, see: https://avinyafoundation.github.io/global-data.

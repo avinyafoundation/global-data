@@ -2,7 +2,7 @@ name: Tests and GraphQL Client Generation
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: avinya-foundation/global-data-db
+  IMAGE_NAME: avinyafoundation/global-data-db
   DOCKERFILE_FOLDER: ./db
 
 on:
@@ -59,7 +59,7 @@ jobs:
     needs: push-db-container
     services:
       mysql:
-        image: ghcr.io/avinya-foundation/global-data-db:${{ github.ref_name }}
+        image: ghcr.io/avinyafoundation/global-data-db:${{ github.ref_name }}
         env:
           MYSQL_ROOT_PASSWORD: test
         ports:
@@ -109,9 +109,9 @@ jobs:
       - name: (Local Only) Start database in Docker container
         if: ${{ env.ACT }}
         run: |
-          docker build -f ${{ env.DOCKERFILE_FOLDER }}/Dockerfile -t ghcr.io/avinya-foundation/global-data-db:${{ github.ref_name }} .
+          docker build -f ${{ env.DOCKERFILE_FOLDER }}/Dockerfile -t ghcr.io/avinyafoundation/global-data-db:${{ github.ref_name }} .
           source api/Config.toml
-          docker run -d -e MYSQL_ROOT_PASSWORD=$PASSWORD -p 3306:3306 ghcr.io/avinya-foundation/global-data-db:${{ github.ref_name }}
+          docker run -d -e MYSQL_ROOT_PASSWORD=$PASSWORD -p 3306:3306 ghcr.io/avinyafoundation/global-data-db:${{ github.ref_name }}
       - name: (Local Only) Database idempotence test
         if: ${{ env.ACT }}
         run: |
@@ -129,7 +129,7 @@ jobs:
     needs: push-db-container
     services:
       mysql:
-        image: ghcr.io/avinya-foundation/global-data-db:${{ github.ref_name }}
+        image: ghcr.io/avinyafoundation/global-data-db:${{ github.ref_name }}
         env:
           MYSQL_ROOT_PASSWORD: test
         ports:
@@ -141,9 +141,9 @@ jobs:
       - name: (Local Only) Start database in Docker container
         if: ${{ env.ACT }}
         run: |
-          docker build -f ${{ env.DOCKERFILE_FOLDER }}/Dockerfile -t ghcr.io/avinya-foundation/global-data-db:${{ github.ref_name }} .
+          docker build -f ${{ env.DOCKERFILE_FOLDER }}/Dockerfile -t ghcr.io/avinyafoundation/global-data-db:${{ github.ref_name }} .
           source api/Config.toml
-          docker run -d -e MYSQL_ROOT_PASSWORD=$PASSWORD -p 3306:3306 ghcr.io/avinya-foundation/global-data-db:${{ github.ref_name }}
+          docker run -d -e MYSQL_ROOT_PASSWORD=$PASSWORD -p 3306:3306 ghcr.io/avinyafoundation/global-data-db:${{ github.ref_name }}
       - name: (Local Only) Test ballerina project
         if: ${{ env.ACT }}
         uses: ballerina-platform/ballerina-action@394eb82cc07e020948fee8d1474143ae393147f4

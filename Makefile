@@ -19,8 +19,8 @@ all: ## Cleans up docker containers, and runs GitHub workflows with act
 
 .PHONY: db-run
 db-run: ## Build and run the database container with Docker. This logic is replicated from the `push.yml` workflow.
-	docker build -f db/Dockerfile -t ghcr.io/avinya-foundation/global-data-db:latest .
-	docker run -d -e MYSQL_ROOT_PASSWORD=test -p 3306:3306 ghcr.io/avinya-foundation/global-data-db:latest
+	docker build -f db/Dockerfile -t ghcr.io/avinyafoundation/global-data-db:latest .
+	docker run -d -e MYSQL_ROOT_PASSWORD=test -p 3306:3306 ghcr.io/avinyafoundation/global-data-db:latest
 
 # Util
 #######
