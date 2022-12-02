@@ -10,23 +10,23 @@ public isolated service class ActivityInstanceData {
         string _name = "%" + (name ?: "") + "%";
         int id = activity_id ?: 0;
 
-        ActivityInstance org_raw;
+        ActivityInstance activity_instance_raw;
         if(id > 0) { // activity_instance_id provided, give precedance to that
-            org_raw = check db_client -> queryRow(
+            activity_instance_raw = check db_client -> queryRow(
             `SELECT *
             FROM avinya_db.activity_instance
             WHERE
                 activity_id = ${id};`);
         } else 
         {
-            org_raw = check db_client -> queryRow(
+            activity_instance_raw = check db_client -> queryRow(
             `SELECT *
             FROM avinya_db.activity_instance
             WHERE
                 name_en LIKE ${_name};`);
         }
         
-        self.activity_instance = org_raw.cloneReadOnly();
+        self.activity_instance = activity_instance_raw.cloneReadOnly();
     }
 
     isolated resource function get id() returns int? {

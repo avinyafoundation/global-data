@@ -10,23 +10,23 @@ public isolated service class EvaluationCycleData {
         string _name = "%" + (name ?: "") + "%";
         int id = evaluation_cycle_id ?: 0;
 
-        EvaluationCycle org_raw;
+        EvaluationCycle evaluation_cycle_raw;
         if(id > 0) { // evaluation_cycle_id provided, give precedance to that
-            org_raw = check db_client -> queryRow(
+            evaluation_cycle_raw = check db_client -> queryRow(
             `SELECT *
             FROM avinya_db.evaluation_cycle
             WHERE
                 id = ${id};`);
         } else 
         {
-            org_raw = check db_client -> queryRow(
+            evaluation_cycle_raw = check db_client -> queryRow(
             `SELECT *
             FROM avinya_db.evaluation_cycle
             WHERE
                 name LIKE ${_name};`);
         }
         
-        self.evaluation_cycle = org_raw.cloneReadOnly();
+        self.evaluation_cycle = evaluation_cycle_raw.cloneReadOnly();
     }
 
     isolated resource function get name() returns string? {

@@ -17,14 +17,14 @@ public isolated service class ActivitySequencePlanData {
 
         int _activity_id = activity_id ?: 0;
 
-        ActivitySequencePlan org_raw;
+        ActivitySequencePlan activity_sequence_plan_raw;
         if(_activity_id > 0) { // activity_sequence_plan_id provided, give precedance to that
-            org_raw = check db_client -> queryRow(
+            activity_sequence_plan_raw = check db_client -> queryRow(
             `SELECT *
             FROM avinya_db.activity_sequence_plan
             WHERE
                 activity_id = ${_activity_id};`);
-            self.activity_sequence_plan = org_raw.cloneReadOnly();
+            self.activity_sequence_plan = activity_sequence_plan_raw.cloneReadOnly();
         } 
         
     }
@@ -53,16 +53,28 @@ public isolated service class ActivitySequencePlanData {
         }
     }
 
-    isolated resource function get person_id() returns int? {
+    isolated resource function get person() returns PersonData|error? {
+        int id = 0;
         lock {
-                return self.activity_sequence_plan.person_id;
+            id = self.activity_sequence_plan.person_id ?: 0;
+            if( id == 0) {
+                return null; // no point in querying if person id is null
+            } 
         }
+        
+        return new PersonData((), id);
     }
 
-    isolated resource function get organization_id() returns int? {
+    isolated resource function get organization() returns OrganizationData|error? {
+        int id = 0;
         lock {
-                return self.activity_sequence_plan.organization_id;
+            id = self.activity_sequence_plan.organization_id ?: 0;
+            if( id == 0) {
+                return null; // no point in querying if person id is null
+            } 
         }
+        
+        return new OrganizationData((), id);
     }
 
     isolated resource function get created() returns string? {

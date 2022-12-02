@@ -10,26 +10,26 @@ public isolated service class ApplicationData {
         int id = application_id ?: 0;
 
         if(id > 0) { // application_id provided, give precedance to that
-            Application org_raw = check db_client -> queryRow(
+            Application application_raw = check db_client -> queryRow(
             `SELECT *
             FROM avinya_db.application
             WHERE
                 id = ${id};`);
         
-            self.application = org_raw.cloneReadOnly();
+            self.application = application_raw.cloneReadOnly();
             return ;
         }
 
         int _person_id = person_id ?: 0;
 
         if(_person_id > 0) { 
-            Application org_raw = check db_client -> queryRow(
+            Application application_raw = check db_client -> queryRow(
             `SELECT *
             FROM avinya_db.application
             WHERE
                 person_id = ${_person_id};`);
         
-            self.application = org_raw.cloneReadOnly();
+            self.application = application_raw.cloneReadOnly();
             return ;
         }
 
@@ -112,13 +112,13 @@ public isolated service class ApplicationStatusData {
         int _application_id = application_id ?: 0;
 
         if(_application_id > 0) { // application_status_id provided, give precedance to that
-            ApplicationStatus org_raw = check db_client -> queryRow(
+            ApplicationStatus application_raw = check db_client -> queryRow(
             `SELECT *
             FROM avinya_db.application_status
             WHERE
                 application_id = ${_application_id};`);
             
-            self.application_status = org_raw.cloneReadOnly();
+            self.application_status = application_raw.cloneReadOnly();
         } 
         
         

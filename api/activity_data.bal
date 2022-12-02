@@ -10,23 +10,23 @@ public isolated service class ActivityData {
         string _name = "%" + (name ?: "") + "%";
         int id = activity_id ?: 0;
 
-        Activity org_raw;
+        Activity activity_raw;
         if(id > 0) { // activity_id provided, give precedance to that
-            org_raw = check db_client -> queryRow(
+            activity_raw = check db_client -> queryRow(
             `SELECT *
             FROM avinya_db.activity
             WHERE
                 id = ${id};`);
         } else 
         {
-            org_raw = check db_client -> queryRow(
+            activity_raw = check db_client -> queryRow(
             `SELECT *
             FROM avinya_db.activity
             WHERE
                 name_en LIKE ${_name};`);
         }
         
-        self.activity = org_raw.cloneReadOnly();
+        self.activity = activity_raw.cloneReadOnly();
     }
 
     isolated resource function get id() returns int? {
@@ -67,9 +67,9 @@ public isolated service class ActivityData {
 
     isolated resource function get child_activities() returns ActivityData[]|error? {
         // Get list of child activitys
-        stream<ParentChildActivity, error?> child_org_ids;
+        stream<ParentChildActivity, error?> child_activity_ids;
         lock {
-            child_org_ids = db_client->query(
+            child_activity_ids = db_client->query(
                 `SELECT *
                 FROM avinya_db.parent_child_activity
                 WHERE parent_activity_id = ${self.activity.id}`
@@ -78,22 +78,22 @@ public isolated service class ActivityData {
 
         ActivityData[] child_orgs = [];
 
-        check from ParentChildActivity pco in child_org_ids
+        check from ParentChildActivity pco in child_activity_ids
             do {
                 ActivityData|error candidate_org = new ActivityData((), pco.child_activity_id);
                 if !(candidate_org is error) {
                     child_orgs.push(candidate_org);
                 }
             };
-        check child_org_ids.close();
+        check child_activity_ids.close();
         return child_orgs;
     }
 
     isolated resource function get parent_activitys() returns ActivityData[]|error? {
         // Get list of child activitys
-        stream<ParentChildActivity, error?> parent_org_ids;
+        stream<ParentChildActivity, error?> parent_activity_ids;
         lock {
-            parent_org_ids = db_client->query(
+            parent_activity_ids = db_client->query(
                 `SELECT *
                 FROM avinya_db.parent_child_activity
                 WHERE child_activity_id = ${self.activity.id}`
@@ -102,14 +102,14 @@ public isolated service class ActivityData {
 
         ActivityData[] parent_orgs = [];
 
-        check from ParentChildActivity pco in parent_org_ids
+        check from ParentChildActivity pco in parent_activity_ids
             do {
                 ActivityData|error candidate_org = new ActivityData((), pco.parent_activity_id);
                 if !(candidate_org is error) {
                     parent_orgs.push(candidate_org);
                 }
             };
-        check parent_org_ids.close();
+        check parent_activity_ids.close();
         return parent_orgs;
     }
 

@@ -10,12 +10,12 @@ public isolated service class EvaluationData {
         int id = evaluation_id ?: 0;
 
         if(id > 0) { // evaluation_id provided, give precedance to that
-            Evaluation org_raw = check db_client -> queryRow(
+            Evaluation evaluation_raw = check db_client -> queryRow(
             `SELECT *
             FROM avinya_db.evaluation
             WHERE
                 id = ${id};`);
-            self.evaluation = org_raw.cloneReadOnly();
+            self.evaluation = evaluation_raw.cloneReadOnly();
         } 
         
     }
@@ -121,12 +121,12 @@ public isolated service class EvaluationMetadataData {
         int id = evaluation_id ?: 0;
 
         if(id > 0) { // metadata_id provided, give precedance to that
-            EvaluationMetadata org_raw = check db_client -> queryRow(
+            EvaluationMetadata evaluation_raw = check db_client -> queryRow(
             `SELECT *
             FROM avinya_db.metadata
             WHERE
                 id = ${id};`);
-            self.metadata = org_raw.cloneReadOnly();
+            self.metadata = evaluation_raw.cloneReadOnly();
         } 
         
     }

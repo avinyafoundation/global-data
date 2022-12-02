@@ -10,12 +10,12 @@ public isolated service class EducationExperienceData {
         int id = education_experience_id ?: 0;
 
         if(id > 0) { // education_experience_id provided, give precedance to that
-            EducationExperience org_raw = check db_client -> queryRow(
+            EducationExperience education_experience_raw = check db_client -> queryRow(
             `SELECT *
             FROM avinya_db.education_experience
             WHERE
                 id = ${id};`);
-            self.education_experience = org_raw.cloneReadOnly();
+            self.education_experience = education_experience_raw.cloneReadOnly();
 
         } 
         
@@ -59,12 +59,12 @@ public isolated service class EducationExperienceEvaluationData {
         int id = education_experience_evaluation_id ?: 0;
 
         if(id > 0) { // education_experience_evaluation_id provided, give precedance to that
-            EducationExperienceEvaluation org_raw = check db_client -> queryRow(
+            EducationExperienceEvaluation education_experience_raw = check db_client -> queryRow(
             `SELECT *
             FROM avinya_db.education_experience_evaluation
             WHERE
                 id = ${id};`);
-            self.education_experience_evaluation = org_raw.cloneReadOnly();
+            self.education_experience_evaluation = education_experience_raw.cloneReadOnly();
         } 
         
     }

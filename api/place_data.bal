@@ -10,23 +10,23 @@ public isolated service class PlaceData {
         string _name = "%" + (name ?: "") + "%";
         int id = place_id ?: 0;
 
-        Place org_raw;
+        Place place_raw;
         if(id > 0) { // place_id provided, give precedance to that
-            org_raw = check db_client -> queryRow(
+            place_raw = check db_client -> queryRow(
             `SELECT *
             FROM avinya_db.place
             WHERE
                 id = ${id};`);
         } else 
         {
-            org_raw = check db_client -> queryRow(
+            place_raw = check db_client -> queryRow(
             `SELECT *
             FROM avinya_db.place
             WHERE
                 name_en LIKE ${_name};`);
         }
         
-        self.place = org_raw.cloneReadOnly();
+        self.place = place_raw.cloneReadOnly();
     }
 
     isolated resource function get id() returns int? {
@@ -112,52 +112,50 @@ public isolated service class PlaceData {
 
     isolated resource function get child_activities() returns PlaceData[]|error? {
         // Get list of child places
-        stream<ParentChildPlace, error?> child_org_ids;
+        stream<ParentChildPlace, error?> child_place_ids;
         lock {
-            child_org_ids = db_client->query(
+            child_place_ids = db_client->query(
                 `SELECT *
                 FROM avinya_db.parent_child_place
                 WHERE parent_place_id = ${self.place.id}`
             );
         }
 
-        PlaceData[] child_orgs = [];
+        PlaceData[] child_places = [];
 
-        check from ParentChildPlace pco in child_org_ids
+        check from ParentChildPlace pc_place in child_place_ids
             do {
-                PlaceData|error candidate_org = new PlaceData((), pco.child_place_id);
-                if !(candidate_org is error) {
-                    child_orgs.push(candidate_org);
+                PlaceData|error candidate_place = new PlaceData((), pc_place.child_place_id);
+                if !(candidate_place is error) {
+                    child_places.push(candidate_place);
                 }
             };
-        check child_org_ids.close();
-        return child_orgs;
+        check child_place_ids.close();
+        return child_places;
     }
 
     isolated resource function get parent_places() returns PlaceData[]|error? {
         // Get list of child places
-        stream<ParentChildPlace, error?> parent_org_ids;
+        stream<ParentChildPlace, error?> parent_place_ids;
         lock {
-            parent_org_ids = db_client->query(
+            parent_place_ids = db_client->query(
                 `SELECT *
                 FROM avinya_db.parent_child_place
                 WHERE child_place_id = ${self.place.id}`
             );
         }
 
-        PlaceData[] parent_orgs = [];
+        PlaceData[] parent_places = [];
 
-        check from ParentChildPlace pco in parent_org_ids
+        check from ParentChildPlace pc_place in parent_place_ids
             do {
-                PlaceData|error candidate_org = new PlaceData((), pco.parent_place_id);
-                if !(candidate_org is error) {
-                    parent_orgs.push(candidate_org);
+                PlaceData|error candidate_place = new PlaceData((), pc_place.parent_place_id);
+                if !(candidate_place is error) {
+                    parent_places.push(candidate_place);
                 }
             };
-        check parent_org_ids.close();
-        return parent_orgs;
-    }
-
-    
+        check parent_place_ids.close();
+        return parent_places;
+    }    
     
 }

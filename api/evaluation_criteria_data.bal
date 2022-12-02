@@ -10,23 +10,23 @@ public isolated service class EvaluationCriteriaData {
         string _prompt = "%" + (prompt ?: "") + "%";
         int id = evaluation_criteria_id ?: 0;
 
-        EvaluationCriteria org_raw;
+        EvaluationCriteria evaluation_criteria_raw;
         if(id > 0) { // evaluation_criteria_id provided, give precedance to that
-            org_raw = check db_client -> queryRow(
+            evaluation_criteria_raw = check db_client -> queryRow(
             `SELECT *
             FROM avinya_db.evaluation_criteria
             WHERE
                 id = ${id};`);
         } else 
         {
-            org_raw = check db_client -> queryRow(
+            evaluation_criteria_raw = check db_client -> queryRow(
             `SELECT *
             FROM avinya_db.evaluation_criteria
             WHERE
                 prompt LIKE ${_prompt};`);
         }
         
-        self.evaluation_criteria = org_raw.cloneReadOnly();
+        self.evaluation_criteria = evaluation_criteria_raw.cloneReadOnly();
     }
 
     isolated resource function get prompt() returns string? {
@@ -112,23 +112,23 @@ public isolated service class EvaluationCriteriaAnswerOptionData {
         string _answer = "%" + (answer ?: "") + "%";
         int id = evaluation_criteria_answer_option_id ?: 0;
 
-        EvaluationCriteriaAnswerOption org_raw;
+        EvaluationCriteriaAnswerOption evaluation_criteria_raw;
         if(id > 0) { // evaluation_criteria_answer_option_id provided, give precedance to that
-            org_raw = check db_client -> queryRow(
+            evaluation_criteria_raw = check db_client -> queryRow(
             `SELECT *
             FROM avinya_db.evaluation_criteria_answer_option
             WHERE
                 id = ${id};`);
         } else 
         {
-            org_raw = check db_client -> queryRow(
+            evaluation_criteria_raw = check db_client -> queryRow(
             `SELECT *
             FROM avinya_db.evaluation_criteria_answer_option
             WHERE
                 answer LIKE ${_answer};`);
         }
         
-        self.evaluation_criteria_answer_option = org_raw.cloneReadOnly();
+        self.evaluation_criteria_answer_option = evaluation_criteria_raw.cloneReadOnly();
     }
 
     isolated resource function get answer() returns string? {

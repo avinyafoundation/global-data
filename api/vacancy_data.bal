@@ -10,23 +10,23 @@ public isolated service class VacancyData {
         string _name = "%" + (name ?: "") + "%";
         int id = vacancy_id ?: 0;
 
-        Vacancy org_raw;
+        Vacancy vacancy_raw;
         if(id > 0) { // vacancy_id provided, give precedance to that
-            org_raw = check db_client -> queryRow(
+            vacancy_raw = check db_client -> queryRow(
             `SELECT *
             FROM avinya_db.vacancy
             WHERE
                 id = ${id};`);
         } else 
         {
-            org_raw = check db_client -> queryRow(
+            vacancy_raw = check db_client -> queryRow(
             `SELECT *
             FROM avinya_db.vacancy
             WHERE
                 name LIKE ${_name};`);
         }
         
-        self.vacancy = org_raw.cloneReadOnly();
+        self.vacancy = vacancy_raw.cloneReadOnly();
     }
 
     isolated resource function get id() returns int? {
