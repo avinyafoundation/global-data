@@ -107,12 +107,12 @@ CREATE TABLE IF NOT EXISTS activity_participant (
 CREATE TABLE IF NOT EXISTS activity_participant_attendance (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     person_id INT NOT NULL,
-    activity_id INT NOT NULL,
+    activity_instance_id INT NOT NULL,
     sign_in_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     sign_out_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (activity_id) REFERENCES activity(id),
+    FOREIGN KEY (activity_instance_id) REFERENCES activity_instance(id),
     FOREIGN KEY (person_id) REFERENCES person(id)
 );
 
