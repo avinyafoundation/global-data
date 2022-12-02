@@ -16,24 +16,24 @@ The main features are:
 
 ## Component Documentation
 
-- [GraphQL API Ballerina Documentation](https://avinya-foundation.github.io/global-data/api_doc/)
+- [GraphQL API Ballerina Documentation](https://avinyafoundation.github.io/global-data/api_doc/)
 - [GraphQL Client Ballerina Documentation (on Central)](https://lib.ballerina.io/avinyafoundation/global_data_client/latest)
 
 ## Project Status
 
-### Build and Test | ![Build and test pipeline](https://github.com/Avinya-Foundation/global-data/actions/workflows/push.yml/badge.svg)
+### Build and Test | ![Build and test pipeline](https://github.com/avinyafoundation/global-data/actions/workflows/push.yml/badge.svg)
 
 *Build project and run tests*
 
 Builds database container, and pushes to `ghcr.io`. Builds the `api/` ballerina project, and runs tests. Generates GraphQL client from the schema in `api/schema`.
 
-### Generate Project Documentation | ![GitHub Pages pipeline](https://github.com/Avinya-Foundation/global-data/actions/workflows/pages.yml/badge.svg)
+### Generate Project Documentation | ![GitHub Pages pipeline](https://github.com/avinyafoundation/global-data/actions/workflows/pages.yml/badge.svg)
 
 *Generate project documentation*
 
 Use `bal doc` to build ballerina API documentation for the `api`. Adds these artifacts to the `gh-pages` branch, and sets up a Jekyll site with the [Cayman](https://github.com/pages-themes/cayman) theme.
 
-### Release Pipeline | ![Release pipeline](https://github.com/Avinya-Foundation/global-data/actions/workflows/release.yml/badge.svg)
+### Release Pipeline | ![Release pipeline](https://github.com/avinyafoundation/global-data/actions/workflows/release.yml/badge.svg)
 
 *Main `global-data` release workflow*
 
@@ -41,7 +41,7 @@ Bumps the project version numbers in `Ballerina.toml` files based on the release
 
 ## Development
 
-> Note: GitHub Pages does not yet support mermaid. To see rendered diagrams, look at the [project `README` on GitHub](https://github.com/Avinya-Foundation/global-data#readme).
+> Note: GitHub Pages does not yet support mermaid. To see rendered diagrams, look at the [project `README` on GitHub](https://github.com/avinyafoundation/global-data#readme).
 
 ### CI/CD
 

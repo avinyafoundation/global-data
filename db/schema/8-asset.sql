@@ -1,3 +1,5 @@
+USE avinya_db;
+
 -- Assets 
 CREATE TABLE IF NOT EXISTS asset (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -22,7 +24,7 @@ CREATE TABLE IF NOT EXISTS asset_property (
     value VARCHAR(256) DEFAULT NULL,
     FOREIGN KEY (asset_id) REFERENCES asset(id)
 );
- 
+
 -- Asset Allocation
 CREATE TABLE IF NOT EXISTS asset_allocation (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -55,6 +57,7 @@ CREATE TABLE IF NOT EXISTS product (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(256) NOT NULL,
     description TEXT DEFAULT NULL,
+    avinya_type_id INT NOT NULL,
     manufacturer VARCHAR(256) DEFAULT NULL,
     model VARCHAR(256) DEFAULT NULL,
     serial_number VARCHAR(256) DEFAULT NULL,
@@ -77,7 +80,7 @@ CREATE TABLE IF NOT EXISTS product_supplier (
     product_id INT NOT NULL,
     supplier_id INT DEFAULT NULL,
     person_id INT DEFAULT NULL,
-    order_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    order_date DATE NOT NULL DEFAULT (CURRENT_DATE),
     delivery_date DATE DEFAULT NULL,
     order_id VARCHAR(256) DEFAULT NULL,
     order_amount INT DEFAULT 0,
@@ -125,6 +128,7 @@ CREATE TABLE IF NOT EXISTS service (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(256) NOT NULL,
     description TEXT DEFAULT NULL,
+    avinya_type_id INT NOT NULL,
     created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (avinya_type_id) REFERENCES avinya_type(id)
@@ -144,7 +148,7 @@ CREATE TABLE IF NOT EXISTS service_supplier (
     service_id INT NOT NULL,
     supplier_id INT DEFAULT NULL,
     person_id INT DEFAULT NULL,
-    order_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    order_date DATE NOT NULL DEFAULT (CURRENT_DATE),
     delivery_date DATE DEFAULT NULL,
     order_id VARCHAR(256) DEFAULT NULL,
     order_amount INT DEFAULT 0,
