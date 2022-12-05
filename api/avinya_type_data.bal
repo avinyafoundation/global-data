@@ -2,7 +2,13 @@
 public isolated service class AvinyaTypeData {
     private AvinyaType avinya_type;
 
-    isolated function init(int id) returns error? {
+    isolated function init(int id, AvinyaType? avinyaType = null) returns error? {
+        
+        if(avinyaType != null) { // if avinyaType is provided, then use that and do not load from DB
+            self.avinya_type = avinyaType.cloneReadOnly();
+            return;
+        }
+
         AvinyaType avinya_type_raw = check db_client -> queryRow(
             `SELECT *
             FROM avinya_db.avinya_type
@@ -10,6 +16,12 @@ public isolated service class AvinyaTypeData {
         );
 
         self.avinya_type = avinya_type_raw.cloneReadOnly();
+    }
+
+    isolated resource function get id() returns int?|error {
+        lock {
+            return self.avinya_type.id;
+        }
     }
 
     isolated resource function get active() returns boolean|error {

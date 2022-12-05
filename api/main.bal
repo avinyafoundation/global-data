@@ -10,6 +10,29 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return new ();
     }
 
+    resource function get avinya_types() returns AvinyaTypeData[]|error {
+        stream<AvinyaType, error?> avinyaTypes;
+        lock {
+            avinyaTypes = db_client->query(
+                `SELECT *
+                FROM avinya_db.avinya_type`
+            );
+        }
+
+        AvinyaTypeData[] avinyaTypeDatas = [];
+
+        check from AvinyaType avinyaType in avinyaTypes
+            do {
+                AvinyaTypeData|error avinyaTypeData = new AvinyaTypeData(0, avinyaType);
+                if !(avinyaTypeData is error) {
+                    avinyaTypeDatas.push(avinyaTypeData);
+                }
+            };
+
+        check avinyaTypes.close();
+        return avinyaTypeDatas;
+    }
+
     isolated resource function get organization_structure(string? name, int? id) returns OrganizationStructureData|error? {
         return new (name, id);
     }
@@ -54,10 +77,6 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         return error("Applicant does not exist for given sub id: " + (jwt_sub_id?:""));
         
-    }
-
-    isolated resource function get activity(string? name, int? id = 0) returns ActivityData|error? {
-        return new (name, id);
     }
 
     remote function  add_student_applicant(Person person) returns PersonData|error? {
@@ -374,6 +393,35 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         }
 
         return new ((), insert_id);
+    }
+
+    // Activity entry point is the activity name. e.g "School Day"
+    // then we can get the list of activity instances related to that activity 
+    isolated resource function get activity(string? name, int? id = 0) returns ActivityData|error? {
+        return new (name, id);
+    }
+
+    remote function add_attendance(ActivityParticipantAttendance attendance) returns ActivityParticipantAttendanceData|error? {
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO avinya_db.attendance (
+                activity_instance_id,
+                person_id,
+                sign_in_time,
+                sign_out_time
+            ) VALUES (
+                ${attendance.activity_instance_id},
+                ${attendance.person_id},
+                ${attendance.sign_in_time},
+                ${attendance.sign_out_time}
+            );`
+        );
+
+        int|string? insert_id = res.lastInsertId;
+        if !(insert_id is int) {
+            return error("Unable to insert attendance");
+        }
+
+        return new(insert_id);
     }
 
 
