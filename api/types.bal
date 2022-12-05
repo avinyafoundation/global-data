@@ -366,7 +366,7 @@ public type ActivityParticipantAttendance record {|
     readonly string? record_type = "activity_participant_attendance";
     int id?;
     int? person_id;
-    int? activity_id;
+    int? activity_instance_id;
     string? sign_in_time;
     string? sign_out_time;
     string? created;

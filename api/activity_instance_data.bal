@@ -112,5 +112,77 @@ public isolated service class ActivityInstanceData {
         
         return new PlaceData((), id);
     }
+
+    isolated resource function get activity_participants() returns ActivityParticipantData[]|error? {
+        stream<ActivityParticipant, error?> activityParticipants;
+        lock {
+            activityParticipants = db_client->query(
+                `SELECT *
+                FROM avinya_db.activity_participant
+                WHERE activity_instance_id = ${self.activity_instance.id}`
+            );
+        }
+
+        ActivityParticipantData[] activityParticipantDatas = [];
+
+        check from ActivityParticipant activityParticipant in activityParticipants
+            do {
+                ActivityParticipantData|error activityParticipantData = new ActivityParticipantData(0, activityParticipant);
+                if !(activityParticipantData is error) {
+                    activityParticipantDatas.push(activityParticipantData);
+                }
+            };
+
+        check activityParticipants.close();
+        return activityParticipantDatas;
+    }
+
+    isolated resource function get activity_participant_attendances() returns ActivityParticipantAttendanceData[]|error? {
+        stream<ActivityParticipantAttendance, error?> activityParticipantAttendances;
+        lock {
+            activityParticipantAttendances = db_client->query(
+                `SELECT *
+                FROM avinya_db.activity_participant_attendance
+                WHERE activity_instance_id = ${self.activity_instance.id}`
+            );
+        }
+
+        ActivityParticipantAttendanceData[] activityParticipantAttendanceDatas = [];
+
+        check from ActivityParticipantAttendance activityParticipantAttendance in activityParticipantAttendances
+            do {
+                ActivityParticipantAttendanceData|error activityParticipantAttendanceData = new ActivityParticipantAttendanceData(0, activityParticipantAttendance);
+                if !(activityParticipantAttendanceData is error) {
+                    activityParticipantAttendanceDatas.push(activityParticipantAttendanceData);
+                }
+            };
+
+        check activityParticipantAttendances.close();
+        return activityParticipantAttendanceDatas;
+    }
+
+    isolated resource function get evaluations() returns EvaluationData[]|error? {
+        stream<Evaluation, error?> evaluations;
+        lock {
+            evaluations = db_client->query(
+                `SELECT *
+                FROM avinya_db.evaluation
+                WHERE activity_instance_id = ${self.activity_instance.id}`
+            );
+        }
+
+        EvaluationData[] evaluationDatas = [];
+
+        check from Evaluation evaluation in evaluations
+            do {
+                EvaluationData|error evaluationData = new EvaluationData(0, evaluation);
+                if !(evaluationData is error) {
+                    evaluationDatas.push(evaluationData);
+                }
+            };
+
+        check evaluations.close();
+        return evaluationDatas;
+    }
     
 }
