@@ -27,3 +27,16 @@ CREATE TABLE IF NOT EXISTS person (
     FOREIGN KEY (organization_id) REFERENCES organization(id),
     FOREIGN KEY (avinya_type_id) REFERENCES avinya_type(id)
 );
+
+-- Person Avinya Type Transision History
+CREATE TABLE IF NOT EXISTS person_avinya_type_transition_history (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    person_id INT NOT NULL,
+    previous_avinya_type_id INT NOT NULL,
+    new_avinya_type_id INT NOT NULL,
+    transition_date DATE NOT NULL,
+    created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (person_id) REFERENCES person(id),
+    FOREIGN KEY (avinya_type_id) REFERENCES avinya_type(id)
+);
