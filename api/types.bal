@@ -402,27 +402,6 @@ public type Asset record {|
     string? updated;
 |};
 
-public type AssetProperty record {|
-    readonly string? record_type = "asset_property";
-    int id?;
-    int? asset_id;
-    string? property;
-    string? value;
-|};
-
-public type AssetAllocation record {|
-    readonly string? record_type = "asset_allocation";
-    int id?;
-    int? asset_id;
-    int? organization_id;
-    int? person_id;
-    string? start_date;
-    string? end_date;
-    string? created;
-    string? updated;
-|};
-
-
 public type Supplier record {|
     readonly string? record_type = "supplier";
     int id?;
@@ -435,9 +414,10 @@ public type Supplier record {|
     string? updated;
 |};
 
-public type Product record {|
-    readonly string? record_type = "product";
+public type Consumable record {|
+    readonly string? record_type = "consumable";
     int id?;
+    int? avinya_type_id;
     string? name;
     string? description;
     string? manufacturer;
@@ -447,18 +427,20 @@ public type Product record {|
     string? updated;
 |};
 
-public type ProductProperty record {|
-    readonly string? record_type = "product_property";
+public type ResourceProperty record {|
+    readonly string? record_type = "resource_property";
     int id?;
-    int? product_id;
+    int? asset_id;
+    int? consumable_id;
     string? property;
     string? value;
 |};
 
-public type ProductSupplier record {|
-    readonly string? record_type = "product_supplier";
+public type Supply record {|
+    readonly string? record_type = "supply";
     int id?;
-    int? product_id;
+    int? asset_id;
+    int? consumable_id;
     int? supplier_id;
     int? person_id;
     string? order_date;
@@ -469,10 +451,11 @@ public type ProductSupplier record {|
     string? updated;
 |};
 
-public type ProductAllocation record {|
-    readonly string? record_type = "product_allocation";
+public type ResourceAllocation record {|
+    readonly string? record_type = "resource_allocation";
     int id?;
-    int? product_id;
+    int? asset_id;
+    int? consumable_id;
     int? organization_id;
     int? person_id;
     int? quantity;
@@ -482,71 +465,11 @@ public type ProductAllocation record {|
     string? updated;
 |};
 
-
-
-
-public type ProductInventory record {|
-    readonly string? record_type = "product_inventory";
+public type Inventory record {|
+    readonly string? record_type = "inventory";
     int id?;
-    int? product_id;
-    int? organization_id;
-    int? person_id;
-    int? quantity;
-    int? quantity_in;
-    int? quantity_out;
-    string? created;
-    string? updated;
-|};
-
-public type Service record {|
-    readonly string? record_type = "service";
-    int id?;
-    string? name;
-    string? description;
-    string? created;
-    string? updated;
-|};
-
-public type ServiceProperty record {|
-    readonly string? record_type = "service_property";
-    int id?;
-    int? service_id;
-    string? property;
-    string? value;
-|};
-
-
-public type ServiceSupplier record {|
-    readonly string? record_type = "service_supplier";
-    int id?;
-    int? service_id;
-    int? supplier_id;
-    int? person_id;
-    string? order_date;
-    string? delivery_date;
-    string? order_id;
-    int? order_amount;
-    string? created;
-    string? updated;
-|};
-
-public type ServiceAllocation record {|
-    readonly string? record_type = "service_allocation";
-    int id?;
-    int? service_id;
-    int? organization_id;
-    int? person_id;
-    int? quantity;
-    string? start_date;
-    string? end_date;
-    string? created;
-    string? updated;
-|};
-
-public type ServiceInventory record {|
-    readonly string? record_type = "service_inventory";
-    int id?;
-    int? service_id;
+    int? asset_id;
+    int? consumable_id;
     int? organization_id;
     int? person_id;
     int? quantity;

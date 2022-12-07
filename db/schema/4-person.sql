@@ -38,5 +38,6 @@ CREATE TABLE IF NOT EXISTS person_avinya_type_transition_history (
     created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (person_id) REFERENCES person(id),
-    FOREIGN KEY (avinya_type_id) REFERENCES avinya_type(id)
+    FOREIGN KEY (previous_avinya_type_id) REFERENCES avinya_type(id),
+    FOREIGN KEY (new_avinya_type_id) REFERENCES avinya_type(id)
 );
