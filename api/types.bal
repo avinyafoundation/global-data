@@ -59,6 +59,7 @@ public type AvinyaType record{|
     boolean active;
     string global_type;
     string? name;
+    string? description;
     string? foundation_type;
     string? focus;
     int? level;
@@ -103,6 +104,8 @@ public type Person record {|
     string? email;
     Address? permanent_address;
     Address? mailing_address;
+    string? created;
+    string? updated;
 |};
 
 public type EvaluationCycle record {|
