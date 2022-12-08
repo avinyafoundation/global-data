@@ -447,7 +447,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
             return error("Parent already exists. The phone, email or the social login account you are using is already used by another parent");
         }
         
-        sql:ExecutionResult|error res = db_client->execute(
+        sql:ExecutionResult res = check db_client->execute(
             `INSERT INTO avinya_db.person (
                 preferred_name,
                 full_name,
@@ -474,22 +474,44 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 ${person.jwt_email}
             );`
         );
-        
-        if (res is sql:ExecutionResult) {
-            
-            int|string? insert_id = res.lastInsertId;
+
+        int|string? insert_id = res.lastInsertId;
             if !(insert_id is int) {
                 return error("Unable to insert parent");
             }
+        
+        // Insert child and parent student relationships
+        int[] child_student_ids = person.child_student ?: [];
+        int[] parent_student_ids = person.parent_student ?: [];
 
-            return new((), insert_id); 
-        } 
-            
-        return error("Error while inserting data", res);
+        foreach int child_idx in child_student_ids {
+            _ = check db_client->execute(
+                `INSERT INTO avinya_db.parent_child_student (
+                    child_student_id,
+                    parent_student_id
+                ) VALUES (
+                    ${child_idx}, ${insert_id}
+                );` 
+            );
+        }
+
+        foreach int parent_idx in parent_student_ids {
+            _ = check db_client->execute(
+                `INSERT INTO avinya_db.parent_child_student (
+                    child_student_id,
+                    parent_student_id
+                ) VALUES (
+                    ${insert_id}, ${parent_idx}
+                );` 
+            );
+        }
+
+        return new ((), insert_id);
         
     }
 
-    remote function  update_application_status(string applicationStatus, int applicationId) returns ApplicationData|error? {
+    
+    remote function  update_application_status(string applicationStatus, int applicationId) returns ApplicationStatusData|error? {
         
         ApplicationStatus|error? appStatusRaw = db_client -> queryRow(
             `SELECT *
@@ -498,72 +520,88 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         );
 
-        if(appStatusRaw is error){
+        if !(appStatusRaw is ApplicationStatus){
             return error("Application status does not exist");
         }
 
-        // else add new application_status
-
+        // add new application_status
         sql:ExecutionResult|error res = db_client->execute(
             `UPDATE avinya_db.application_status
             SET status = ${applicationStatus}
             WHERE(application_id = ${applicationId});`
         );
 
-        // how to check success when doing an update?
-
-        // if (res is sql:ExecutionResult) {
+        if (res is sql:ExecutionResult) {
             
-        //     int|string? insert_id = res.lastInsertId;
-        //     if !(insert_id is int) {
-        //         return error("Unable to update application status");
-        //     }
+            int? insert_count = res.affectedRowCount;
+            if !(insert_count > <int?>0) {
+                return error("Unable to update application status");
+            }
 
-        //     return new((), insert_id); 
-        // } 
+            return new((), appStatusRaw); 
+        } 
             
         return error("Error while inserting data", res);
 
     }
 
-    // remote function  add_application_status(ApplicationStatus applicationStatus) returns ApplicationData|error? {
-    //     ApplicationStatus|error? appStatusRaw = db_client -> queryRow(
-    //         `SELECT *
-    //         FROM avinya_db.application_status
-    //         WHERE(application_id = ${applicationStatus.application_id});`
+    remote function update_avinya_type(int personId, int newAvinyaId, string transitionDate) returns AvinyaTypeData|error?{
+        Person|error? personRaw = db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.person
+            WHERE (id = ${personId});`
+        );
 
-    //     );
+        if !(personRaw is Person){
+            return error("Person does not exist");
+        }
 
-    //     // if already present
-    //     if(appStatusRaw is ApplicationStatus){
-    //         return error("Application status already exists");
-    //     }
+        // add to person_avinya_type_transition_history
+        sql:ExecutionResult|error? resAdd = db_client -> execute(
+            `INSERT INTO avinya_db.person_avinya_type_transition_history(
+                    person_id,
+                    previous_avinya_type_id,
+                    new_avinya_type_id,
+                    transition_date
+                ) VALUES (
+                    ${personId},
+                    ${personRaw.avinya_type_id},
+                    ${newAvinyaId},
+                    ${transitionDate}  
+                );`
+        );
 
-    //     sql:ExecutionResult|error res = db_client->execute(
-    //         `INSERT INTO avinya_db.application_status(
-    //             application_id,
-    //             status,
-    //             is_terminal
-    //         ) VALUES (
-    //             ${applicationStatus.application_id},
-    //             ${applicationStatus.status},
-    //             ${applicationStatus.status},
-    //             ${applicationStatus.is_terminal}
-    //         );`
-    //     );
+        // update avinya_type_id in Person
+        sql:ExecutionResult|error? resUpdate = db_client -> execute(
+            `UPDATE avinya_db.person
+            SET avinya_type_id = ${newAvinyaId}
+            WHERE(id = ${personId});`
+        );
 
-    //     if (res is sql:ExecutionResult) {
+        if (resUpdate is sql:ExecutionResult) {
             
-    //         int|string? insert_id = res.lastInsertId;
-    //         if !(insert_id is int) {
-    //             return error("Unable to update application status");
-    //         }
+            int? insert_count = resUpdate.affectedRowCount;
+            if !(insert_count is int) {
+                return error("Unable to update person's avinya type");
+            }
+        } 
+        else{
+            return error("Error while updating data", resUpdate); 
+        } 
 
-    //         return new((), insert_id); 
-    //     } 
+        if (resAdd is sql:ExecutionResult) {
             
-    //     return error("Error while inserting data", res);
-    // }
+            int|string? insert_id = resAdd.lastInsertId;
+            if !(insert_id is int) {
+                return error("Unable to insert person_avinya_type_transition_history");
+            }
+
+            return new(insert_id); 
+        } 
+            
+        return error("Error while inserting data", resAdd);
+               
+    }
 
 
 }

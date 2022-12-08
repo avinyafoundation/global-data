@@ -41,3 +41,11 @@ CREATE TABLE IF NOT EXISTS person_avinya_type_transition_history (
     FOREIGN KEY (previous_avinya_type_id) REFERENCES avinya_type(id),
     FOREIGN KEY (new_avinya_type_id) REFERENCES avinya_type(id)
 );
+
+CREATE TABLE IF NOT EXISTS parent_child_student(
+    child_student_id INT NOT NULL,
+    parent_student_id INT NOT NULL,
+    FOREIGN KEY (child_student_id) REFERENCES person(id),
+    FOREIGN KEY (parent_student_id) REFERENCES person(id),
+    CONSTRAINT pk_parent_child_student PRIMARY KEY (child_student_id, parent_student_id)
+);
