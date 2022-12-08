@@ -163,4 +163,52 @@ public isolated service class PersonData {
         }
     }
 
+    isolated resource function get child_students() returns PersonData[]|error? {
+        // Get list of child organizations
+        stream<ParentChildStudent, error?> child_student_ids;
+        lock {
+            child_student_ids = db_client->query(
+                `SELECT *
+                FROM avinya_db.parent_child_student
+                WHERE parent_student_id = ${self.person.id}`
+            );
+        }
+
+        PersonData[] child_students = [];
+
+        check from ParentChildStudent pcs in child_student_ids
+            do {
+                PersonData|error candidate_person = new PersonData((), pcs.child_student_id);
+                if !(candidate_person is error) {
+                    child_students.push(candidate_person);
+                }
+            };
+        check child_student_ids.close();
+        return child_students;
+    }
+
+    isolated resource function get parent_students() returns PersonData[]|error? {
+        // Get list of child organizations
+        stream<ParentChildStudent, error?> parent_student_ids;
+        lock {
+            parent_student_ids = db_client->query(
+                `SELECT *
+                FROM avinya_db.parent_child_student
+                WHERE child_org_id = ${self.person.id}`
+            );
+        }
+
+        PersonData[] parent_students = [];
+
+        check from ParentChildStudent pcs in parent_student_ids
+            do {
+                PersonData|error candidate_person = new PersonData((), pcs.parent_student_id);
+                if !(candidate_person is error) {
+                    parent_students.push(candidate_person);
+                }
+            };
+        check parent_student_ids.close();
+        return parent_students;
+    }
+
 }

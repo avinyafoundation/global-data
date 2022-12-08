@@ -106,6 +106,24 @@ public type Person record {|
     Address? mailing_address;
     string? created;
     string? updated;
+    int[] child_student?;
+    int[] parent_student?;
+|};
+
+type ParentChildStudent record {|
+    int child_student_id;
+    int parent_student_id;
+|};
+
+type PersonAvinyaTypeTransitionHistory record {|
+    readonly string? record_type = "person_avinya_type_transition_history";
+    int? id;
+    int? person_id;
+    int? previous_avinya_type_id;
+    int? new_avinya_type_id;
+    string? transition_date;
+    string? created;
+    string? updated;
 |};
 
 public type EvaluationCycle record {|
