@@ -424,5 +424,184 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return new(insert_id);
     }
 
+    // ----------------------------------------------------------------------------------------
+
+    remote function  add_empower_parent(Person person) returns PersonData|error? {
+
+        AvinyaType avinya_type_raw = check db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.avinya_type
+            WHERE global_type = "customer" AND  foundation_type = "parent";`
+        );
+
+        Person|error? applicantRaw = db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.person
+            WHERE (email = ${person.email}  OR
+            phone = ${person.phone}
+            jwt_sub_id = ${person.jwt_sub_id}) AND 
+            avinya_type_id = ${avinya_type_raw.id};`
+        );
+        
+        if(applicantRaw is Person) {
+            return error("Parent already exists. The phone, email or the social login account you are using is already used by another parent");
+        }
+        
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO avinya_db.person (
+                preferred_name,
+                full_name,
+                sex,
+                organization_id,
+                phone,
+                email,
+                avinya_type_id,
+                permanent_address_id,
+                mailing_address_id,
+                jwt_sub_id,
+                jwt_email
+            ) VALUES (
+                ${person.preferred_name},
+                ${person.full_name},
+                ${person.sex},
+                ${person.organization_id},
+                ${person.phone},
+                ${person.email},
+                ${avinya_type_raw.id},
+                ${person.permanent_address_id},
+                ${person.mailing_address_id},
+                ${person.jwt_sub_id},
+                ${person.jwt_email}
+            );`
+        );
+
+        int|string? insert_id = res.lastInsertId;
+            if !(insert_id is int) {
+                return error("Unable to insert parent");
+            }
+        
+        // Insert child and parent student relationships
+        int[] child_student_ids = person.child_student ?: [];
+        int[] parent_student_ids = person.parent_student ?: [];
+
+        foreach int child_idx in child_student_ids {
+            _ = check db_client->execute(
+                `INSERT INTO avinya_db.parent_child_student (
+                    child_student_id,
+                    parent_student_id
+                ) VALUES (
+                    ${child_idx}, ${insert_id}
+                );` 
+            );
+        }
+
+        foreach int parent_idx in parent_student_ids {
+            _ = check db_client->execute(
+                `INSERT INTO avinya_db.parent_child_student (
+                    child_student_id,
+                    parent_student_id
+                ) VALUES (
+                    ${insert_id}, ${parent_idx}
+                );` 
+            );
+        }
+
+        return new ((), insert_id);
+        
+    }
+
+    
+    remote function  update_application_status(string applicationStatus, int applicationId) returns ApplicationStatusData|error? {
+        
+        ApplicationStatus|error? appStatusRaw = db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.application_status
+            WHERE(application_id = ${applicationId});`
+
+        );
+
+        if !(appStatusRaw is ApplicationStatus){
+            return error("Application status does not exist");
+        }
+
+        // add new application_status
+        sql:ExecutionResult|error res = db_client->execute(
+            `UPDATE avinya_db.application_status
+            SET status = ${applicationStatus}
+            WHERE(application_id = ${applicationId});`
+        );
+
+        if (res is sql:ExecutionResult) {
+            
+            int? insert_count = res.affectedRowCount;
+            if !(insert_count > <int?>0) {
+                return error("Unable to update application status");
+            }
+
+            return new((), appStatusRaw); 
+        } 
+            
+        return error("Error while inserting data", res);
+
+    }
+
+    remote function update_avinya_type(int personId, int newAvinyaId, string transitionDate) returns AvinyaTypeData|error?{
+        Person|error? personRaw = db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.person
+            WHERE (id = ${personId});`
+        );
+
+        if !(personRaw is Person){
+            return error("Person does not exist");
+        }
+
+        // add to person_avinya_type_transition_history
+        sql:ExecutionResult|error? resAdd = db_client -> execute(
+            `INSERT INTO avinya_db.person_avinya_type_transition_history(
+                    person_id,
+                    previous_avinya_type_id,
+                    new_avinya_type_id,
+                    transition_date
+                ) VALUES (
+                    ${personId},
+                    ${personRaw.avinya_type_id},
+                    ${newAvinyaId},
+                    ${transitionDate}  
+                );`
+        );
+
+        // update avinya_type_id in Person
+        sql:ExecutionResult|error? resUpdate = db_client -> execute(
+            `UPDATE avinya_db.person
+            SET avinya_type_id = ${newAvinyaId}
+            WHERE(id = ${personId});`
+        );
+
+        if (resUpdate is sql:ExecutionResult) {
+            
+            int? insert_count = resUpdate.affectedRowCount;
+            if !(insert_count is int) {
+                return error("Unable to update person's avinya type");
+            }
+        } 
+        else{
+            return error("Error while updating data", resUpdate); 
+        } 
+
+        if (resAdd is sql:ExecutionResult) {
+            
+            int|string? insert_id = resAdd.lastInsertId;
+            if !(insert_id is int) {
+                return error("Unable to insert person_avinya_type_transition_history");
+            }
+
+            return new(insert_id); 
+        } 
+            
+        return error("Error while inserting data", resAdd);
+               
+    }
+
 
 }
