@@ -33,6 +33,60 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return avinyaTypeDatas;
     }
 
+    remote function add_avinya_type(AvinyaType avinya_type) returns AvinyaTypeData|error? {
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO avinya_db.avinya_type (
+                global_type,
+                foundation_type,
+                focus,
+                active,
+                name,
+                description,
+                level
+            ) VALUES (
+                ${avinya_type.global_type},
+                ${avinya_type.foundation_type},
+                ${avinya_type.focus},
+                ${avinya_type.active},
+                ${avinya_type.name},
+                ${avinya_type.description},
+                ${avinya_type.level}
+            );`
+        );
+
+        int|string? insert_id = res.lastInsertId;
+        if !(insert_id is int) {
+            return error("Unable to insert Avinya Type");
+        }
+
+        return new(insert_id);
+    }
+
+    remote function update_avinya_type(AvinyaType avinya_type) returns AvinyaTypeData|error? {
+        int id = avinya_type.id ?: 0;
+        if (id == 0) {
+            return error("Unable to update Avinya Type");
+        }
+
+        sql:ExecutionResult res = check db_client->execute(
+            `UPDATE avinya_db.avinya_type SET
+                global_type = ${avinya_type.global_type},
+                foundation_type = ${avinya_type.foundation_type},
+                focus = ${avinya_type.focus},
+                active = ${avinya_type.active},
+                name = ${avinya_type.name},
+                description = ${avinya_type.description},
+                level = ${avinya_type.level}
+            WHERE id = ${id};`
+        );
+
+        if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+            return error("Unable to update Avinya Type");
+        }
+        
+        return new(id);
+    }
+
     isolated resource function get organization_structure(string? name, int? id) returns OrganizationStructureData|error? {
         return new (name, id);
     }
@@ -545,7 +599,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
     }
 
-    remote function update_avinya_type(int personId, int newAvinyaId, string transitionDate) returns AvinyaTypeData|error?{
+    remote function update_person_avinya_type(int personId, int newAvinyaId, string transitionDate) returns AvinyaTypeData|error?{
         Person|error? personRaw = db_client -> queryRow(
             `SELECT *
             FROM avinya_db.person
