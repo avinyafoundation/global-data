@@ -306,6 +306,8 @@ public type Activity record {|
     string? notes;
     string? created;
     string? updated;
+    int[] child_activities?;
+    int[] parent_activities?;
 |};
 
 public type ActivitySequencePlan record {|

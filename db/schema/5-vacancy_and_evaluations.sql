@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS evaluation_criteria (
     prompt VARCHAR(1024) NOT NULL,
     description VARCHAR(1024) DEFAULT NULL,
     expected_answer VARCHAR(1024) DEFAULT NULL,
-    evalualtion_type VARCHAR(100) DEFAULT 'Essay', -- Essay, Multiple Choice, True/False, Rating
+    evaluation_type VARCHAR(100) DEFAULT 'Essay', -- Essay, Multiple Choice, True/False, Rating
     difficulty VARCHAR(100) DEFAULT 'Medium', -- Easy, Medium, Hard
     rating_out_of INT DEFAULT 5
 );
