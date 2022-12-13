@@ -89,7 +89,7 @@ public isolated service class ActivityData {
         return child_orgs;
     }
 
-    isolated resource function get parent_activitys() returns ActivityData[]|error? {
+    isolated resource function get parent_activities() returns ActivityData[]|error? {
         // Get list of child activitys
         stream<ParentChildActivity, error?> parent_activity_ids;
         lock {

@@ -20,6 +20,12 @@ public isolated service class EvaluationData {
         
     }
 
+    isolated resource function get id() returns int? {
+        lock {
+                return self.evaluation.id;
+        }
+    }
+
     isolated resource function get evaluatee_id() returns int? {
         lock {
             return self.evaluation.evaluatee_id;

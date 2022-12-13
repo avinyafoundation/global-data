@@ -457,7 +457,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
     remote function add_attendance(ActivityParticipantAttendance attendance) returns ActivityParticipantAttendanceData|error? {
         sql:ExecutionResult res = check db_client->execute(
-            `INSERT INTO avinya_db.attendance (
+            `INSERT INTO avinya_db.activity_participant_attendance (
                 activity_instance_id,
                 person_id,
                 sign_in_time,
@@ -477,8 +477,6 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         return new(insert_id);
     }
-
-    // ----------------------------------------------------------------------------------------
 
     remote function  add_empower_parent(Person person) returns PersonData|error? {
 
@@ -563,8 +561,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return new ((), insert_id);
         
     }
-
-    
+ 
     remote function  update_application_status(string applicationStatus, int applicationId) returns ApplicationStatusData|error? {
         
         ApplicationStatus|error? appStatusRaw = db_client -> queryRow(
@@ -655,6 +652,219 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
             
         return error("Error while inserting data", resAdd);
                
+    }
+
+    remote function add_activity(Activity activity) returns ActivityData|error?{
+        Activity|error? activityRaw = db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.activity
+            WHERE (name = ${activity.name} AND
+            avinya_type_id = ${activity.avinya_type_id});`
+        );
+
+        if(activityRaw is Activity) {
+            return error("Activity already exists. The name and avinya_type_id you are using is already used by another activity");
+        }
+
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO avinya_db.activity (
+                name,
+                description,
+                avinya_type_id,
+                notes
+            ) VALUES (
+                ${activity.name},
+                ${activity.description},
+                ${activity.avinya_type_id},
+                ${activity.notes}
+            );`
+        );
+
+        int|string? insert_id = res.lastInsertId;
+        if !(insert_id is int) {
+            return error("Unable to insert activity");
+        }
+
+        // Insert child and parent student relationships
+        int[] child_activities_ids = activity.child_activities ?: [];
+        int[] parent_activities_ids = activity.parent_activities ?: [];
+
+        foreach int child_idx in child_activities_ids {
+            _ = check db_client->execute(
+                `INSERT INTO avinya_db.parent_child_activity (
+                    child_activity_id,
+                    parent_activity_id
+                ) VALUES (
+                    ${child_idx}, ${insert_id}
+                );` 
+            );
+        }
+
+        foreach int parent_idx in parent_activities_ids {
+            _ = check db_client->execute(
+                `INSERT INTO avinya_db.parent_child_activity (
+                    child_activity_id,
+                    parent_activity_id
+                ) VALUES (
+                    ${insert_id}, ${parent_idx}
+                );` 
+            );
+        }
+
+        return new ((), insert_id);
+        
+    }
+
+    remote function add_activity_sequence_plan(ActivitySequencePlan activitySequencePlan) returns ActivitySequencePlanData|error?{
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO avinya_db.activity_sequence_plan (
+                activity_id,
+                sequence_number,
+                timeslot_number,
+                person_id,
+                organization_id
+            ) VALUES (
+                ${activitySequencePlan.activity_id},
+                ${activitySequencePlan.sequence_number},
+                ${activitySequencePlan.timeslot_number},
+                ${activitySequencePlan.person_id},
+                ${activitySequencePlan.organization_id}
+            );`
+        );
+
+        int|string? insert_id = res.lastInsertId;
+        if !(insert_id is int) {
+            return error("Unable to insert activity sequence plan");
+        }
+
+        return new (insert_id);
+    }
+
+    remote function add_activity_instance(ActivityInstance activityInstance) returns ActivityInstanceData|error?{
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO avinya_db.activity_instance (
+                activity_id,
+                name,
+                place_id,
+                daily_sequence,
+                weekly_sequence,
+                monthly_sequence
+            ) VALUES (
+                ${activityInstance.activity_id},
+                ${activityInstance.name},
+                ${activityInstance.place_id},
+                ${activityInstance.daily_sequence},
+                ${activityInstance.weekly_sequence},
+                ${activityInstance.monthly_sequence}
+            );`
+        );
+
+        int|string? insert_id = res.lastInsertId;
+        if !(insert_id is int) {
+            return error("Unable to insert activity instance");
+        }
+
+        return new ((), insert_id);
+    }
+
+    remote function add_activity_participant(ActivityParticipant activityParticipant) returns ActivityParticipantData|error?{
+        ActivityParticipant|error? activityParticipantRaw = db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.activity_participant
+            WHERE (activity_instance_id = ${activityParticipant.activity_instance_id} AND
+            person_id = ${activityParticipant.person_id});`
+        );
+
+        if(activityParticipantRaw is ActivityParticipant) {
+            return error("Activity participant already exists. The activity_instance_id and person_id you are using is already used by another activity participant");
+        }
+        
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO avinya_db.activity_participant (
+                activity_instance_id,
+                person_id,
+                organization_id,
+                start_date,
+                end_date,
+                role,
+                notes
+            ) VALUES (
+                ${activityParticipant.activity_instance_id},
+                ${activityParticipant.person_id},
+                ${activityParticipant.organization_id},
+                ${activityParticipant.start_date},
+                ${activityParticipant.end_date},
+                ${activityParticipant.role},
+                ${activityParticipant.notes}
+            );`
+        );
+
+        int|string? insert_id = res.lastInsertId;
+        if !(insert_id is int) {
+            return error("Unable to insert activity participant");
+        }
+
+        return new (insert_id);
+    }
+
+    remote function add_evaluation(Evaluation evaluation) returns EvaluationData|error?{
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO avinya_db.evaluation (
+                evaluatee_id,
+                evaluator_id,
+                evaluation_criteria_id,
+                activity_instance_id,
+                response,
+                notes,
+                grade
+            ) VALUES (
+                ${evaluation.evaluatee_id},
+                ${evaluation.evaluator_id},
+                ${evaluation.evaluation_criteria_id},
+                ${evaluation.activity_instance_id},
+                ${evaluation.response},
+                ${evaluation.notes},
+                ${evaluation.grade}
+            );`
+        );
+
+        int|string? insert_id = res.lastInsertId;
+        if !(insert_id is int) {
+            return error("Unable to insert evaluation");
+        }
+
+        return new (insert_id);
+    }
+
+    remote function update_attendance(int attendanceId, string sign_out_time) returns ActivityParticipantAttendanceData|error?{
+        ActivityParticipantAttendance|error? participantAttendanceRaw = db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.activity_participant_attendance
+            WHERE (id = ${attendanceId});`
+        );
+
+        if !(participantAttendanceRaw is ActivityParticipantAttendance){
+            return error("Activity participant does not exist");
+        }
+
+        // set sign_out_time
+        sql:ExecutionResult|error res = db_client->execute(
+            `UPDATE avinya_db.activity_participant_attendance
+            SET sign_out_time = ${sign_out_time}
+            WHERE(id = ${attendanceId});`
+        );
+
+        if (res is sql:ExecutionResult) {
+            
+            int? insert_count = res.affectedRowCount;
+            if !(insert_count is int) {
+                return error("Unable to update attendance sign out time");
+            }
+
+            return new((), participantAttendanceRaw); 
+        } 
+            
+        return error("Error while inserting data", res);
     }
 
 
