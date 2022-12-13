@@ -490,7 +490,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
             `SELECT *
             FROM avinya_db.person
             WHERE (email = ${person.email}  OR
-            phone = ${person.phone}
+            phone = ${person.phone} OR
             jwt_sub_id = ${person.jwt_sub_id}) AND 
             avinya_type_id = ${avinya_type_raw.id};`
         );
