@@ -59,4 +59,10 @@ public isolated service class AvinyaTypeData {
             return self.avinya_type.level;
         }
     }
+
+    isolated resource function get description() returns string? {
+        lock {
+            return self.avinya_type.description;
+        }
+    }
 }
