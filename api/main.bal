@@ -585,7 +585,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         if (res is sql:ExecutionResult) {
             
             int? insert_count = res.affectedRowCount;
-            if !(insert_count > <int?>0) {
+            if !(insert_count is int) {
                 return error("Unable to update application status");
             }
 
