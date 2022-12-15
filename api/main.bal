@@ -133,7 +133,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         
     }
 
-    remote function  add_educator_applicant(Person person) returns PersonData|error? {
+    remote function add_educator_applicant(Person person) returns PersonData|error? {
 
         AvinyaType avinya_type_raw = check db_client -> queryRow(
             `SELECT *
@@ -474,7 +474,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 ${org.name_si},
                 ${org.name_ta},
                 ${org.address_id},
-                ${org.phone},
+                ${org.phone}
             );`
         );
 
@@ -659,7 +659,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
     }
 
-    remote function update_person_avinya_type(int personId, int newAvinyaId, string transitionDate) returns AvinyaTypeData|error?{
+    remote function update_person_avinya_type(int personId, int newAvinyaId, string transitionDate) returns PersonData|error?{
         Person|error? personRaw = db_client -> queryRow(
             `SELECT *
             FROM avinya_db.person
@@ -710,7 +710,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 return error("Unable to insert person_avinya_type_transition_history");
             }
 
-            return new(insert_id); 
+            return new((), insert_id); 
         } 
             
         return error("Error while inserting data", resAdd);
@@ -909,7 +909,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 organization_id,
                 avinya_type_id,
                 evaluation_cycle_id,
-                head_count,
+                head_count
             ) VALUES (
                 ${vacancy.name},
                 ${vacancy.description},
