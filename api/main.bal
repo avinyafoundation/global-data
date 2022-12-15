@@ -133,6 +133,69 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         
     }
 
+    remote function  add_educator_applicant(Person person) returns PersonData|error? {
+
+        AvinyaType avinya_type_raw = check db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.avinya_type
+            WHERE global_type = "applicant" AND  foundation_type = "educator";`
+        );
+
+        Person|error? applicantRaw = db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.person
+            WHERE (email = ${person.email}  OR
+            phone = ${person.phone} OR 
+            jwt_sub_id = ${person.jwt_sub_id}) AND 
+            avinya_type_id = ${avinya_type_raw.id};`
+        );
+        
+        if(applicantRaw is Person) {
+            return error("Applicant already exists. The phone, email or the social login account you are using is already used by another applicant");
+        }
+        
+        sql:ExecutionResult|error res = db_client->execute(
+            `INSERT INTO avinya_db.person (
+                preferred_name,
+                full_name,
+                sex,
+                organization_id,
+                phone,
+                email,
+                avinya_type_id,
+                permanent_address_id,
+                mailing_address_id,
+                jwt_sub_id,
+                jwt_email
+            ) VALUES (
+                ${person.preferred_name},
+                ${person.full_name},
+                ${person.sex},
+                ${person.organization_id},
+                ${person.phone},
+                ${person.email},
+                ${avinya_type_raw.id},
+                ${person.permanent_address_id},
+                ${person.mailing_address_id},
+                ${person.jwt_sub_id},
+                ${person.jwt_email}
+            );`
+        );
+        
+        if (res is sql:ExecutionResult) {
+            
+            int|string? insert_id = res.lastInsertId;
+            if !(insert_id is int) {
+                return error("Unable to insert application");
+            }
+
+            return new((), insert_id); 
+        } 
+            
+        return error("Error while inserting data", res);
+        
+    }
+
     remote function  add_student_applicant(Person person) returns PersonData|error? {
 
         AvinyaType avinya_type_raw = check db_client -> queryRow(
@@ -802,35 +865,6 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         int|string? insert_id = res.lastInsertId;
         if !(insert_id is int) {
             return error("Unable to insert activity participant");
-        }
-
-        return new (insert_id);
-    }
-
-    remote function add_evaluation(Evaluation evaluation) returns EvaluationData|error?{
-        sql:ExecutionResult res = check db_client->execute(
-            `INSERT INTO avinya_db.evaluation (
-                evaluatee_id,
-                evaluator_id,
-                evaluation_criteria_id,
-                activity_instance_id,
-                response,
-                notes,
-                grade
-            ) VALUES (
-                ${evaluation.evaluatee_id},
-                ${evaluation.evaluator_id},
-                ${evaluation.evaluation_criteria_id},
-                ${evaluation.activity_instance_id},
-                ${evaluation.response},
-                ${evaluation.notes},
-                ${evaluation.grade}
-            );`
-        );
-
-        int|string? insert_id = res.lastInsertId;
-        if !(insert_id is int) {
-            return error("Unable to insert evaluation");
         }
 
         return new (insert_id);

@@ -47,7 +47,7 @@ INSERT INTO avinya_type (description, name, global_type, foundation_type, focus,
 INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('Vacation', 'vacation-day', 'meeting', 'vacation', null, 3750);
 INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('Tea', 'tea-break', 'meeting', 'vacation', 'empower', 2750);
 INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('Lunch', 'lunch-break', 'meeting', 'vacation', 'empower', 2750);
-INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('Beakfarst', 'breakfast-break', 'meeting', 'vacation', 'empower', 2750);
+INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('Breakfast', 'breakfast-break', 'meeting', 'vacation', 'empower', 2750);
 INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('Homeroom', 'homeroom', 'meeting', 'academic', 'homeroom', 1750);
 INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('Teacher Foundation Meeting', 'teacher-foundation-meeting', 'meeting', 'leadership', 'empower', 2750);
 INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('unassigned', 'unassigned', 'unassigned', 'unassigned', 'unassigned', 0);
