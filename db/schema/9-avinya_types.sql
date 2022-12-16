@@ -14,6 +14,7 @@ INSERT INTO avinya_type (description, name, global_type, foundation_type, focus,
 INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('Empower Student', 'empower-student', 'customer', 'student', 'empower', 500);
 INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('Parent of Bootcamp Applicant', 'empower-parent-applicant', 'applicant', 'parent', 'empower', 0);
 INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('Parent of Empower Student', 'parent-of-empower-student', 'customer', 'parent', 'empower', 500);
+INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('Guardian of Empower Student', 'guardian-of-empower-student', 'customer', 'guardian', 'empower', 500);
 INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('Foundation-Level Employee', 'foundation-employee', 'employee', 'leadership', null, 8500);
 INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('Bootcamp Teacher', 'bootcamp-teacher', 'employee', 'educator', 'empower', 1500);
 INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('Campus Lead', 'academy-staff', 'employee', 'staff', 'operations', 2500);
@@ -35,6 +36,9 @@ INSERT INTO avinya_type (description, name, global_type, foundation_type, focus,
 INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('Software Engineering Intern', 'foundation-software-interns', 'employee', 'leadership', 'technology', 3500);
 INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('Indrajit Coomaraswamy', 'board-member', 'director', 'leadership', null, 10500);
 INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('Law Office', 'lawyers', 'consultant', 'leadership', 'operations', 4500);
+INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('Security Officer (on campus)', 'academy-security-contractor', 'contractor', 'support', 'security', 1500);
+INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('Cafeteria Staff', 'cafeteria-contractor', 'contractor', 'support', 'cafeteria', 1500);
+INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('Janitorial', 'janitor-contractor', 'contractor', 'support', 'janitor', 1500);
 INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('Parent-Teacher Meeting', 'parent-teacher-meeting', 'meeting', 'parent', 'empower', 750);
 INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('Teacher-Student One-on-One', 'teacher-student-one-on-one', 'meeting', 'student', 'empower', 1750);
 INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('Teacher-Teacher Meeting', 'teacher-teacher-meeting', 'meeting', 'teacher', 'empower', 2750);

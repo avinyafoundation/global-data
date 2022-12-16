@@ -989,8 +989,35 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         int|string? insert_id = res.lastInsertId;
         if !(insert_id is int) {
             return error("Unable to insert person");
+        }
+
+        // Insert child and parent relationships
+        int[] child_student_ids = person.child_student ?: [];
+        int[] parent_student_ids = person.parent_student ?: [];
+
+        foreach int child_idx in child_student_ids {
+            _ = check db_client->execute(
+                `INSERT INTO avinya_db.parent_child_student (
+                    child_student_id,
+                    parent_student_id
+                ) VALUES (
+                    ${child_idx}, ${insert_id}
+                );` 
+            );
+        }
+
+        foreach int parent_idx in parent_student_ids {
+            _ = check db_client->execute(
+                `INSERT INTO avinya_db.parent_child_student (
+                    child_student_id,
+                    parent_student_id
+                ) VALUES (
+                    ${insert_id}, ${parent_idx}
+                );` 
+            );
         } 
 
         return new ((), insert_id);  
+
     }
 }
