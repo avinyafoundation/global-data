@@ -928,12 +928,22 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return new ((), insert_id);
     }
 
-    remote function add_person(Person person) returns PersonData|error?{
-        AvinyaType avinya_type_raw = check db_client -> queryRow(
-            `SELECT *
-            FROM avinya_db.avinya_type
-            WHERE global_type = "unassigned" AND  foundation_type = "unassigned";`
-        );
+    remote function add_person(Person person, int? avinya_type_id) returns PersonData|error?{
+        AvinyaType avinya_type_raw;
+        
+        if(avinya_type_id != null) {
+                avinya_type_raw = check db_client -> queryRow(
+                    `SELECT *
+                    FROM avinya_db.avinya_type
+                    WHERE id = ${avinya_type_id};`
+                );
+        }else {
+            avinya_type_raw = check db_client -> queryRow(
+                `SELECT *
+                FROM avinya_db.avinya_type
+                WHERE global_type = "unassigned" AND  foundation_type = "unassigned";`
+            );
+        }
 
         Person|error? personRaw = db_client -> queryRow(
             `SELECT *
