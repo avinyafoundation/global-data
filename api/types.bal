@@ -36,10 +36,10 @@ public type City record {|
     int id?;
     int district_id?;
     *LocalizedName;
-    string suburb_name_en;
-    string suburb_name_ta;
-    string suburb_name_si;
-    string postcode;
+    string? suburb_name_en;
+    string? suburb_name_ta;
+    string? suburb_name_si;
+    string? postcode;
     *GeospatialInformation;
 |};
 
@@ -271,4 +271,7 @@ public type Prospect record {|
     boolean? done_ol;
     int? ol_year;
     int? distance_to_school;
+    boolean? verified;
+    boolean? contacted;
+    boolean? applied;
 |};
