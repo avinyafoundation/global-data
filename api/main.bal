@@ -1105,4 +1105,39 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
     isolated resource function get supplier(int id) returns SupplierData|error? {
         return new SupplierData(id);
     }
+
+    remote function add_supplier(Supplier supplier) returns SupplierData|error?{
+        Supplier|error? supplierRaw = db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.supplier
+            WHERE name = ${supplier.name};`
+        );
+
+        if(supplierRaw is Supplier) {
+            return error("Supplier already exists. The name you are using is already used by another supplier");
+        }
+
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO avinya_db.supplier (
+                name,
+                phone,
+                email,
+                address_id,
+                description,
+            ) VALUES (
+                ${supplier.name},
+                ${supplier.phone},
+                ${supplier.email},
+                ${supplier.address_id},
+                ${supplier.description},
+            );`
+        );
+
+        int|string? insert_id = res.lastInsertId;
+        if !(insert_id is int) {
+            return error("Unable to insert supplier");
+        }
+
+        return new (insert_id);
+    }
 }
