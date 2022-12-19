@@ -1319,4 +1319,8 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
             return error("Unable to update Resource Property Data");
         }
     }
+
+    isolated resource function get supply(int id) returns SupplyData|error? {
+        return new SupplyData(id);
+    }
 }
