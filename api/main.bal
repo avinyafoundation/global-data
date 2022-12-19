@@ -1486,4 +1486,44 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
     isolated resource function get inventory(int id) returns InventoryData|error? {
         return new InventoryData(id);
     }
+
+    remote function add_inventory(Inventory inventory) returns InventoryData|error?{
+        Inventory|error? inventoryRaw = db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.inventory
+            WHERE asset_id = ${inventory.asset_id} AND
+            consumable_id = ${inventory.consumable_id};`
+        );
+
+        if(inventoryRaw is Inventory) {
+            return error("Inventory already exists. The name you are using is already used by another inventory");
+        }
+
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO avinya_db.inventory (
+                asset_id,
+                consumable_id,
+                organization_id,
+                person_id,
+                quantity,
+                quantity_in,
+                quantity_out,
+            ) VALUES (
+                ${inventory.asset_id},
+                ${inventory.consumable_id},
+                ${inventory.organization_id},
+                ${inventory.person_id},
+                ${inventory.quantity},
+                ${inventory.quantity_in},
+                ${inventory.quantity_out},
+            );`
+        );
+
+        int|string? insert_id = res.lastInsertId;
+        if !(insert_id is int) {
+            return error("Unable to insert inventory");
+        }
+
+        return new (insert_id);
+    }
 }
