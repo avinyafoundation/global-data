@@ -1101,4 +1101,8 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
             return error("Unable to update Asset Data");
         }
     }
+
+    isolated resource function get supplier(int id) returns SupplierData|error? {
+        return new SupplierData(id);
+    }
 }
