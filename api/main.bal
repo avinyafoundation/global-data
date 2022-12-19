@@ -1482,4 +1482,8 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
             return error("Unable to update resource allocation Data");
         }
     }
+
+    isolated resource function get inventory(int id) returns InventoryData|error? {
+        return new InventoryData(id);
+    }
 }
