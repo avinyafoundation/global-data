@@ -1215,4 +1215,40 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         return new (insert_id);
     }
+
+    remote function update_consumable(Consumable consumable) returns ConsumableData|error? {
+        int id = consumable.id ?: 0;
+        if (id == 0) {
+            return error("Unable to update Consumable Data");
+        }
+
+        Consumable|error? consumableRaw = db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.consumable
+            WHERE name = ${consumable.name} AND
+            avinya_type_id = ${consumable.avinya_type_id};`
+        );
+
+        if !(consumableRaw is Consumable){
+            return error("Consumable Data does not exist");
+        }
+
+        sql:ExecutionResult|error res = db_client->execute(
+            `UPDATE avinya_db.consumable SET
+                name = ${consumable.name},
+                description = ${consumable.description},
+                manufacturer = ${consumable.manufacturer},
+                model = ${consumable.model},
+                serial_number = ${consumable.serial_number},
+                avinya_type_id = ${consumable.avinya_type_id}
+            WHERE id = ${id};`
+        );
+
+        if (res is sql:ExecutionResult) {
+            return new(id);
+        } else {
+            return error("Unable to update Consumable Data");
+        }
+    }
+
 }
