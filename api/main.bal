@@ -1286,4 +1286,37 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         return new (insert_id);
     }
+
+    remote function update_resource_property(ResourceProperty resourceProperty) returns ResourcePropertyData|error? {
+        int id = resourceProperty.id ?: 0;
+        if (id == 0) {
+            return error("Unable to update Resource Property Data");
+        }
+
+        ResourceProperty|error? resourcePropertyRaw = db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.resource_property
+            WHERE property =  ${resourceProperty.property} AND
+            asset_id = ${resourceProperty.asset_id};`
+        );
+
+        if !(resourcePropertyRaw is ResourceProperty){
+            return error("Resource Property Data does not exist");
+        }
+
+        sql:ExecutionResult|error res = db_client->execute(
+            `UPDATE avinya_db.resource_property SET
+                property = ${resourceProperty.property},
+                value = ${resourceProperty.value},
+                consumable_id = ${resourceProperty.consumable_id},
+                asset_id = ${resourceProperty.asset_id}
+            WHERE id = ${id};`
+        );
+
+        if (res is sql:ExecutionResult) {
+            return new(id);
+        } else {
+            return error("Unable to update Resource Property Data");
+        }
+    }
 }
