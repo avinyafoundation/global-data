@@ -1177,4 +1177,42 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
     isolated resource function get consumable(int id) returns ConsumableData|error? {
         return new ConsumableData(id);
     }
+
+    remote function add_consumable(Consumable consumable) returns ConsumableData|error?{
+        Consumable|error? consumableRaw = db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.consumable
+            WHERE name = ${consumable.name} AND
+            avinya_type_id = ${consumable.avinya_type_id};`
+        );
+
+        if(consumableRaw is Consumable) {
+            return error("Consumable already exists. The name you are using is already used by another consumable");
+        }
+
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO avinya_db.consumable (
+                name,
+                description,
+                manufacturer,
+                model,
+                serial_number,
+                avinya_type_id
+            ) VALUES (
+                ${consumable.name},
+                ${consumable.description},
+                ${consumable.manufacturer},
+                ${consumable.model},
+                ${consumable.serial_number},
+                ${consumable.avinya_type_id}
+            );`
+        );
+
+        int|string? insert_id = res.lastInsertId;
+        if !(insert_id is int) {
+            return error("Unable to insert consumabe");
+        }
+
+        return new (insert_id);
+    }
 }
