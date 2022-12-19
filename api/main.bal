@@ -1020,4 +1020,48 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return new ((), insert_id);  
 
     }
+
+    isolated resource function get asset(int id) returns AssetData|error? {
+        return new AssetData(id);
+    }
+
+    remote function add_asset(Asset asset) returns AssetData|error?{
+        Asset|error? assetRaw = db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.asset
+            WHERE name = ${asset.name} AND
+            serial_number = ${asset.serial_number};`
+        );
+
+        if(assetRaw is Asset) {
+            return error("Asset already exists. The name or the serial number you are using is already used by another asset");
+        }
+
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO avinya_db.asset (
+                name,
+                manufacturer,
+                model,
+                serial_number,
+                registration_number,
+                description,
+                avinya_type_id
+            ) VALUES (
+                ${asset.name},
+                ${asset.manufacturer},
+                ${asset.model},
+                ${asset.serial_number},
+                ${asset.registration_number},
+                ${asset.description},
+                ${asset.avinya_type_id}
+            );`
+        );
+
+        int|string? insert_id = res.lastInsertId;
+        if !(insert_id is int) {
+            return error("Unable to insert evaluation");
+        }
+
+        return new (insert_id);
+    }
 }
