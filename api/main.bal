@@ -1406,4 +1406,44 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
     isolated resource function get resource_allocation(int id) returns ResourceAllocationData|error? {
         return new ResourceAllocationData(id);
     }
+
+    remote function add_resource_allocation(ResourceAllocation resourceAllocation) returns ResourceAllocationData|error?{
+        ResourceAllocation|error? resourceAllocationRaw = db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.resource_allocation
+            WHERE consumable_id = ${resourceAllocation.consumable_id} AND
+            person_id = ${resourceAllocation.person_id};`
+        );
+
+        if(resourceAllocationRaw is ResourceAllocation) {
+            return error("Resource Allocation already exists. The name you are using is already used by another resource allocation");
+        }
+
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO avinya_db.resource_allocation (
+                asset_id,
+                consumable_id,
+                organization_id,
+                person_id,
+                quantity,
+                start_date,
+                end_date
+            ) VALUES (
+                ${resourceAllocation.asset_id},
+                ${resourceAllocation.consumable_id},
+                ${resourceAllocation.organization_id},
+                ${resourceAllocation.person_id},
+                ${resourceAllocation.quantity},
+                ${resourceAllocation.start_date},
+                ${resourceAllocation.end_date}
+            );`
+        );
+
+        int|string? insert_id = res.lastInsertId;
+        if !(insert_id is int) {
+            return error("Unable to insert resource allocation");
+        }
+
+        return new (insert_id);
+    }
 }
