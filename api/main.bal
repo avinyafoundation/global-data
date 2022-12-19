@@ -1446,4 +1446,40 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         return new (insert_id);
     }
+
+    remote function update_resource_allocation(ResourceAllocation resourceAllocation) returns ResourceAllocationData|error? {
+        int id = resourceAllocation.id ?: 0;
+        if (id == 0) {
+            return error("Unable to update resource allocation Data");
+        }
+
+        ResourceAllocation|error? resourceAllocationRaw = db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.resource_allocation
+            WHERE consumable_id = ${resourceAllocation.consumable_id} AND
+            person_id = ${resourceAllocation.person_id};`
+        );
+
+        if !(resourceAllocationRaw is ResourceAllocation){
+            return error("Resource Allocation Data does not exist");
+        }
+
+        sql:ExecutionResult|error res = db_client->execute(
+            `UPDATE avinya_db.resource_allocation SET
+                asset_id = ${resourceAllocation.asset_id},
+                consumable_id = ${resourceAllocation.consumable_id},
+                organization_id = ${resourceAllocation.organization_id},
+                person_id = ${resourceAllocation.person_id},
+                quantity = ${resourceAllocation.quantity},
+                start_date = ${resourceAllocation.start_date},
+                end_date = ${resourceAllocation.end_date}
+            WHERE id = ${id};`
+        );
+
+        if (res is sql:ExecutionResult) {
+            return new(id);
+        } else {
+            return error("Unable to update resource allocation Data");
+        }
+    }
 }
