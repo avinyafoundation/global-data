@@ -1323,4 +1323,84 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
     isolated resource function get supply(int id) returns SupplyData|error? {
         return new SupplyData(id);
     }
+
+    remote function add_supply(Supply supply) returns SupplyData|error?{
+        Supply|error? supplyRaw = db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.supply
+            WHERE asset_id = ${supply.asset_id} AND
+            supplier_id = ${supply.supplier_id};`
+        );
+
+        if(supplyRaw is Supply) {
+            return error("Supply already exists. The name you are using is already used by another supply");
+        }
+
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO avinya_db.supply (
+                asset_id,
+                consumable_id,
+                supplier_id,
+                person_id,
+                order_date,
+                delivery_date,
+                order_id,
+                order_amount
+            ) VALUES (
+                ${supply.asset_id},
+                ${supply.consumable_id},
+                ${supply.supplier_id},
+                ${supply.person_id},
+                ${supply.order_date},
+                ${supply.delivery_date},
+                ${supply.order_id},
+                ${supply.order_amount}
+            );`
+        );
+
+        int|string? insert_id = res.lastInsertId;
+        if !(insert_id is int) {
+            return error("Unable to insert supply");
+        }
+
+        return new (insert_id);
+    }
+
+    remote function update_supply(Supply supply) returns SupplyData|error? {
+        int id = supply.id ?: 0;
+        if (id == 0) {
+            return error("Unable to update supply Data");
+        }
+
+        Supply|error? supplyRaw = db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.supply
+            WHERE asset_id = ${supply.asset_id} AND
+            supplier_id = ${supply.supplier_id};`
+        );
+
+        if !(supplyRaw is Supply){
+            return error("Supply Data does not exist");
+        }
+
+        sql:ExecutionResult|error res = db_client->execute(
+            `UPDATE avinya_db.supply SET
+                asset_id = ${supply.asset_id},
+                consumable_id = ${supply.consumable_id},
+                supplier_id = ${supply.supplier_id},
+                person_id = ${supply.person_id},
+                order_date = ${supply.order_date},
+                delivery_date = ${supply.delivery_date},
+                order_id = ${supply.order_id},
+                order_amount = ${supply.order_amount}
+            WHERE id = ${id};`
+        );
+
+        if (res is sql:ExecutionResult) {
+            return new(id);
+        } else {
+            return error("Unable to update Supply Data");
+        }
+    }
+
 }
