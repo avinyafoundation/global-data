@@ -1065,5 +1065,40 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return new (insert_id);
     }
     
+    remote function  update_asset(Asset asset) returns AssetData|error? {
+        int id = asset.id ?: 0;
+        if (id == 0) {
+            return error("Unable to update Asset Data");
+        }
 
+        Asset|error? assetRaw = db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.asset
+            WHERE name = ${asset.name} AND
+            serial_number = ${asset.serial_number};`
+
+        );
+
+        if !(assetRaw is Asset){
+            return error("Asset Data does not exist");
+        }
+
+        sql:ExecutionResult|error res = db_client->execute(
+            `UPDATE avinya_db.asset SET
+                name = ${asset.name},
+                manufacturer = ${asset.manufacturer},
+                model = ${asset.model},
+                serial_number = ${asset.serial_number},
+                registration_number = ${asset.registration_number},
+                description = ${asset.description},
+                avinya_type_id = ${asset.avinya_type_id}
+            WHERE id = ${id};`
+        );
+
+        if (res is sql:ExecutionResult) {
+            return new(id);
+        } else {
+            return error("Unable to update Asset Data");
+        }
+    }
 }
