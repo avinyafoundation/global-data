@@ -1173,4 +1173,8 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
             return error("Unable to update Supplier Data");
         }
     }
+
+    isolated resource function get consumable(int id) returns ConsumableData|error? {
+        return new ConsumableData(id);
+    }
 }
