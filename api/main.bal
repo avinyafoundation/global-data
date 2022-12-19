@@ -1254,4 +1254,36 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
     isolated resource function get resource_property(int id) returns ResourcePropertyData|error? {
         return new ResourcePropertyData(id);
     }
+
+    remote function add_resource_property(ResourceProperty resourceProperty) returns ResourcePropertyData|error?{
+        ResourceProperty|error? resourcePropertyRaw = db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.resource_property
+            WHERE property =  ${resourceProperty.property} AND
+            asset_id = ${resourceProperty.asset_id};`
+        );
+
+        if(resourcePropertyRaw is ResourceProperty) {
+            return error("Resource Property already exists. The name you are using is already used by another resource property");
+        }
+
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO avinya_db.resource_property (
+                property,
+                value,
+                asset_id
+            ) VALUES (
+                ${resourceProperty.property},
+                ${resourceProperty.value},
+                ${resourceProperty.asset_id}
+            );`
+        );
+
+        int|string? insert_id = res.lastInsertId;
+        if !(insert_id is int) {
+            return error("Unable to insert resource property");
+        }
+
+        return new (insert_id);
+    }
 }
