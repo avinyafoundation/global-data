@@ -1140,4 +1140,37 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         return new (insert_id);
     }
+
+    remote function  update_supplier(Supplier supplier) returns SupplierData|error? {
+        int id = supplier.id ?: 0;
+        if (id == 0) {
+            return error("Unable to update Supplier Data");
+        }
+
+        Supplier|error? supplierRaw = db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.supplier
+            WHERE name = ${supplier.name};`
+        );
+
+        if !(supplierRaw is Supplier){
+            return error("Supplier Data does not exist");
+        }
+
+        sql:ExecutionResult|error res = db_client->execute(
+            `UPDATE avinya_db.supplier SET
+                name = ${supplier.name},
+                phone = ${supplier.phone},
+                email = ${supplier.email},
+                address_id = ${supplier.address_id},
+                description = ${supplier.description},
+            WHERE id = ${id};`
+        );
+
+        if (res is sql:ExecutionResult) {
+            return new(id);
+        } else {
+            return error("Unable to update Supplier Data");
+        }
+    }
 }
