@@ -1251,4 +1251,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         }
     }
 
+    isolated resource function get resource_property(int id) returns ResourcePropertyData|error? {
+        return new ResourcePropertyData(id);
+    }
 }
