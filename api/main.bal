@@ -1526,4 +1526,40 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         return new (insert_id);
     }
+
+    remote function update_inventory(Inventory inventory) returns InventoryData|error? {
+        int id = inventory.id ?: 0;
+        if (id == 0) {
+            return error("Unable to update inventory Data");
+        }
+
+        Inventory|error? inventoryRaw = db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.inventory
+            WHERE asset_id = ${inventory.asset_id} AND
+            consumable_id = ${inventory.consumable_id};`
+        );
+
+        if !(inventoryRaw is Inventory){
+            return error("Inventory Data does not exist");
+        }
+
+        sql:ExecutionResult|error res = db_client->execute(
+            `UPDATE avinya_db.inventory SET
+                asset_id = ${inventory.asset_id},
+                consumable_id = ${inventory.consumable_id},
+                organization_id = ${inventory.organization_id},
+                person_id = ${inventory.person_id},
+                quantity = ${inventory.quantity},
+                quantity_in = ${inventory.quantity_in},
+                quantity_out = ${inventory.quantity_out},
+            WHERE id = ${id};`
+        );
+
+        if (res is sql:ExecutionResult) {
+            return new(id);
+        } else {
+            return error("Unable to update inventory Data");
+        }
+    }
 }
