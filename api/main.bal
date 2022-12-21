@@ -1025,6 +1025,29 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return new AssetData(id);
     }
 
+    resource function get assets() returns AssetData[]|error {
+        stream<Asset, error?> assets;
+        lock {
+            assets = db_client->query(
+                `SELECT *
+                FROM avinya_db.asset`
+            );
+        }
+
+        AssetData[] assetDatas = [];
+
+        check from Asset asset in assets
+            do {
+                AssetData|error assetData = new AssetData(0, asset);
+                if !(assetData is error) {
+                    assetDatas.push(assetData);
+                }
+            };
+
+        check assets.close();
+        return assetDatas;
+    }
+
     remote function add_asset(Asset asset) returns AssetData|error?{
         Asset|error? assetRaw = db_client -> queryRow(
             `SELECT *
@@ -1106,6 +1129,29 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return new SupplierData(id);
     }
 
+    resource function get suppliers() returns SupplierData[]|error {
+        stream<Supplier, error?> suppliers;
+        lock {
+            suppliers = db_client->query(
+                `SELECT *
+                FROM avinya_db.supplier`
+            );
+        }
+
+        SupplierData[] supplierDatas = [];
+
+        check from Supplier supplier in suppliers
+            do {
+                SupplierData|error supplierData = new SupplierData(0, supplier);
+                if !(supplierData is error) {
+                    supplierDatas.push(supplierData);
+                }
+            };
+
+        check suppliers.close();
+        return supplierDatas;
+    }
+
     remote function add_supplier(Supplier supplier) returns SupplierData|error?{
         Supplier|error? supplierRaw = db_client -> queryRow(
             `SELECT *
@@ -1176,6 +1222,29 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
     isolated resource function get consumable(int id) returns ConsumableData|error? {
         return new ConsumableData(id);
+    }
+
+    resource function get consumables() returns ConsumableData[]|error {
+        stream<Consumable, error?> consumables;
+        lock {
+            consumables = db_client->query(
+                `SELECT *
+                FROM avinya_db.consumable`
+            );
+        }
+
+        ConsumableData[] consumableDatas = [];
+
+        check from Consumable consumable in consumables
+            do {
+                ConsumableData|error consumableData = new ConsumableData(0, consumable);
+                if !(consumableData is error) {
+                    consumableDatas.push(consumableData);
+                }
+            };
+
+        check consumables.close();
+        return consumableDatas;
     }
 
     remote function add_consumable(Consumable consumable) returns ConsumableData|error?{
@@ -1255,6 +1324,29 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return new ResourcePropertyData(id);
     }
 
+    resource function get resource_properties() returns ResourcePropertyData[]|error {
+        stream<ResourceProperty, error?> resource_properties;
+        lock {
+            resource_properties = db_client->query(
+                `SELECT *
+                FROM avinya_db.resource_property`
+            );
+        }
+
+        ResourcePropertyData[] resourcePropertyDatas = [];
+
+        check from ResourceProperty resourceProperty in resource_properties
+            do {
+                ResourcePropertyData|error resourcePropertyData = new ResourcePropertyData(0, resourceProperty);
+                if !(resourcePropertyData is error) {
+                    resourcePropertyDatas.push(resourcePropertyData);
+                }
+            };
+
+        check resource_properties.close();
+        return resourcePropertyDatas;
+    }
+
     remote function add_resource_property(ResourceProperty resourceProperty) returns ResourcePropertyData|error?{
         ResourceProperty|error? resourcePropertyRaw = db_client -> queryRow(
             `SELECT *
@@ -1322,6 +1414,29 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
     isolated resource function get supply(int id) returns SupplyData|error? {
         return new SupplyData(id);
+    }
+
+    resource function get supplies() returns SupplyData[]|error {
+        stream<Supply, error?> supplies;
+        lock {
+            supplies = db_client->query(
+                `SELECT *
+                FROM avinya_db.supply`
+            );
+        }
+
+        SupplyData[] supplyDatas = [];
+
+        check from Supply supply in supplies
+            do {
+                SupplyData|error supplyData = new SupplyData(0, supply);
+                if !(supplyData is error) {
+                    supplyDatas.push(supplyData);
+                }
+            };
+
+        check supplies.close();
+        return supplyDatas;
     }
 
     remote function add_supply(Supply supply) returns SupplyData|error?{
@@ -1407,6 +1522,29 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return new ResourceAllocationData(id);
     }
 
+    resource function get resource_allocations() returns ResourceAllocationData[]|error {
+        stream<ResourceAllocation, error?> resource_allocations;
+        lock {
+            resource_allocations = db_client->query(
+                `SELECT *
+                FROM avinya_db.resource_allocation`
+            );
+        }
+
+        ResourceAllocationData[] resourceAllocationDatas = [];
+
+        check from ResourceAllocation resourceAllocation in resource_allocations
+            do {
+                ResourceAllocationData|error resourceAllocationData = new ResourceAllocationData(0, resourceAllocation);
+                if !(resourceAllocationData is error) {
+                    resourceAllocationDatas.push(resourceAllocationData);
+                }
+            };
+
+        check resource_allocations.close();
+        return resourceAllocationDatas;
+    }
+
     remote function add_resource_allocation(ResourceAllocation resourceAllocation) returns ResourceAllocationData|error?{
         ResourceAllocation|error? resourceAllocationRaw = db_client -> queryRow(
             `SELECT *
@@ -1485,6 +1623,29 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
     isolated resource function get inventory(int id) returns InventoryData|error? {
         return new InventoryData(id);
+    }
+
+    resource function get inventories() returns InventoryData[]|error {
+        stream<Inventory, error?> inventories;
+        lock {
+            inventories = db_client->query(
+                `SELECT *
+                FROM avinya_db.inventory`
+            );
+        }
+
+        InventoryData[] inventoryDatas = [];
+
+        check from Inventory inventory in inventories
+            do {
+                InventoryData|error inventoryData = new InventoryData(0, inventory);
+                if !(inventoryData is error) {
+                    inventoryDatas.push(inventoryData);
+                }
+            };
+
+        check inventories.close();
+        return inventoryDatas;
     }
 
     remote function add_inventory(Inventory inventory) returns InventoryData|error?{
