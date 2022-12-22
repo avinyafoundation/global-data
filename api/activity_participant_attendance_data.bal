@@ -8,22 +8,22 @@ public isolated service class ActivityParticipantAttendanceData {
         updated: ""
      };
 
-    isolated function init(int? activity_instance_id = 0, ActivityParticipantAttendance? activity_participant_attendance = null) returns error? {
+    isolated function init(int? activity_participant_attendance_id = 0, ActivityParticipantAttendance? activity_participant_attendance = null) returns error? {
         if(activity_participant_attendance != null) { // if activity_participant_attendance is provided, then use that and do not load from DB
             self.activity_participant_attendance = activity_participant_attendance.cloneReadOnly();
             return;
         }
 
-        int _activity_instance_id = activity_instance_id ?: 0;
+        int _activity_participant_id = activity_participant_attendance_id ?: 0;
 
-        ActivityParticipantAttendance activity_instance_raw;
-        if(_activity_instance_id > 0) { // activity_participant_attendance_id provided, give precedance to that
-            activity_instance_raw = check db_client -> queryRow(
+        ActivityParticipantAttendance activity_participant_raw;
+        if(_activity_participant_id > 0) { // activity_participant_attendance_id provided, give precedance to that
+            activity_participant_raw = check db_client -> queryRow(
             `SELECT *
             FROM avinya_db.activity_participant_attendance
             WHERE
-                activity_instance_id = ${_activity_instance_id};`);
-            self.activity_participant_attendance = activity_instance_raw.cloneReadOnly();
+                id = ${_activity_participant_id};`);
+            self.activity_participant_attendance = activity_participant_raw.cloneReadOnly();
         } 
         
     }

@@ -23,7 +23,7 @@ public isolated service class ActivityData {
             `SELECT *
             FROM avinya_db.activity
             WHERE
-                name_en LIKE ${_name};`);
+                name LIKE ${_name};`);
         }
         
         self.activity = activity_raw.cloneReadOnly();

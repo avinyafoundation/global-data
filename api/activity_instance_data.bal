@@ -16,7 +16,7 @@ public isolated service class ActivityInstanceData {
             `SELECT *
             FROM avinya_db.activity_instance
             WHERE
-                activity_id = ${id};`);
+                id = ${id};`);
         } else 
         {
             activity_instance_raw = check db_client -> queryRow(

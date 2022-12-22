@@ -11,21 +11,21 @@ public isolated service class ActivityParticipantData {
         updated: ""
      };
 
-    isolated function init(int? activity_instance_id = 0, ActivityParticipant? activity_participant = null) returns error? {
+    isolated function init(int? activity_participant_id = 0, ActivityParticipant? activity_participant = null) returns error? {
         if(activity_participant != null) { // if activity_participant is provided, then use that and do not load from DB
             self.activity_participant = activity_participant.cloneReadOnly();
             return;
         }
 
-        int _activity_instance_id = activity_instance_id ?: 0;
+        int _activity_participant_id = activity_participant_id ?: 0;
 
         ActivityParticipant activity_instance_raw;
-        if(_activity_instance_id > 0) { // activity_participant_id provided, give precedance to that
+        if(_activity_participant_id > 0) { // activity_participant_id provided, give precedance to that
             activity_instance_raw = check db_client -> queryRow(
             `SELECT *
             FROM avinya_db.activity_participant
             WHERE
-                activity_instance_id = ${_activity_instance_id};`);
+                id = ${_activity_participant_id};`);
             self.activity_participant = activity_instance_raw.cloneReadOnly();
         } 
         
