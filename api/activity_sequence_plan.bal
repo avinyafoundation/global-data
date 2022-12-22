@@ -23,7 +23,7 @@ public isolated service class ActivitySequencePlanData {
             `SELECT *
             FROM avinya_db.activity_sequence_plan
             WHERE
-                activity_id = ${_activity_id};`);
+                id = ${_activity_id};`);
             self.activity_sequence_plan = activity_sequence_plan_raw.cloneReadOnly();
         } 
         
