@@ -1169,13 +1169,13 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 phone,
                 email,
                 address_id,
-                description,
+                description
             ) VALUES (
                 ${supplier.name},
                 ${supplier.phone},
                 ${supplier.email},
                 ${supplier.address_id},
-                ${supplier.description},
+                ${supplier.description}
             );`
         );
 
@@ -1209,7 +1209,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 phone = ${supplier.phone},
                 email = ${supplier.email},
                 address_id = ${supplier.address_id},
-                description = ${supplier.description},
+                description = ${supplier.description}
             WHERE id = ${id};`
         );
 
@@ -1668,7 +1668,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 person_id,
                 quantity,
                 quantity_in,
-                quantity_out,
+                quantity_out
             ) VALUES (
                 ${inventory.asset_id},
                 ${inventory.consumable_id},
@@ -1676,7 +1676,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 ${inventory.person_id},
                 ${inventory.quantity},
                 ${inventory.quantity_in},
-                ${inventory.quantity_out},
+                ${inventory.quantity_out}
             );`
         );
 
@@ -1713,7 +1713,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 person_id = ${inventory.person_id},
                 quantity = ${inventory.quantity},
                 quantity_in = ${inventory.quantity_in},
-                quantity_out = ${inventory.quantity_out},
+                quantity_out = ${inventory.quantity_out}
             WHERE id = ${id};`
         );
 
