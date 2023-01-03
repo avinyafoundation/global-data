@@ -111,6 +111,31 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return new (0, person_id);
     }
 
+    isolated resource function get pcti_notes(int pcti_instance_id) returns EvaluationData[]|error?{
+        stream<Evaluation, error?> pctiNotes;
+        lock {
+            pctiNotes = db_client->query(
+                `SELECT *
+                FROM avinya_db.evaluation
+                WHERE activity_instance_id = ${pcti_instance_id}`
+            );
+        }
+
+        EvaluationData[] pctiNotesData = [];
+
+        check from Evaluation pctiNote in pctiNotes
+            do {
+                EvaluationData|error pctiNoteData = new EvaluationData(0, pctiNote);
+                if !(pctiNoteData is error) {
+                    pctiNotesData.push(pctiNoteData);
+                }
+            };
+
+        check pctiNotes.close();
+        return pctiNotesData;
+
+    }
+
     isolated resource function get student_applicant(string? jwt_sub_id) returns PersonData|error? {
         AvinyaType avinya_type_raw = check db_client -> queryRow(
             `SELECT *
@@ -1054,6 +1079,51 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 ${asset.registration_number},
                 ${asset.description},
                 ${asset.avinya_type_id}
+            );`
+        );
+
+        int|string? insert_id = res.lastInsertId;
+        if !(insert_id is int) {
+            return error("Unable to insert evaluation");
+        }
+
+        return new (insert_id);
+    }
+
+    remote function add_pcti_notes(int pcti_instance_id, string notes, int evaluator_id) returns EvaluationData|error?{
+        ActivityInstance|error? activityRaw = db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.activity_instance
+            WHERE id = ${pcti_instance_id};`
+        );
+
+        if !(activityRaw is ActivityInstance){
+            return error("PCTI activity does not exist");
+        }
+
+        int|error? eval_criteria_id = db_client -> queryRow(
+            `SELECT id
+            FROM avinya_db.evaluation_criteria
+            WHERE evaluation_type = 'Activity Note';`
+        );
+
+        if !(eval_criteria_id is int){
+            return error("Evaluation criteria does not exist");
+        }
+        
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO avinya_db.evaluation(
+                evaluatee_id,
+                evaluator_id,
+                evaluation_criteria_id,
+                activity_instance_id,
+                notes
+            ) VALUES(
+                ${evaluator_id},
+                ${evaluator_id},
+                ${eval_criteria_id},
+                ${pcti_instance_id},
+                ${notes}
             );`
         );
 
