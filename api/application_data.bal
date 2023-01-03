@@ -35,6 +35,12 @@ public isolated service class ApplicationData {
 
     }
 
+    isolated resource function get id() returns int? {
+        lock {
+                return self.application.id;
+        }
+    }
+
     
     isolated resource function get applicant() returns PersonData|error? {
         int id = 0;
