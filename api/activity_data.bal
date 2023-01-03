@@ -118,7 +118,7 @@ public isolated service class ActivityData {
         lock {
             activity_sequence_plans = db_client->query(
                 `SELECT *
-                FROM avinya_db.activity_sequence_plans
+                FROM avinya_db.activity_sequence_plan
                 WHERE activity_id = ${self.activity.id}`
             );
         }
