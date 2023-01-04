@@ -1025,6 +1025,29 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return new AssetData(id);
     }
 
+    resource function get assets() returns AssetData[]|error {
+        stream<Asset, error?> assets;
+        lock {
+            assets = db_client->query(
+                `SELECT *
+                FROM avinya_db.asset`
+            );
+        }
+
+        AssetData[] assetDatas = [];
+
+        check from Asset asset in assets
+            do {
+                AssetData|error assetData = new AssetData(0, asset);
+                if !(assetData is error) {
+                    assetDatas.push(assetData);
+                }
+            };
+
+        check assets.close();
+        return assetDatas;
+    }
+
     remote function add_asset(Asset asset) returns AssetData|error?{
         Asset|error? assetRaw = db_client -> queryRow(
             `SELECT *
@@ -1059,9 +1082,645 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         int|string? insert_id = res.lastInsertId;
         if !(insert_id is int) {
-            return error("Unable to insert evaluation");
+            return error("Unable to insert asset");
         }
 
         return new (insert_id);
+    }
+    
+    remote function  update_asset(Asset asset) returns AssetData|error? {
+        int id = asset.id ?: 0;
+        if (id == 0) {
+            return error("Unable to update Asset Data");
+        }
+
+        Asset|error? assetRaw = db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.asset
+            WHERE name = ${asset.name} AND
+            serial_number = ${asset.serial_number};`
+
+        );
+
+        if !(assetRaw is Asset){
+            return error("Asset Data does not exist");
+        }
+
+        sql:ExecutionResult|error res = db_client->execute(
+            `UPDATE avinya_db.asset SET
+                name = ${asset.name},
+                manufacturer = ${asset.manufacturer},
+                model = ${asset.model},
+                serial_number = ${asset.serial_number},
+                registration_number = ${asset.registration_number},
+                description = ${asset.description},
+                avinya_type_id = ${asset.avinya_type_id}
+            WHERE id = ${id};`
+        );
+
+        if (res is sql:ExecutionResult) {
+            return new(id);
+        } else {
+            return error("Unable to update Asset Data");
+        }
+    }
+
+    isolated resource function get supplier(int id) returns SupplierData|error? {
+        return new SupplierData(id);
+    }
+
+    resource function get suppliers() returns SupplierData[]|error {
+        stream<Supplier, error?> suppliers;
+        lock {
+            suppliers = db_client->query(
+                `SELECT *
+                FROM avinya_db.supplier`
+            );
+        }
+
+        SupplierData[] supplierDatas = [];
+
+        check from Supplier supplier in suppliers
+            do {
+                SupplierData|error supplierData = new SupplierData(0, supplier);
+                if !(supplierData is error) {
+                    supplierDatas.push(supplierData);
+                }
+            };
+
+        check suppliers.close();
+        return supplierDatas;
+    }
+
+    remote function add_supplier(Supplier supplier) returns SupplierData|error?{
+        Supplier|error? supplierRaw = db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.supplier
+            WHERE name = ${supplier.name};`
+        );
+
+        if(supplierRaw is Supplier) {
+            return error("Supplier already exists. The name you are using is already used by another supplier");
+        }
+
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO avinya_db.supplier (
+                name,
+                phone,
+                email,
+                address_id,
+                description
+            ) VALUES (
+                ${supplier.name},
+                ${supplier.phone},
+                ${supplier.email},
+                ${supplier.address_id},
+                ${supplier.description}
+            );`
+        );
+
+        int|string? insert_id = res.lastInsertId;
+        if !(insert_id is int) {
+            return error("Unable to insert supplier");
+        }
+
+        return new (insert_id);
+    }
+
+    remote function  update_supplier(Supplier supplier) returns SupplierData|error? {
+        int id = supplier.id ?: 0;
+        if (id == 0) {
+            return error("Unable to update Supplier Data");
+        }
+
+        Supplier|error? supplierRaw = db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.supplier
+            WHERE name = ${supplier.name};`
+        );
+
+        if !(supplierRaw is Supplier){
+            return error("Supplier Data does not exist");
+        }
+
+        sql:ExecutionResult|error res = db_client->execute(
+            `UPDATE avinya_db.supplier SET
+                name = ${supplier.name},
+                phone = ${supplier.phone},
+                email = ${supplier.email},
+                address_id = ${supplier.address_id},
+                description = ${supplier.description}
+            WHERE id = ${id};`
+        );
+
+        if (res is sql:ExecutionResult) {
+            return new(id);
+        } else {
+            return error("Unable to update Supplier Data");
+        }
+    }
+
+    isolated resource function get consumable(int id) returns ConsumableData|error? {
+        return new ConsumableData(id);
+    }
+
+    resource function get consumables() returns ConsumableData[]|error {
+        stream<Consumable, error?> consumables;
+        lock {
+            consumables = db_client->query(
+                `SELECT *
+                FROM avinya_db.consumable`
+            );
+        }
+
+        ConsumableData[] consumableDatas = [];
+
+        check from Consumable consumable in consumables
+            do {
+                ConsumableData|error consumableData = new ConsumableData(0, consumable);
+                if !(consumableData is error) {
+                    consumableDatas.push(consumableData);
+                }
+            };
+
+        check consumables.close();
+        return consumableDatas;
+    }
+
+    remote function add_consumable(Consumable consumable) returns ConsumableData|error?{
+        Consumable|error? consumableRaw = db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.consumable
+            WHERE name = ${consumable.name} AND
+            avinya_type_id = ${consumable.avinya_type_id};`
+        );
+
+        if(consumableRaw is Consumable) {
+            return error("Consumable already exists. The name you are using is already used by another consumable");
+        }
+
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO avinya_db.consumable (
+                name,
+                description,
+                manufacturer,
+                model,
+                serial_number,
+                avinya_type_id
+            ) VALUES (
+                ${consumable.name},
+                ${consumable.description},
+                ${consumable.manufacturer},
+                ${consumable.model},
+                ${consumable.serial_number},
+                ${consumable.avinya_type_id}
+            );`
+        );
+
+        int|string? insert_id = res.lastInsertId;
+        if !(insert_id is int) {
+            return error("Unable to insert consumabe");
+        }
+
+        return new (insert_id);
+    }
+
+    remote function update_consumable(Consumable consumable) returns ConsumableData|error? {
+        int id = consumable.id ?: 0;
+        if (id == 0) {
+            return error("Unable to update Consumable Data");
+        }
+
+        Consumable|error? consumableRaw = db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.consumable
+            WHERE name = ${consumable.name} AND
+            avinya_type_id = ${consumable.avinya_type_id};`
+        );
+
+        if !(consumableRaw is Consumable){
+            return error("Consumable Data does not exist");
+        }
+
+        sql:ExecutionResult|error res = db_client->execute(
+            `UPDATE avinya_db.consumable SET
+                name = ${consumable.name},
+                description = ${consumable.description},
+                manufacturer = ${consumable.manufacturer},
+                model = ${consumable.model},
+                serial_number = ${consumable.serial_number},
+                avinya_type_id = ${consumable.avinya_type_id}
+            WHERE id = ${id};`
+        );
+
+        if (res is sql:ExecutionResult) {
+            return new(id);
+        } else {
+            return error("Unable to update Consumable Data");
+        }
+    }
+
+    isolated resource function get resource_property(int id) returns ResourcePropertyData|error? {
+        return new ResourcePropertyData(id);
+    }
+
+    resource function get resource_properties() returns ResourcePropertyData[]|error {
+        stream<ResourceProperty, error?> resource_properties;
+        lock {
+            resource_properties = db_client->query(
+                `SELECT *
+                FROM avinya_db.resource_property`
+            );
+        }
+
+        ResourcePropertyData[] resourcePropertyDatas = [];
+
+        check from ResourceProperty resourceProperty in resource_properties
+            do {
+                ResourcePropertyData|error resourcePropertyData = new ResourcePropertyData(0, resourceProperty);
+                if !(resourcePropertyData is error) {
+                    resourcePropertyDatas.push(resourcePropertyData);
+                }
+            };
+
+        check resource_properties.close();
+        return resourcePropertyDatas;
+    }
+
+    remote function add_resource_property(ResourceProperty resourceProperty) returns ResourcePropertyData|error?{
+        ResourceProperty|error? resourcePropertyRaw = db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.resource_property
+            WHERE property =  ${resourceProperty.property} AND
+            asset_id = ${resourceProperty.asset_id};`
+        );
+
+        if(resourcePropertyRaw is ResourceProperty) {
+            return error("Resource Property already exists. The name you are using is already used by another resource property");
+        }
+
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO avinya_db.resource_property (
+                property,
+                value,
+                asset_id
+            ) VALUES (
+                ${resourceProperty.property},
+                ${resourceProperty.value},
+                ${resourceProperty.asset_id}
+            );`
+        );
+
+        int|string? insert_id = res.lastInsertId;
+        if !(insert_id is int) {
+            return error("Unable to insert resource property");
+        }
+
+        return new (insert_id);
+    }
+
+    remote function update_resource_property(ResourceProperty resourceProperty) returns ResourcePropertyData|error? {
+        int id = resourceProperty.id ?: 0;
+        if (id == 0) {
+            return error("Unable to update Resource Property Data");
+        }
+
+        ResourceProperty|error? resourcePropertyRaw = db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.resource_property
+            WHERE property =  ${resourceProperty.property} AND
+            asset_id = ${resourceProperty.asset_id};`
+        );
+
+        if !(resourcePropertyRaw is ResourceProperty){
+            return error("Resource Property Data does not exist");
+        }
+
+        sql:ExecutionResult|error res = db_client->execute(
+            `UPDATE avinya_db.resource_property SET
+                property = ${resourceProperty.property},
+                value = ${resourceProperty.value},
+                consumable_id = ${resourceProperty.consumable_id},
+                asset_id = ${resourceProperty.asset_id}
+            WHERE id = ${id};`
+        );
+
+        if (res is sql:ExecutionResult) {
+            return new(id);
+        } else {
+            return error("Unable to update Resource Property Data");
+        }
+    }
+
+    isolated resource function get supply(int id) returns SupplyData|error? {
+        return new SupplyData(id);
+    }
+
+    resource function get supplies() returns SupplyData[]|error {
+        stream<Supply, error?> supplies;
+        lock {
+            supplies = db_client->query(
+                `SELECT *
+                FROM avinya_db.supply`
+            );
+        }
+
+        SupplyData[] supplyDatas = [];
+
+        check from Supply supply in supplies
+            do {
+                SupplyData|error supplyData = new SupplyData(0, supply);
+                if !(supplyData is error) {
+                    supplyDatas.push(supplyData);
+                }
+            };
+
+        check supplies.close();
+        return supplyDatas;
+    }
+
+    remote function add_supply(Supply supply) returns SupplyData|error?{
+        Supply|error? supplyRaw = db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.supply
+            WHERE asset_id = ${supply.asset_id} AND
+            supplier_id = ${supply.supplier_id};`
+        );
+
+        if(supplyRaw is Supply) {
+            return error("Supply already exists. The name you are using is already used by another supply");
+        }
+
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO avinya_db.supply (
+                asset_id,
+                consumable_id,
+                supplier_id,
+                person_id,
+                order_date,
+                delivery_date,
+                order_id,
+                order_amount
+            ) VALUES (
+                ${supply.asset_id},
+                ${supply.consumable_id},
+                ${supply.supplier_id},
+                ${supply.person_id},
+                ${supply.order_date},
+                ${supply.delivery_date},
+                ${supply.order_id},
+                ${supply.order_amount}
+            );`
+        );
+
+        int|string? insert_id = res.lastInsertId;
+        if !(insert_id is int) {
+            return error("Unable to insert supply");
+        }
+
+        return new (insert_id);
+    }
+
+    remote function update_supply(Supply supply) returns SupplyData|error? {
+        int id = supply.id ?: 0;
+        if (id == 0) {
+            return error("Unable to update supply Data");
+        }
+
+        Supply|error? supplyRaw = db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.supply
+            WHERE asset_id = ${supply.asset_id} AND
+            supplier_id = ${supply.supplier_id};`
+        );
+
+        if !(supplyRaw is Supply){
+            return error("Supply Data does not exist");
+        }
+
+        sql:ExecutionResult|error res = db_client->execute(
+            `UPDATE avinya_db.supply SET
+                asset_id = ${supply.asset_id},
+                consumable_id = ${supply.consumable_id},
+                supplier_id = ${supply.supplier_id},
+                person_id = ${supply.person_id},
+                order_date = ${supply.order_date},
+                delivery_date = ${supply.delivery_date},
+                order_id = ${supply.order_id},
+                order_amount = ${supply.order_amount}
+            WHERE id = ${id};`
+        );
+
+        if (res is sql:ExecutionResult) {
+            return new(id);
+        } else {
+            return error("Unable to update Supply Data");
+        }
+    }
+
+    isolated resource function get resource_allocation(int id) returns ResourceAllocationData|error? {
+        return new ResourceAllocationData(id);
+    }
+
+    resource function get resource_allocations() returns ResourceAllocationData[]|error {
+        stream<ResourceAllocation, error?> resource_allocations;
+        lock {
+            resource_allocations = db_client->query(
+                `SELECT *
+                FROM avinya_db.resource_allocation`
+            );
+        }
+
+        ResourceAllocationData[] resourceAllocationDatas = [];
+
+        check from ResourceAllocation resourceAllocation in resource_allocations
+            do {
+                ResourceAllocationData|error resourceAllocationData = new ResourceAllocationData(0, resourceAllocation);
+                if !(resourceAllocationData is error) {
+                    resourceAllocationDatas.push(resourceAllocationData);
+                }
+            };
+
+        check resource_allocations.close();
+        return resourceAllocationDatas;
+    }
+
+    remote function add_resource_allocation(ResourceAllocation resourceAllocation) returns ResourceAllocationData|error?{
+        ResourceAllocation|error? resourceAllocationRaw = db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.resource_allocation
+            WHERE consumable_id = ${resourceAllocation.consumable_id} AND
+            person_id = ${resourceAllocation.person_id};`
+        );
+
+        if(resourceAllocationRaw is ResourceAllocation) {
+            return error("Resource Allocation already exists. The name you are using is already used by another resource allocation");
+        }
+
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO avinya_db.resource_allocation (
+                asset_id,
+                consumable_id,
+                organization_id,
+                person_id,
+                quantity,
+                start_date,
+                end_date
+            ) VALUES (
+                ${resourceAllocation.asset_id},
+                ${resourceAllocation.consumable_id},
+                ${resourceAllocation.organization_id},
+                ${resourceAllocation.person_id},
+                ${resourceAllocation.quantity},
+                ${resourceAllocation.start_date},
+                ${resourceAllocation.end_date}
+            );`
+        );
+
+        int|string? insert_id = res.lastInsertId;
+        if !(insert_id is int) {
+            return error("Unable to insert resource allocation");
+        }
+
+        return new (insert_id);
+    }
+
+    remote function update_resource_allocation(ResourceAllocation resourceAllocation) returns ResourceAllocationData|error? {
+        int id = resourceAllocation.id ?: 0;
+        if (id == 0) {
+            return error("Unable to update resource allocation Data");
+        }
+
+        ResourceAllocation|error? resourceAllocationRaw = db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.resource_allocation
+            WHERE consumable_id = ${resourceAllocation.consumable_id} AND
+            person_id = ${resourceAllocation.person_id};`
+        );
+
+        if !(resourceAllocationRaw is ResourceAllocation){
+            return error("Resource Allocation Data does not exist");
+        }
+
+        sql:ExecutionResult|error res = db_client->execute(
+            `UPDATE avinya_db.resource_allocation SET
+                asset_id = ${resourceAllocation.asset_id},
+                consumable_id = ${resourceAllocation.consumable_id},
+                organization_id = ${resourceAllocation.organization_id},
+                person_id = ${resourceAllocation.person_id},
+                quantity = ${resourceAllocation.quantity},
+                start_date = ${resourceAllocation.start_date},
+                end_date = ${resourceAllocation.end_date}
+            WHERE id = ${id};`
+        );
+
+        if (res is sql:ExecutionResult) {
+            return new(id);
+        } else {
+            return error("Unable to update resource allocation Data");
+        }
+    }
+
+    isolated resource function get inventory(int id) returns InventoryData|error? {
+        return new InventoryData(id);
+    }
+
+    resource function get inventories() returns InventoryData[]|error {
+        stream<Inventory, error?> inventories;
+        lock {
+            inventories = db_client->query(
+                `SELECT *
+                FROM avinya_db.inventory`
+            );
+        }
+
+        InventoryData[] inventoryDatas = [];
+
+        check from Inventory inventory in inventories
+            do {
+                InventoryData|error inventoryData = new InventoryData(0, inventory);
+                if !(inventoryData is error) {
+                    inventoryDatas.push(inventoryData);
+                }
+            };
+
+        check inventories.close();
+        return inventoryDatas;
+    }
+
+    remote function add_inventory(Inventory inventory) returns InventoryData|error?{
+        Inventory|error? inventoryRaw = db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.inventory
+            WHERE asset_id = ${inventory.asset_id} AND
+            consumable_id = ${inventory.consumable_id};`
+        );
+
+        if(inventoryRaw is Inventory) {
+            return error("Inventory already exists. The name you are using is already used by another inventory");
+        }
+
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO avinya_db.inventory (
+                asset_id,
+                consumable_id,
+                organization_id,
+                person_id,
+                quantity,
+                quantity_in,
+                quantity_out
+            ) VALUES (
+                ${inventory.asset_id},
+                ${inventory.consumable_id},
+                ${inventory.organization_id},
+                ${inventory.person_id},
+                ${inventory.quantity},
+                ${inventory.quantity_in},
+                ${inventory.quantity_out}
+            );`
+        );
+
+        int|string? insert_id = res.lastInsertId;
+        if !(insert_id is int) {
+            return error("Unable to insert inventory");
+        }
+
+        return new (insert_id);
+    }
+
+    remote function update_inventory(Inventory inventory) returns InventoryData|error? {
+        int id = inventory.id ?: 0;
+        if (id == 0) {
+            return error("Unable to update inventory Data");
+        }
+
+        Inventory|error? inventoryRaw = db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.inventory
+            WHERE asset_id = ${inventory.asset_id} AND
+            consumable_id = ${inventory.consumable_id};`
+        );
+
+        if !(inventoryRaw is Inventory){
+            return error("Inventory Data does not exist");
+        }
+
+        sql:ExecutionResult|error res = db_client->execute(
+            `UPDATE avinya_db.inventory SET
+                asset_id = ${inventory.asset_id},
+                consumable_id = ${inventory.consumable_id},
+                organization_id = ${inventory.organization_id},
+                person_id = ${inventory.person_id},
+                quantity = ${inventory.quantity},
+                quantity_in = ${inventory.quantity_in},
+                quantity_out = ${inventory.quantity_out}
+            WHERE id = ${id};`
+        );
+
+        if (res is sql:ExecutionResult) {
+            return new(id);
+        } else {
+            return error("Unable to update inventory Data");
+        }
     }
 }
