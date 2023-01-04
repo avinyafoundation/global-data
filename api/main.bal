@@ -1387,6 +1387,16 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 ${eval_criteria_id},
                 ${pcti_instance_id},
                 ${notes}
+            );`
+        );
+
+        int|string? insert_id = res.lastInsertId;
+        if !(insert_id is int) {
+            return error("Unable to insert evaluation");
+        }
+
+        return new (insert_id);
+    }
 
     remote function update_consumable(Consumable consumable) returns ConsumableData|error? {
         int id = consumable.id ?: 0;
