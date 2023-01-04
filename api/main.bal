@@ -111,7 +111,8 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return new (0, person_id);
     }
 
-    isolated resource function get pcti_notes(int pcti_instance_id) returns EvaluationData[]|error?{
+    // will return notes of a PCTI instance
+    isolated resource function get pcti_instance_notes(int pcti_instance_id) returns EvaluationData[]|error?{
         stream<Evaluation, error?> pctiNotes;
         lock {
             pctiNotes = db_client->query(
@@ -135,6 +136,48 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return pctiNotesData;
 
     }
+
+    // will return notes of a Project Class activity
+    // note pcti_id is the activity (child activity of Project and Class parents)
+    isolated resource function get pcti_notes(int pcti_activity_id) returns EvaluationData[]|error?{
+        stream<Evaluation, error?> pctiEvaluations;
+        lock {
+            pctiEvaluations = db_client->query(
+                `SELECT 
+                    e.id,
+                    evaluatee_id evaluator_id,
+                    evaluation_criteria_id,
+                    e.activity_instance_id,
+                    response,
+                    e.notes,
+                    grade,
+                    e.updated
+                FROM
+                    avinya_db.evaluation e
+                        JOIN
+                    avinya_db.activity_instance ai ON e.activity_instance_id = ai.id
+                        JOIN
+                    avinya_db.activity a ON ai.activity_id = a.id
+                WHERE
+                    activity_id = ${pcti_activity_id};`
+            );
+        }
+
+        EvaluationData[] pctiEvaluationsData = [];
+
+        check from Evaluation pctiEvaluation in pctiEvaluations
+            do {
+                EvaluationData|error pctiEvaluationData = new EvaluationData((), pctiEvaluation);
+                if !(pctiEvaluationData is error) {
+                    pctiEvaluationsData.push(pctiEvaluationData);
+                }
+            };
+
+        check pctiEvaluations.close();
+        return pctiEvaluationsData;
+
+    }
+
 
     isolated resource function get student_applicant(string? jwt_sub_id) returns PersonData|error? {
         AvinyaType avinya_type_raw = check db_client -> queryRow(
