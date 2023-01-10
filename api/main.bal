@@ -111,6 +111,10 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return new (0, person_id);
     }
 
+    isolated resource function get evaluation(int eval_id) returns EvaluationData|error? {
+        return new (eval_id);
+    }
+
     // will return notes of a PCTI instance
     isolated resource function get pcti_instance_notes(int pcti_instance_id) returns EvaluationData[]|error?{
         stream<Evaluation, error?> pctiNotes;
@@ -139,13 +143,14 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
     // will return notes of a Project Class activity
     // note pcti_id is the activity (child activity of Project and Class parents)
-    isolated resource function get pcti_notes(int pcti_activity_id) returns EvaluationData[]|error?{
+    isolated resource function get pcti_activity_notes(int pcti_activity_id) returns EvaluationData[]|error?{
         stream<Evaluation, error?> pctiEvaluations;
         lock {
             pctiEvaluations = db_client->query(
                 `SELECT 
                     e.id,
-                    evaluatee_id evaluator_id,
+                    evaluatee_id,
+                    evaluator_id,
                     evaluation_criteria_id,
                     e.activity_instance_id,
                     response,
