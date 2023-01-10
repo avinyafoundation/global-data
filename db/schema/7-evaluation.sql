@@ -3,7 +3,7 @@ USE avinya_db;
 -- Evaluation 
 CREATE TABLE IF NOT EXISTS evaluation (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    evaluatee_id INT NOT NULL,  -- select vacancy for application and then select evaluation criterial for vacancy, and for each of those criteria grade the applicant 
+    evaluatee_id INT DEFAULT NULL,  -- select vacancy for application and then select evaluation criterial for vacancy, and for each of those criteria grade the applicant 
     evaluator_id INT DEFAULT NULL,
     evaluation_criteria_id INT NOT NULL,
     activity_instance_id INT DEFAULT NULL,
