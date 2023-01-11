@@ -183,6 +183,42 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
     }
 
+    // get pcti_activity
+    isolated resource function get pcti_activity(string project_activity_name, string class_activity_name) returns ActivityData|error?{
+        Activity|error? projectActivityRaw = db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.activity
+            WHERE name = ${project_activity_name};`
+        );
+
+        if!(projectActivityRaw is Activity) {
+            return error("Project does not exist");
+        }
+
+        Activity|error? classActivityRaw = db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.activity
+            WHERE name = ${class_activity_name};`
+        );
+
+        if!(classActivityRaw is Activity) {
+            return error("Class does not exist");
+        }
+
+        Activity|error? pctiActivityRaw = db_client -> queryRow(
+            `SELECT A.*
+            FROM avinya_db.activity A
+            INNER JOIN avinya_db.parent_child_activity PCA1 ON A.id = PCA1.child_activity_id AND PCA1.parent_activity_id = ${projectActivityRaw.id}
+            INNER JOIN avinya_db.parent_child_activity PCA2 ON A.id = PCA2.child_activity_id AND PCA2.parent_activity_id = ${classActivityRaw.id};`
+        );
+
+        if(pctiActivityRaw is Activity) {
+            return new ((), pctiActivityRaw.id);
+        }
+
+        return error("PCTI activity does not exist");
+    }
+
 
     isolated resource function get student_applicant(string? jwt_sub_id) returns PersonData|error? {
         AvinyaType avinya_type_raw = check db_client -> queryRow(
@@ -1358,15 +1394,15 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return new (insert_id);
     }
 
-    remote function add_pcti_notes(int pcti_instance_id, string notes, int evaluator_id) returns EvaluationData|error?{
+    remote function add_pcti_notes(Evaluation evaluation) returns EvaluationData|error?{
         ActivityInstance|error? activityRaw = db_client -> queryRow(
             `SELECT *
             FROM avinya_db.activity_instance
-            WHERE id = ${pcti_instance_id};`
+            WHERE id = ${evaluation.activity_instance_id};`
         );
 
         if !(activityRaw is ActivityInstance){
-            return error("PCTI activity does not exist");
+            return error("PCTI activity instance does not exist");
         }
 
         int|error? eval_criteria_id = db_client -> queryRow(
@@ -1387,17 +1423,17 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 activity_instance_id,
                 notes
             ) VALUES(
-                ${evaluator_id},
-                ${evaluator_id},
+                ${evaluation.evaluator_id},
+                ${evaluation.evaluator_id},
                 ${eval_criteria_id},
-                ${pcti_instance_id},
-                ${notes}
+                ${evaluation.activity_instance_id},
+                ${evaluation.notes}
             );`
         );
 
         int|string? insert_id = res.lastInsertId;
         if !(insert_id is int) {
-            return error("Unable to insert evaluation");
+            return error("Unable to insert PCTI note");
         }
 
         return new (insert_id);
