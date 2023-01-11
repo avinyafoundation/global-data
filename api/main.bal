@@ -99,6 +99,10 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return new (name, id);
     }
 
+    isolated resource function get person(string? name, int? id) returns PersonData|error?{
+        return new (name, id);
+    }
+
     isolated resource function get prospect(string? email, int? phone) returns ProspectData|error? {
         return new (email, phone);
     }
