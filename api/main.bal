@@ -99,6 +99,10 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return new (name, id);
     }
 
+    isolated resource function get person(string? name, int? id) returns PersonData|error?{
+        return new (name, id);
+    }
+
     isolated resource function get prospect(string? email, int? phone) returns ProspectData|error? {
         return new (email, phone);
     }
@@ -109,6 +113,10 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
     isolated resource function get application(int person_id) returns ApplicationData|error? {
         return new (0, person_id);
+    }
+
+    isolated resource function get evaluation(int eval_id) returns EvaluationData|error? {
+        return new (eval_id);
     }
 
     // will return notes of a PCTI instance
@@ -139,13 +147,14 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
     // will return notes of a Project Class activity
     // note pcti_id is the activity (child activity of Project and Class parents)
-    isolated resource function get pcti_notes(int pcti_activity_id) returns EvaluationData[]|error?{
+    isolated resource function get pcti_activity_notes(int pcti_activity_id) returns EvaluationData[]|error?{
         stream<Evaluation, error?> pctiEvaluations;
         lock {
             pctiEvaluations = db_client->query(
                 `SELECT 
                     e.id,
-                    evaluatee_id evaluator_id,
+                    evaluatee_id,
+                    evaluator_id,
                     evaluation_criteria_id,
                     e.activity_instance_id,
                     response,
@@ -176,6 +185,68 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         check pctiEvaluations.close();
         return pctiEvaluationsData;
 
+    }
+
+    // get pcti_activity
+    isolated resource function get pcti_activity(string project_activity_name, string class_activity_name) returns ActivityData|error?{
+        Activity|error? projectActivityRaw = db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.activity
+            WHERE name = ${project_activity_name};`
+        );
+
+        if!(projectActivityRaw is Activity) {
+            return error("Project does not exist");
+        }
+
+        Activity|error? classActivityRaw = db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.activity
+            WHERE name = ${class_activity_name};`
+        );
+
+        if!(classActivityRaw is Activity) {
+            return error("Class does not exist");
+        }
+
+        Activity|error? pctiActivityRaw = db_client -> queryRow(
+            `SELECT A.*
+            FROM avinya_db.activity A
+            INNER JOIN avinya_db.parent_child_activity PCA1 ON A.id = PCA1.child_activity_id AND PCA1.parent_activity_id = ${projectActivityRaw.id}
+            INNER JOIN avinya_db.parent_child_activity PCA2 ON A.id = PCA2.child_activity_id AND PCA2.parent_activity_id = ${classActivityRaw.id};`
+        );
+
+        if(pctiActivityRaw is Activity) {
+            return new ((), pctiActivityRaw.id);
+        }
+
+        return error("PCTI activity does not exist");
+    }
+
+    isolated resource function get pcti_project_activities(string teacher_id) returns ActivityData[]|error? {
+        stream<Activity, error?> pctiProjectActivities;
+        lock {
+            pctiProjectActivities = db_client->query(
+                `SELECT A.*
+                FROM avinya_db.activity A
+                INNER JOIN avinya_db.parent_child_activity PCA ON A.id = PCA.child_activity_id
+                INNER JOIN avinya_db.activity B ON PCA.parent_activity_id = B.id
+                WHERE B.name = "Project" AND A.teacher_id = ${teacher_id};`
+            );
+        }
+
+        ActivityData[] pctiProjectActivitiesData = [];
+
+        check from Activity pctiProjectActivity in pctiProjectActivities
+            do {
+                ActivityData|error pctiProjectActivityData = new ActivityData((), pctiProjectActivity.id);
+                if !(pctiProjectActivityData is error) {
+                    pctiProjectActivitiesData.push(pctiProjectActivityData);
+                }
+            };
+
+        check pctiProjectActivities.close();
+        return pctiProjectActivitiesData;
     }
 
 
@@ -536,13 +607,15 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 name_si,
                 name_ta,
                 address_id,
-                phone
+                phone,
+                avinya_type
             ) VALUES (
                 ${org.name_en},
                 ${org.name_si},
                 ${org.name_ta},
                 ${org.address_id},
-                ${org.phone}
+                ${org.phone},
+                ${org.avinya_type}
             );`
         );
 
@@ -879,14 +952,16 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 place_id,
                 daily_sequence,
                 weekly_sequence,
-                monthly_sequence
+                monthly_sequence,
+                organization_id
             ) VALUES (
                 ${activityInstance.activity_id},
                 ${activityInstance.name},
                 ${activityInstance.place_id},
                 ${activityInstance.daily_sequence},
                 ${activityInstance.weekly_sequence},
-                ${activityInstance.monthly_sequence}
+                ${activityInstance.monthly_sequence},
+                ${activityInstance.organization_id}
             );`
         );
 
@@ -1353,15 +1428,15 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return new (insert_id);
     }
 
-    remote function add_pcti_notes(int pcti_instance_id, string notes, int evaluator_id) returns EvaluationData|error?{
+    remote function add_pcti_notes(Evaluation evaluation) returns EvaluationData|error?{
         ActivityInstance|error? activityRaw = db_client -> queryRow(
             `SELECT *
             FROM avinya_db.activity_instance
-            WHERE id = ${pcti_instance_id};`
+            WHERE id = ${evaluation.activity_instance_id};`
         );
 
         if !(activityRaw is ActivityInstance){
-            return error("PCTI activity does not exist");
+            return error("PCTI activity instance does not exist");
         }
 
         int|error? eval_criteria_id = db_client -> queryRow(
@@ -1382,17 +1457,17 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 activity_instance_id,
                 notes
             ) VALUES(
-                ${evaluator_id},
-                ${evaluator_id},
+                ${evaluation.evaluatee_id},
+                ${evaluation.evaluator_id},
                 ${eval_criteria_id},
-                ${pcti_instance_id},
-                ${notes}
+                ${evaluation.activity_instance_id},
+                ${evaluation.notes}
             );`
         );
 
         int|string? insert_id = res.lastInsertId;
         if !(insert_id is int) {
-            return error("Unable to insert evaluation");
+            return error("Unable to insert PCTI note");
         }
 
         return new (insert_id);

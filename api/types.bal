@@ -359,6 +359,7 @@ public type ActivityInstance record {|
     int? activity_id;
     string? name;
     int? place_id;
+    int? organization_id;
     int? daily_sequence;
     int? weekly_sequence;
     int? monthly_sequence;

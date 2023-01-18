@@ -38,6 +38,12 @@ public isolated service class EvaluationData {
         }
     }
 
+    isolated resource function get activity_instance_id() returns int?{
+        lock{
+            return self.evaluation.activity_instance_id;
+        }
+    }
+
     isolated resource function get evaluation_criteria_id() returns int? {
         lock {
             return self.evaluation.evaluation_criteria_id;

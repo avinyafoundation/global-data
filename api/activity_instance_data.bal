@@ -113,6 +113,18 @@ public isolated service class ActivityInstanceData {
         return new PlaceData((), id);
     }
 
+    isolated resource function get organization() returns OrganizationData|error? {
+        int id = 0;
+        lock {
+            id = self.activity_instance.organization_id ?: 0;
+            if( id == 0) {
+                return null; // no point in querying if address id is null
+            } 
+        }
+        
+        return new OrganizationData((), id);
+    }
+
     isolated resource function get activity_participants() returns ActivityParticipantData[]|error? {
         stream<ActivityParticipant, error?> activityParticipants;
         lock {

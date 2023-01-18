@@ -25,7 +25,7 @@ public isolated service class PersonData {
             `SELECT *
             FROM avinya_db.person
             WHERE
-                name_en LIKE ${_name};`);
+                preferred_name LIKE ${_name};`);
         }
         
         self.person = person_raw.cloneReadOnly();
@@ -194,7 +194,7 @@ public isolated service class PersonData {
             parent_student_ids = db_client->query(
                 `SELECT *
                 FROM avinya_db.parent_child_student
-                WHERE child_org_id = ${self.person.id}`
+                WHERE child_student_id = ${self.person.id}`
             );
         }
 
