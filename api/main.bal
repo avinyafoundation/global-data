@@ -223,6 +223,32 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return error("PCTI activity does not exist");
     }
 
+    isolated resource function get pcti_project_activities(string teacher_id) returns ActivityData[]|error? {
+        stream<Activity, error?> pctiProjectActivities;
+        lock {
+            pctiProjectActivities = db_client->query(
+                `SELECT A.*
+                FROM avinya_db.activity A
+                INNER JOIN avinya_db.parent_child_activity PCA ON A.id = PCA.child_activity_id
+                INNER JOIN avinya_db.activity B ON PCA.parent_activity_id = B.id
+                WHERE B.name = "Project" AND A.teacher_id = ${teacher_id};`
+            );
+        }
+
+        ActivityData[] pctiProjectActivitiesData = [];
+
+        check from Activity pctiProjectActivity in pctiProjectActivities
+            do {
+                ActivityData|error pctiProjectActivityData = new ActivityData((), pctiProjectActivity.id);
+                if !(pctiProjectActivityData is error) {
+                    pctiProjectActivitiesData.push(pctiProjectActivityData);
+                }
+            };
+
+        check pctiProjectActivities.close();
+        return pctiProjectActivitiesData;
+    }
+
 
     isolated resource function get student_applicant(string? jwt_sub_id) returns PersonData|error? {
         AvinyaType avinya_type_raw = check db_client -> queryRow(
@@ -581,13 +607,15 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 name_si,
                 name_ta,
                 address_id,
-                phone
+                phone,
+                avinya_type
             ) VALUES (
                 ${org.name_en},
                 ${org.name_si},
                 ${org.name_ta},
                 ${org.address_id},
-                ${org.phone}
+                ${org.phone},
+                ${org.avinya_type}
             );`
         );
 
@@ -924,14 +952,16 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 place_id,
                 daily_sequence,
                 weekly_sequence,
-                monthly_sequence
+                monthly_sequence,
+                organization_id
             ) VALUES (
                 ${activityInstance.activity_id},
                 ${activityInstance.name},
                 ${activityInstance.place_id},
                 ${activityInstance.daily_sequence},
                 ${activityInstance.weekly_sequence},
-                ${activityInstance.monthly_sequence}
+                ${activityInstance.monthly_sequence},
+                ${activityInstance.organization_id}
             );`
         );
 
@@ -1427,7 +1457,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 activity_instance_id,
                 notes
             ) VALUES(
-                ${evaluation.evaluator_id},
+                ${evaluation.evaluatee_id},
                 ${evaluation.evaluator_id},
                 ${eval_criteria_id},
                 ${evaluation.activity_instance_id},
