@@ -249,6 +249,70 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return pctiProjectActivitiesData;
     }
 
+    // gets the pcti activities attended by a person
+    isolated resource function get pcti_participant_activities(string participant_id) returns ActivityData[]|error?{
+        stream<Activity, error?> pctiParticipantActivities;
+        lock {
+            pctiParticipantActivities = db_client->query(
+                `SELECT a.*
+                FROM avinya_db.activity a
+                JOIN avinya_db.parent_child_activity pca ON a.id = pca.child_activity_id
+                JOIN avinya_db.activity parent_activity ON pca.parent_activity_id = parent_activity.id
+                JOIN avinya_db.avinya_type at ON parent_activity.avinya_type_id = at.id AND at.name = 'group-project'
+                JOIN (
+                SELECT DISTINCT ai.*
+                FROM avinya_db.activity_instance ai
+                JOIN avinya_db.activity_participant ap ON ai.id = ap.activity_instance_id
+                JOIN (
+                    SELECT o.*
+                    FROM avinya_db.organization o
+                    JOIN avinya_db.avinya_type at ON o.avinya_type = at.id
+                    WHERE at.name = 'homeroom'
+                ) o ON ai.organization_id = o.id
+                WHERE ap.person_id = ${participant_id}
+                ) ai ON a.id = ai.activity_id;`
+            );
+        }
+
+        ActivityData[] pctiParticipantActivitiesData = [];
+
+        check from Activity pctiParticipantActivity in pctiParticipantActivities
+            do {
+                ActivityData|error pctiParticipantActivityData = new ActivityData((), pctiParticipantActivity.id);
+                if !(pctiParticipantActivityData is error) {
+                    pctiParticipantActivitiesData.push(pctiParticipantActivityData);
+                }
+            };
+
+        check pctiParticipantActivities.close();
+        return pctiParticipantActivitiesData;
+    }
+
+    isolated resource function get pcti_activity_instances_today(int activity_id) returns ActivityInstanceData[]|error? {
+        stream<ActivityInstance, error?> pctiActivityInstancesToday;
+        lock {
+            pctiActivityInstancesToday = db_client->query(
+                `SELECT *
+                FROM avinya_db.activity_instance
+                WHERE activity_id = ${activity_id} AND
+                DATE(start_time) = CURDATE();`
+            );
+        }
+
+        ActivityInstanceData[] pctiActivityInstancesTodayData = [];
+
+        check from ActivityInstance pctiActivityInstanceToday in pctiActivityInstancesToday
+            do {
+                ActivityInstanceData|error pctiActivityInstanceTodayData = new ActivityInstanceData((), pctiActivityInstanceToday.id);
+                if !(pctiActivityInstanceTodayData is error) {
+                    pctiActivityInstancesTodayData.push(pctiActivityInstanceTodayData);
+                }
+            };
+
+        check pctiActivityInstancesToday.close();
+        return pctiActivityInstancesTodayData;
+    }
+
 
     isolated resource function get student_applicant(string? jwt_sub_id) returns PersonData|error? {
         AvinyaType avinya_type_raw = check db_client -> queryRow(
