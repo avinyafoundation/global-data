@@ -15,6 +15,8 @@ CREATE TABLE IF NOT EXISTS organization (
     name_en VARCHAR(255) NOT NULL,
     name_ta VARCHAR(255),
     name_si VARCHAR(255),
+    description TEXT,
+    notes TEXT DEFAULT NULL,
     phone BIGINT,
     address_id INT,
     avinya_type INT,

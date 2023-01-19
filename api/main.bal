@@ -250,11 +250,11 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
     }
 
     // gets the pcti activities attended by a person
-    isolated resource function get pcti_participant_activities(string participant_id) returns ActivityData[]|error?{
+    isolated resource function get pcti_participant_activities(int participant_id) returns ActivityData[]|error?{
         stream<Activity, error?> pctiParticipantActivities;
         lock {
             pctiParticipantActivities = db_client->query(
-                `SELECT a.*
+                `SELECT DISTINCT a.*
                 FROM avinya_db.activity a
                 JOIN avinya_db.parent_child_activity pca ON a.id = pca.child_activity_id
                 JOIN avinya_db.activity parent_activity ON pca.parent_activity_id = parent_activity.id
