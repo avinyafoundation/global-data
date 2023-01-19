@@ -35,6 +35,18 @@ public isolated service class OrganizationData {
         }
     }
 
+    isolated resource function get description() returns string?{
+        lock {
+            return self.organization.description;
+        }
+    }
+
+    isolated resource function get notes() returns string?{
+        lock {
+            return self.organization.notes;
+        }
+    }
+
     isolated resource function get address() returns AddressData|error? {
         int id = 0;
         lock {

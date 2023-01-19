@@ -74,6 +74,8 @@ public type Organization record {|
     int? address_id;
     int? avinya_type;
     int? phone;
+    string? description;
+    string? notes;
 |};
 
 type ParentChildOrganization record {|

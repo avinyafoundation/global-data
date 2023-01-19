@@ -672,14 +672,18 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 name_ta,
                 address_id,
                 phone,
-                avinya_type
+                avinya_type,
+                description,
+                notes
             ) VALUES (
                 ${org.name_en},
                 ${org.name_si},
                 ${org.name_ta},
                 ${org.address_id},
                 ${org.phone},
-                ${org.avinya_type}
+                ${org.avinya_type},
+                ${org.description},
+                ${org.notes}
             );`
         );
 
