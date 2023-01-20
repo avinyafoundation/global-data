@@ -1,8 +1,0 @@
-[package]
-org = "avinyafoundation"
-name = "global_data_api"
-version = "0.5.0"
-distribution = "2201.3.0"
-
-[build-options]
-observabilityIncluded = true

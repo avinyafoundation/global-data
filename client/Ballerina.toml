@@ -1,8 +1,0 @@
-[package]
-org = "avinyafoundation"
-name = "global_data_client"
-version = ".4.3"
-distribution = "2201.1.1"
-
-[build-options]
-observabilityIncluded = true
