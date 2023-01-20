@@ -672,14 +672,18 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 name_ta,
                 address_id,
                 phone,
-                avinya_type
+                avinya_type,
+                description,
+                notes
             ) VALUES (
                 ${org.name_en},
                 ${org.name_si},
                 ${org.name_ta},
                 ${org.address_id},
                 ${org.phone},
-                ${org.avinya_type}
+                ${org.avinya_type},
+                ${org.description},
+                ${org.notes}
             );`
         );
 
@@ -1013,6 +1017,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
             `INSERT INTO avinya_db.activity_instance (
                 activity_id,
                 name,
+                description,
                 place_id,
                 daily_sequence,
                 weekly_sequence,
@@ -1021,6 +1026,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
             ) VALUES (
                 ${activityInstance.activity_id},
                 ${activityInstance.name},
+                ${activityInstance.description},
                 ${activityInstance.place_id},
                 ${activityInstance.daily_sequence},
                 ${activityInstance.weekly_sequence},
