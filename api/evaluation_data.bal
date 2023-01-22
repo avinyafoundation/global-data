@@ -67,6 +67,11 @@ public isolated service class EvaluationData {
                 return self.evaluation.grade;
         }
     }
+    isolated resource function get response() returns string? {
+        lock {
+            return self.evaluation.response;
+        }
+    }
 
 
     isolated resource function get child_evaluations() returns EvaluationData[]|error? {
