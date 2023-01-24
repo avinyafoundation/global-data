@@ -534,8 +534,6 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return new (insert_id);
     }
 
-   
-
     resource function get all_evaluations() returns EvaluationData[]|error {
         stream<Evaluation, error?> evaluations;
         lock {
@@ -620,6 +618,94 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         }
 
         return count;
+    }
+
+    remote function update_evaluation(Evaluation evaluation) returns EvaluationData|error? {
+        int id = evaluation.id ?: 0;
+        if (id == 0) {
+            return error("Unable to update evaluation");
+        }
+
+        sql:ExecutionResult res = check db_client->execute(
+            `UPDATE avinya_db.evaluation SET
+                    evaluatee_id = ${evaluation.evaluatee_id},
+                    evaluator_id = ${evaluation.evaluator_id},
+                    evaluation_criteria_id = ${evaluation.evaluation_criteria_id},
+                    activity_instance_id = ${evaluation.activity_instance_id},
+                    response = ${evaluation.response},
+                    notes = ${evaluation.notes},
+                    grade = ${evaluation.grade}
+            WHERE id = ${id};`
+        );
+
+        if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+            return error("unable to update evaluations");
+        }
+        return new (id);
+    }
+
+    isolated resource function get evaluation_meta_data(int metadata_id) returns EvaluationMetadataData|error? {
+        // stream<EvaluationMetadata, error?> metaData;
+        EvaluationMetadata metaData_raw = check db_client->queryRow(
+            `SELECT *
+            FROM avinya_db.evaluation_metadata
+            WHERE evaluation_id=${metadata_id};`
+
+        );
+
+        if (metaData_raw is EvaluationMetadata) {
+            return new ((), metaData_raw);
+        }
+
+    }
+
+    remote function add_evaluation_meta_data(EvaluationMetadata evaluationMetaData) returns EvaluationMetadataData|error? {
+
+        EvaluationMetadata|error? metaDataRaw = db_client->queryRow(
+            `SELECT *
+            FROM avinya_db.evaluation_metadata
+            WHERE evaluation_id = ${evaluationMetaData.evaluation_id};`
+        );
+
+        if (metaDataRaw is EvaluationMetadata) {
+            return error("Evaluation already exists");
+        }
+
+        sql:ExecutionResult|error res = db_client->execute(
+            `INSERT INTO avinya_db.evaluation_metadata(
+                 evaluation_id,
+				location,
+				
+				level,
+				meta_type,
+				status,
+				focus,
+				metadata
+            ) VALUES(
+				${evaluationMetaData.evaluation_id},
+				${evaluationMetaData.location},
+				
+				${evaluationMetaData.level},
+				${evaluationMetaData.meta_type},
+				${evaluationMetaData.status},
+				${evaluationMetaData.focus},
+				${evaluationMetaData.metadata}
+
+			);`
+        );
+
+        if (res is sql:ExecutionResult) {
+
+            int|string? insert_id = res.lastInsertId;
+            if !(insert_id is int) {
+                return error("Unable to insert meta data");
+            }
+
+            return new (insert_id);
+        }
+
+        return error("Error while inserting data", res);
+
     }
 
     remote function add_address(Address address) returns AddressData|error? {
