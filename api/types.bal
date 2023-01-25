@@ -477,6 +477,9 @@ public type Supply record {|
 public type ResourceAllocation record {|
     readonly string? record_type = "resource_allocation";
     int id?;
+    boolean? requested;
+    boolean? approved;
+    boolean? allocated;
     int? asset_id;
     int? consumable_id;
     int? organization_id;
@@ -491,6 +494,7 @@ public type ResourceAllocation record {|
 public type Inventory record {|
     readonly string? record_type = "inventory";
     int id?;
+    int? avinya_type_id;
     int? asset_id;
     int? consumable_id;
     int? organization_id;
