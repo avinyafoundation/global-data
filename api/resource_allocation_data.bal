@@ -1,17 +1,25 @@
 public isolated service class ResourceAllocationData{
     private ResourceAllocation resource_allocation;
 
-    isolated function init(int id,ResourceAllocation? resource_allocation=null) returns error?{
+    isolated function init(int? id = 0, int? person_id = 0, ResourceAllocation? resource_allocation=null) returns error?{
         if(resource_allocation != null){
             self.resource_allocation = resource_allocation.cloneReadOnly();
             return;
         }
+     
         lock{
-            ResourceAllocation resource_allocation_raw = check db_client->queryRow(
+            ResourceAllocation resource_allocation_raw;
+            if(id > 0 && person_id == 0) {
+                resource_allocation_raw = check db_client->queryRow(
                 `SELECT *
                 FROM avinya_db.resource_allocation
-                WHERE id = ${id};`
-            );
+                WHERE id = ${id};`);
+            }else{
+                 resource_allocation_raw = check db_client->queryRow(
+                `SELECT *
+                FROM avinya_db.resource_allocation
+                WHERE person_id = ${person_id};`);
+            }
             self.resource_allocation = resource_allocation_raw.cloneReadOnly();
         }
     }
@@ -19,6 +27,24 @@ public isolated service class ResourceAllocationData{
     isolated resource function get id() returns int?|error {
         lock {
             return self.resource_allocation.id;
+        }
+    }
+
+    isolated resource function get requested() returns boolean?|error {
+        lock {
+            return self.resource_allocation.requested;
+        }
+    }
+
+    isolated resource function get approved() returns boolean?|error {
+        lock {
+            return self.resource_allocation.approved;
+        }
+    }
+
+    isolated resource function get allocated() returns boolean?|error {
+        lock {
+            return self.resource_allocation.allocated;
         }
     }
 
