@@ -1234,8 +1234,29 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
     }
 
-    isolated resource function get asset(int id) returns AssetData|error? {
-        return new AssetData(id);
+    isolated resource function get asset(int? id, int? avinya_type_id) returns AssetData[]|error? {
+        stream<Asset, error?> assets;
+        lock {
+            assets = db_client->query(
+                `SELECT *
+                FROM avinya_db.asset
+                WHERE id = ${id} OR
+                avinya_type_id = ${avinya_type_id}`
+            );
+        }
+
+        AssetData[] assetDatas = [];
+
+        check from Asset asset in assets
+            do {
+                AssetData|error assetData = new AssetData(0 ,0, asset);
+                if !(assetData is error) {
+                    assetDatas.push(assetData);
+                }
+            };
+
+        check assets.close();
+        return assetDatas;
     }
 
     resource function get assets() returns AssetData[]|error {
@@ -1251,7 +1272,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         check from Asset asset in assets
             do {
-                AssetData|error assetData = new AssetData(0, asset);
+                AssetData|error assetData = new AssetData(0 ,0, asset);
                 if !(assetData is error) {
                     assetDatas.push(assetData);
                 }
@@ -1776,16 +1797,14 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         }
     }
 
-    isolated resource function get resource_allocation(int id) returns ResourceAllocationData|error? {
-        return new ResourceAllocationData(id);
-    }
-
-    resource function get resource_allocations() returns ResourceAllocationData[]|error {
+    isolated resource function get resource_allocation(int? id,int? person_id) returns ResourceAllocationData[]|error? {
         stream<ResourceAllocation, error?> resource_allocations;
         lock {
             resource_allocations = db_client->query(
                 `SELECT *
-                FROM avinya_db.resource_allocation`
+                FROM avinya_db.resource_allocation
+                WHERE person_id = ${person_id} OR
+                id = ${id}`
             );
         }
 
@@ -1793,7 +1812,81 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         check from ResourceAllocation resourceAllocation in resource_allocations
             do {
-                ResourceAllocationData|error resourceAllocationData = new ResourceAllocationData(0, resourceAllocation);
+                ResourceAllocationData|error resourceAllocationData = new ResourceAllocationData(0, 0, resourceAllocation);
+                if !(resourceAllocationData is error) {
+                    resourceAllocationDatas.push(resourceAllocationData);
+                }
+            };
+
+        check resource_allocations.close();
+        return resourceAllocationDatas;
+    }
+
+    # Get All the Avinya Types for the asset
+    # + return - Avinya Type Data
+    isolated resource function get avinya_types_by_asset() returns AvinyaTypeData[]|error {
+        stream<AvinyaType, error?> avinyaTypes;
+        lock {
+            avinyaTypes = db_client->query(
+                `SELECT *
+                FROM avinya_db.avinya_types_for_asset`
+            );
+        }
+
+        AvinyaTypeData[] avinyaTypeDatas = [];
+
+        check from AvinyaType avinyaType in avinyaTypes
+            do {
+                AvinyaTypeData|error avinyaTypeData = new AvinyaTypeData(0, avinyaType);
+                if !(avinyaTypeData is error) {
+                    avinyaTypeDatas.push(avinyaTypeData);
+                }
+            };
+
+        check avinyaTypes.close();
+        return avinyaTypeDatas;
+    }
+
+    # Get the Available Assets for the Avinya Type
+    # + id - Avinya Type Id
+    # + return - Asset Data
+    isolated resource function get asset_by_avinya_type(int? id) returns AssetData[]|error? {
+        stream<Asset, error?> assets;
+        lock {
+            assets = db_client->query(
+                `call getAssetByAvinyaType(${id})`
+            );
+        }
+
+        AssetData[] assetDatas = [];
+
+        check from Asset asset in assets
+            do {
+                AssetData|error assetData = new AssetData(0 ,0, asset);
+                if !(assetData is error) {
+                    assetDatas.push(assetData);
+                }
+            };
+
+        check assets.close();
+        return assetDatas;
+    }
+   
+    resource function get resource_allocations() returns ResourceAllocationData[]|error {
+        stream<ResourceAllocation, error?> resource_allocations;
+        lock {
+            resource_allocations = db_client->query(
+                `SELECT *
+                FROM avinya_db.resource_allocation
+                `
+            );
+        }
+
+        ResourceAllocationData[] resourceAllocationDatas = [];
+
+        check from ResourceAllocation resourceAllocation in resource_allocations
+            do {
+                ResourceAllocationData|error resourceAllocationData = new ResourceAllocationData(0, 0, resourceAllocation);
                 if !(resourceAllocationData is error) {
                     resourceAllocationDatas.push(resourceAllocationData);
                 }
@@ -1817,6 +1910,9 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         sql:ExecutionResult res = check db_client->execute(
             `INSERT INTO avinya_db.resource_allocation (
+                requested,
+                approved,
+                allocated,
                 asset_id,
                 consumable_id,
                 organization_id,
@@ -1825,6 +1921,9 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 start_date,
                 end_date
             ) VALUES (
+                ${resourceAllocation.requested},
+                ${resourceAllocation.approved},
+                ${resourceAllocation.allocated},
                 ${resourceAllocation.asset_id},
                 ${resourceAllocation.consumable_id},
                 ${resourceAllocation.organization_id},
@@ -1862,6 +1961,9 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         sql:ExecutionResult|error res = db_client->execute(
             `UPDATE avinya_db.resource_allocation SET
+                requested = ${resourceAllocation.requested},
+                approved = ${resourceAllocation.approved},
+                allocated = ${resourceAllocation.allocated},
                 asset_id = ${resourceAllocation.asset_id},
                 consumable_id = ${resourceAllocation.consumable_id},
                 organization_id = ${resourceAllocation.organization_id},
