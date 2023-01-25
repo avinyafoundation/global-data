@@ -74,6 +74,9 @@ CREATE TABLE IF NOT EXISTS supply (
 -- consumable Allocation
 CREATE TABLE IF NOT EXISTS resource_allocation (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    requested BOOLEAN NOT NULL DEFAULT FALSE,
+    approved BOOLEAN NOT NULL DEFAULT FALSE,
+    allocated BOOLEAN NOT NULL DEFAULT TRUE,
     asset_id INT DEFAULT NULL,
     consumable_id INT DEFAULT NULL,
     organization_id INT DEFAULT NULL,
@@ -92,6 +95,7 @@ CREATE TABLE IF NOT EXISTS resource_allocation (
 -- consumable Inventory
 CREATE TABLE IF NOT EXISTS inventory (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    avinya_type_id INT DEFAULT NULL,
     asset_id INT DEFAULT NULL,
     consumable_id INT DEFAULT NULL,
     organization_id INT DEFAULT NULL,
@@ -101,10 +105,37 @@ CREATE TABLE IF NOT EXISTS inventory (
     quantity_out INT NOT NULL DEFAULT 0,
     created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (avinya_type_id) REFERENCES avinya_type(id),
     FOREIGN KEY (asset_id) REFERENCES asset(id),
     FOREIGN KEY (consumable_id) REFERENCES consumable(id),
     FOREIGN KEY (organization_id) REFERENCES organization(id),
     FOREIGN KEY (person_id) REFERENCES person(id)
 );
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
