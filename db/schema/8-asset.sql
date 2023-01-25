@@ -112,6 +112,81 @@ CREATE TABLE IF NOT EXISTS inventory (
     FOREIGN KEY (person_id) REFERENCES person(id)
 );
 
+DELIMITER $$
+CREATE PROCEDURE IF NOT EXISTS `getAssetByAvinyaType`(at_id int) 
+    DETERMINISTIC
+BEGIN
+    DECLARE count INT DEFAULT 0;
+    DECLARE firstId INT;
+    SET count = (SELECT COUNT(*)
+                 FROM avinya_db.asset
+                 WHERE avinya_type_id = at_id 
+                 AND asset.id NOT IN (
+                    SELECT asset_id
+                    FROM resource_allocation
+                    WHERE allocated = true
+                 ));
+    IF count > 0 THEN
+        SET firstId = (SELECT asset.id
+                       FROM avinya_db.asset
+                       WHERE avinya_type_id = at_id
+                       AND asset.id NOT IN (
+                            SELECT asset_id
+                            FROM resource_allocation
+                            WHERE allocated = true
+                       )
+                       ORDER BY asset.id ASC
+                       LIMIT 1);
+        SELECT asset.*
+        FROM avinya_db.asset
+        WHERE id = firstId;
+    ELSE
+        SELECT count;
+    END IF;
+END$$
+DELIMITER ;
+
+CREATE VIEW IF NOT EXISTS `avinya_types_for_asset` AS
+    SELECT 
+        `avinya_type`.`id` AS `id`,
+        `avinya_type`.`active` AS `active`,
+        `avinya_type`.`global_type` AS `global_type`,
+        `avinya_type`.`name` AS `name`,
+        `avinya_type`.`description` AS `description`,
+        `avinya_type`.`foundation_type` AS `foundation_type`,
+        `avinya_type`.`focus` AS `focus`,
+        `avinya_type`.`level` AS `level`
+    FROM
+        (`asset`
+        JOIN `avinya_type` ON ((`asset`.`avinya_type_id` = `avinya_type`.`id`)))
+    GROUP BY `asset`.`avinya_type_id`;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
