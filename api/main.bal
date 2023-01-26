@@ -926,6 +926,73 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                
     }
 
+    remote function update_person_organization(int personId, int newOrgId, string transitionDate) returns PersonData|error?{
+        Person|error? personRaw = db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.person
+            WHERE (id = ${personId});`
+        );
+
+        if !(personRaw is Person){
+            return error("Person does not exist");
+        }
+
+        Organization|error? orgRaw = db_client -> queryRow(
+            `SELECT *
+            FROM avinya_db.organization
+            WHERE (id = ${newOrgId});`
+        );
+
+        if !(orgRaw is Organization){
+            return error("New organization does not exist");
+        }
+
+        // add to person_organization_transition_history
+        sql:ExecutionResult|error? resAdd = db_client -> execute(
+            `INSERT INTO avinya_db.person_organization_transition_history(
+                    person_id,
+                    previous_organization_id,
+                    new_organization_id,
+                    transition_date
+                ) VALUES (
+                    ${personId},
+                    ${personRaw.organization_id},
+                    ${newOrgId},
+                    ${transitionDate}  
+                );`
+        );
+
+        // update avinya_type_id in Person
+        sql:ExecutionResult|error? resUpdate = db_client -> execute(
+            `UPDATE avinya_db.person
+            SET organization_id = ${newOrgId}
+            WHERE(id = ${personId});`
+        );
+
+        if (resUpdate is sql:ExecutionResult) {
+            
+            int? insert_count = resUpdate.affectedRowCount;
+            if !(insert_count is int) {
+                return error("Unable to update person's organization");
+            }
+        } 
+        else{
+            return error("Error while updating data", resUpdate); 
+        } 
+
+        if (resAdd is sql:ExecutionResult) {
+            
+            int|string? insert_id = resAdd.lastInsertId;
+            if !(insert_id is int) {
+                return error("Unable to insert person_organization_transition_history");
+            }
+
+            return new((), insert_id); 
+        } 
+            
+        return error("Error while inserting data", resAdd);          
+    }
+    
     remote function add_activity(Activity activity) returns ActivityData|error?{
         Activity|error? activityRaw = db_client -> queryRow(
             `SELECT *

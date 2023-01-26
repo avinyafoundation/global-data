@@ -128,6 +128,17 @@ type PersonAvinyaTypeTransitionHistory record {|
     string? updated;
 |};
 
+type PersonOrganizationTransitionHistory record {|
+    readonly string? record_type = "person_organization_transition_history";
+    int? id;
+    int? person_id;
+    int? previous_organization_id;
+    int? new_organization_id;
+    string? transition_date;
+    string? created;
+    string? updated;
+|};
+
 public type EvaluationCycle record {|
     readonly string? record_type = "evaluation_cycle";
     int id?;

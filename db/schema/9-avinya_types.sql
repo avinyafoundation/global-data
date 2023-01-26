@@ -71,3 +71,5 @@ INSERT INTO `organization` (name_en, description) VALUES ("2026 - Empower - Grou
 INSERT INTO `organization` (name_en, description) VALUES ("2026 - Empower - Group 4", "Bears");
 INSERT INTO `organization` (name_en, description) VALUES ("2026 - Empower - Group 5", "Bees");
 INSERT INTO `organization` (name_en, description) VALUES ("2026 - Empower - Group 6", "Elephants");
+
+INSERT INTO `evaluation_criteria` (evaluation_type, prompt) VALUES ("Activity Note", "Activity Note");
