@@ -42,6 +42,19 @@ CREATE TABLE IF NOT EXISTS person_avinya_type_transition_history (
     FOREIGN KEY (new_avinya_type_id) REFERENCES avinya_type(id)
 );
 
+CREATE TABLE IF NOT EXISTS person_organization_transition_history (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    person_id INT NOT NULL,
+    previous_organization_id INT NOT NULL,
+    new_organization_id INT NOT NULL,
+    transition_date DATE NOT NULL,
+    created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (person_id) REFERENCES person(id),
+    FOREIGN KEY (previous_organization_id) REFERENCES organization(id),
+    FOREIGN KEY (new_organization_id) REFERENCES organization(id)
+);
+
 CREATE TABLE IF NOT EXISTS parent_child_student(
     child_student_id INT NOT NULL,
     parent_student_id INT NOT NULL,
