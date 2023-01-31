@@ -644,68 +644,114 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return new (id);
     }
 
-    isolated resource function get evaluation_meta_data(int metadata_id) returns EvaluationMetadataData|error? {
-        // stream<EvaluationMetadata, error?> metaData;
-        EvaluationMetadata metaData_raw = check db_client->queryRow(
-            `SELECT *
-            FROM avinya_db.evaluation_metadata
-            WHERE evaluation_id=${metadata_id};`
+    isolated resource function get evaluation_meta_data(int meta_evaluation_id) returns EvaluationMetadataData|error? {
 
-        );
-
-        if (metaData_raw is EvaluationMetadata) {
-            return new ((), metaData_raw);
-        }
+        return new (meta_evaluation_id);
 
     }
 
-    remote function add_evaluation_meta_data(EvaluationMetadata evaluationMetaData) returns EvaluationMetadataData|error? {
+    remote function add_evaluation_meta_data(EvaluationMetadata metadata) returns EvaluationMetadataData|error? {
 
         EvaluationMetadata|error? metaDataRaw = db_client->queryRow(
             `SELECT *
             FROM avinya_db.evaluation_metadata
-            WHERE evaluation_id = ${evaluationMetaData.evaluation_id};`
+            WHERE evaluation_id = ${metadata.evaluation_id};`
         );
 
         if (metaDataRaw is EvaluationMetadata) {
-            return error("Evaluation already exists");
+            return error("Evaluation id already exists");
         }
 
-        sql:ExecutionResult|error res = db_client->execute(
-            `INSERT INTO avinya_db.evaluation_metadata(
-                 evaluation_id,
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO avinya_db.evaluation_metadata(                
+                evaluation_id,
 				location,
-				
+				on_date_time,
 				level,
 				meta_type,
-				status,
 				focus,
+				status,
 				metadata
-            ) VALUES(
-				${evaluationMetaData.evaluation_id},
-				${evaluationMetaData.location},
-				
-				${evaluationMetaData.level},
-				${evaluationMetaData.meta_type},
-				${evaluationMetaData.status},
-				${evaluationMetaData.focus},
-				${evaluationMetaData.metadata}
-
+            ) VALUES(                
+				${metadata.evaluation_id},
+				${metadata.location},
+				${metadata.on_date_time},
+				${metadata.level},
+				${metadata.meta_type},
+				${metadata.focus},
+				${metadata.status},
+				${metadata.metadata}
 			);`
         );
 
-        if (res is sql:ExecutionResult) {
+        int|string? insert_id = res.lastInsertId;
+        if !(insert_id is int) {
+            return error("Unable to insert meta data");
+        }
+        return new (metadata.evaluation_id);
 
-            int|string? insert_id = res.lastInsertId;
-            if !(insert_id is int) {
-                return error("Unable to insert meta data");
-            }
+    }
 
-            return new (insert_id);
+    isolated resource function get evaluationCriteria(string? prompt, int? id) returns EvaluationCriteriaData|error {
+        return new (prompt, id);
+    }
+
+    remote function add_evaluation_criteria(EvaluationCriteria evaluationCriteria) returns EvaluationCriteriaData|error? {
+        EvaluationCriteria|error? criteriaRaw = db_client->queryRow(
+            `SELECT *
+            FROM avinya_db.evaluation_criteria
+            WHERE (prompt = ${evaluationCriteria.prompt} AND
+            id = ${evaluationCriteria.id});`
+        );
+        if (criteriaRaw is EvaluationCriteria) {
+            return error("Evaluation criteria already exists. The prompt and is  you are using is already used by another activiy");
         }
 
-        return error("Error while inserting data", res);
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO  avinya_db.evaluationCriteria(
+                prompt,
+                description,
+                expected_answer,
+                evaluation_type,
+                difficulty,
+                rating_out_of
+                ) VALUES(
+                    ${evaluationCriteria.prompt},
+                    ${evaluationCriteria.description},
+                    ${evaluationCriteria.expected_answer},
+                    ${evaluationCriteria.evalualtion_type},
+                    ${evaluationCriteria.difficulty},
+                    ${evaluationCriteria.rating_out_of}
+                    );`
+        );
 
+        int|string? insert_id = res.lastInsertId;
+        if !(insert_id is int) {
+            return error("Unable to insert evaluation criteria");
+        }
+
+        return new (evaluationCriteria.prompt);
+    }
+
+    remote function add_evaluation_answer_option(EvaluationCriteriaAnswerOption evaluationAnswer) returns EvaluationCriteriaAnswerOptionData|error? {
+
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO avinya_db.evaluation_criteria_answer_option(
+                evaluation_criteria_id,
+                answer,
+                expected_answer
+                ) VALUES(
+                    ${evaluationAnswer.evaluation_criteria_id},
+                    ${evaluationAnswer.answer},
+                    ${evaluationAnswer.expected_answer}
+                );`
+        );
+
+        int|string? insert_id = res.lastInsertId;
+        if !(insert_id is int) {
+            return error("Unable to insert evalution criteria answer");
+        }
+        return new (evaluationAnswer.answer);
     }
 
     remote function add_address(Address address) returns AddressData|error? {

@@ -129,7 +129,7 @@ public isolated service class EvaluationMetadataData {
         id: 0,
         evaluation_id: 0,
         focus: (),
-        is_terminal: false,
+        // is_terminal: false,
         level: 0,
         location: (),
         meta_type: (),
@@ -151,7 +151,7 @@ public isolated service class EvaluationMetadataData {
             `SELECT *
             FROM avinya_db.evaluation_metadata
             WHERE
-                id = ${id};`);
+                evaluation_id = ${id};`);
             self.metadata = evaluation_raw.cloneReadOnly();
         }
 
@@ -204,10 +204,21 @@ public isolated service class EvaluationMetadataData {
             return self.metadata.metadata;
         }
     }
-    isolated resource function get is_terminal() returns boolean? {
-        lock {
-            return self.metadata.is_terminal;
-        }
-    }
+
+    // isolated resource function get child_evaluations() returns EvaluationData[]|error? {
+    //     // Get list of child evaluations
+    //     stream<ParentChildEvaluation, error?> child_eval_ids;
+    //     lock {
+    //         child_eval_ids = db_client->query(
+    //             `SELECT *
+    //             FROM avinya_db.parent_child_evaluation
+    //             WHERE parent_evaluation_id = ${self.evaluation.id}`
+    //         );
+    //     }
+    // isolated resource function get is_terminal() returns boolean? {
+    //     lock {
+    //         return self.metadata.is_terminal;
+    //     }
+    // }
 
 }

@@ -147,6 +147,7 @@ public type EvaluationCriteria record {|
     string? evalualtion_type;
     string? difficulty;
     int? rating_out_of;
+
 |};
 
 public type EvaluationCriteriaAnswerOption record {|
@@ -217,7 +218,7 @@ public type EvaluationMetadata record {|
     string? focus;
     string? status;
     string? metadata;
-    boolean? is_terminal;
+   
 |};
 
 public type ParentChildEvaluation record {|
