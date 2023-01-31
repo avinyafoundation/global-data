@@ -128,6 +128,17 @@ type PersonAvinyaTypeTransitionHistory record {|
     string? updated;
 |};
 
+type PersonOrganizationTransitionHistory record {|
+    readonly string? record_type = "person_organization_transition_history";
+    int? id;
+    int? person_id;
+    int? previous_organization_id;
+    int? new_organization_id;
+    string? transition_date;
+    string? created;
+    string? updated;
+|};
+
 public type EvaluationCycle record {|
     readonly string? record_type = "evaluation_cycle";
     int id?;
@@ -478,6 +489,9 @@ public type Supply record {|
 public type ResourceAllocation record {|
     readonly string? record_type = "resource_allocation";
     int id?;
+    boolean? requested;
+    boolean? approved;
+    boolean? allocated;
     int? asset_id;
     int? consumable_id;
     int? organization_id;
@@ -492,6 +506,7 @@ public type ResourceAllocation record {|
 public type Inventory record {|
     readonly string? record_type = "inventory";
     int id?;
+    int? avinya_type_id;
     int? asset_id;
     int? consumable_id;
     int? organization_id;
