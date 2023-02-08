@@ -151,10 +151,16 @@ public isolated service class EvaluationMetadataData {
             `SELECT *
             FROM avinya_db.evaluation_metadata
             WHERE
-                evaluation_id = ${id};`);
+                id = ${id};`);
             self.metadata = evaluation_raw.cloneReadOnly();
         }
 
+    }
+
+    isolated resource function get id() returns int? {
+        lock {
+            return self.metadata.id;
+        }
     }
 
     isolated resource function get evaluation_id() returns int? {

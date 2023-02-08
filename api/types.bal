@@ -43,7 +43,6 @@ public type City record {|
     *GeospatialInformation;
 |};
 
-
 public type Address record {
     readonly string? record_type = "address";
     int id?;
@@ -53,7 +52,7 @@ public type Address record {
     int city_id;
 };
 
-public type AvinyaType record{|
+public type AvinyaType record {|
     readonly string? record_type = "avinya_type";
     int id?;
     boolean active;
@@ -82,7 +81,6 @@ type ParentChildOrganization record {|
     int child_org_id;
     int parent_org_id;
 |};
-
 
 public type Person record {|
     readonly string? record_type = "person";
@@ -148,14 +146,13 @@ public type EvaluationCycle record {|
     string? end_date;
 |};
 
-
 public type EvaluationCriteria record {|
     readonly string? record_type = "evaluation_criteria";
     int id?;
     string? prompt;
     string? description;
     string? expected_answer;
-    string? evalualtion_type;
+    string? evaluation_type;
     string? difficulty;
     int? rating_out_of;
 
@@ -180,13 +177,13 @@ public type Vacancy record {|
     int? head_count;
 |};
 
-public type VacancyEvaluationCriteria record{|
+public type VacancyEvaluationCriteria record {|
     readonly string? record_type = "vacancy_evaluation_criteria";
     int? vacancy_id;
     int? evaluation_criteria_id;
 |};
 
-public type Application record{|
+public type Application record {|
     readonly string? record_type = "application";
     int id?;
     int? person_id;
@@ -194,7 +191,7 @@ public type Application record{|
     string? application_date;
 |};
 
-public type ApplicationStatus record{|
+public type ApplicationStatus record {|
     readonly string? record_type = "application_status";
     int id?;
     int? application_id;
@@ -229,7 +226,7 @@ public type EvaluationMetadata record {|
     string? focus;
     string? status;
     string? metadata;
-   
+
 |};
 
 public type ParentChildEvaluation record {|
@@ -245,6 +242,7 @@ public type EducationExperience record {|
     string? school;
     string? start_date;
     string? end_date;
+    int[] evaluation_id?;
 |};
 
 public type EducationExperienceEvaluation record {|
@@ -260,6 +258,7 @@ public type WorkExperience record {|
     string? organization;
     string? start_date;
     string? end_date;
+    int[] evaluation_id?;
 |};
 
 public type WorkExperienceEvaluation record {|
@@ -310,7 +309,6 @@ public type Prospect record {|
     boolean? applied;
 |};
 
-
 public type Activity record {|
     readonly string? record_type = "activity";
     int id?;
@@ -341,8 +339,6 @@ public type ParentChildActivity record {|
     int? child_activity_id;
     int? parent_activity_id;
 |};
-
-
 
 public type Place record {|
     readonly string? record_type = "place";
@@ -398,7 +394,6 @@ public type ActivityParticipant record {|
     string? created;
     string? updated;
 |};
-
 
 public type ActivityParticipantAttendance record {|
     readonly string? record_type = "activity_participant_attendance";
