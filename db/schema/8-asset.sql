@@ -146,25 +146,6 @@ BEGIN
 END$$
 DELIMITER ;
 
-CREATE VIEW IF NOT EXISTS `avinya_types_for_asset` AS
-    SELECT 
-        `avinya_type`.`id` AS `id`,
-        `avinya_type`.`active` AS `active`,
-        `avinya_type`.`global_type` AS `global_type`,
-        `avinya_type`.`name` AS `name`,
-        `avinya_type`.`description` AS `description`,
-        `avinya_type`.`foundation_type` AS `foundation_type`,
-        `avinya_type`.`focus` AS `focus`,
-        `avinya_type`.`level` AS `level`
-    FROM
-        (`asset`
-        JOIN `avinya_type` ON ((`asset`.`avinya_type_id` = `avinya_type`.`id`)))
-    GROUP BY `asset`.`avinya_type_id`;
-
-
-
-
-
 
 
 
