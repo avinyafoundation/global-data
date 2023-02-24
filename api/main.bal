@@ -59,7 +59,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
             return error("Unable to insert Avinya Type");
         }
 
-        return new(insert_id);
+        return new (insert_id);
     }
 
     remote function update_avinya_type(AvinyaType avinya_type) returns AvinyaTypeData|error? {
@@ -83,8 +83,8 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         if (res.affectedRowCount == sql:EXECUTION_FAILED) {
             return error("Unable to update Avinya Type");
         }
-        
-        return new(id);
+
+        return new (id);
     }
 
     isolated resource function get organization_structure(string? name, int? id) returns OrganizationStructureData|error? {
@@ -99,7 +99,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return new (name, id);
     }
 
-    isolated resource function get person(string? name, int? id) returns PersonData|error?{
+    isolated resource function get person(string? name, int? id) returns PersonData|error? {
         return new (name, id);
     }
 
@@ -120,7 +120,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
     }
 
     // will return notes of a PCTI instance
-    isolated resource function get pcti_instance_notes(int pcti_instance_id) returns EvaluationData[]|error?{
+    isolated resource function get pcti_instance_notes(int pcti_instance_id) returns EvaluationData[]|error? {
         stream<Evaluation, error?> pctiNotes;
         lock {
             pctiNotes = db_client->query(
@@ -147,7 +147,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
     // will return notes of a Project Class activity
     // note pcti_id is the activity (child activity of Project and Class parents)
-    isolated resource function get pcti_activity_notes(int pcti_activity_id) returns EvaluationData[]|error?{
+    isolated resource function get pcti_activity_notes(int pcti_activity_id) returns EvaluationData[]|error? {
         stream<Evaluation, error?> pctiEvaluations;
         lock {
             pctiEvaluations = db_client->query(
@@ -188,35 +188,35 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
     }
 
     // get pcti_activity
-    isolated resource function get pcti_activity(string project_activity_name, string class_activity_name) returns ActivityData|error?{
-        Activity|error? projectActivityRaw = db_client -> queryRow(
+    isolated resource function get pcti_activity(string project_activity_name, string class_activity_name) returns ActivityData|error? {
+        Activity|error? projectActivityRaw = db_client->queryRow(
             `SELECT *
             FROM avinya_db.activity
             WHERE name = ${project_activity_name};`
         );
 
-        if!(projectActivityRaw is Activity) {
+        if !(projectActivityRaw is Activity) {
             return error("Project does not exist");
         }
 
-        Activity|error? classActivityRaw = db_client -> queryRow(
+        Activity|error? classActivityRaw = db_client->queryRow(
             `SELECT *
             FROM avinya_db.activity
             WHERE name = ${class_activity_name};`
         );
 
-        if!(classActivityRaw is Activity) {
+        if !(classActivityRaw is Activity) {
             return error("Class does not exist");
         }
 
-        Activity|error? pctiActivityRaw = db_client -> queryRow(
+        Activity|error? pctiActivityRaw = db_client->queryRow(
             `SELECT A.*
             FROM avinya_db.activity A
             INNER JOIN avinya_db.parent_child_activity PCA1 ON A.id = PCA1.child_activity_id AND PCA1.parent_activity_id = ${projectActivityRaw.id}
             INNER JOIN avinya_db.parent_child_activity PCA2 ON A.id = PCA2.child_activity_id AND PCA2.parent_activity_id = ${classActivityRaw.id};`
         );
 
-        if(pctiActivityRaw is Activity) {
+        if (pctiActivityRaw is Activity) {
             return new ((), pctiActivityRaw.id);
         }
 
@@ -250,7 +250,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
     }
 
     // gets the pcti activities attended by a person
-    isolated resource function get pcti_participant_activities(int participant_id) returns ActivityData[]|error?{
+    isolated resource function get pcti_participant_activities(int participant_id) returns ActivityData[]|error? {
         stream<Activity, error?> pctiParticipantActivities;
         lock {
             pctiParticipantActivities = db_client->query(
@@ -313,38 +313,37 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return pctiActivityInstancesTodayData;
     }
 
-
     isolated resource function get student_applicant(string? jwt_sub_id) returns PersonData|error? {
-        AvinyaType avinya_type_raw = check db_client -> queryRow(
+        AvinyaType avinya_type_raw = check db_client->queryRow(
             `SELECT *
             FROM avinya_db.avinya_type
             WHERE global_type = "applicant" AND  foundation_type = "student";`
         );
 
-        Person|error? applicantRaw = db_client -> queryRow(
+        Person|error? applicantRaw = db_client->queryRow(
             `SELECT *
             FROM avinya_db.person
             WHERE jwt_sub_id = ${jwt_sub_id} AND 
             avinya_type_id = ${avinya_type_raw.id};`
         );
-        
-        if(applicantRaw is Person) {
+
+        if (applicantRaw is Person) {
             return new ((), applicantRaw.id);
         }
 
-        return error("Applicant does not exist for given sub id: " + (jwt_sub_id?:""));
-        
+        return error("Applicant does not exist for given sub id: " + (jwt_sub_id ?: ""));
+
     }
 
     remote function add_educator_applicant(Person person) returns PersonData|error? {
 
-        AvinyaType avinya_type_raw = check db_client -> queryRow(
+        AvinyaType avinya_type_raw = check db_client->queryRow(
             `SELECT *
             FROM avinya_db.avinya_type
             WHERE global_type = "applicant" AND  foundation_type = "educator";`
         );
 
-        Person|error? applicantRaw = db_client -> queryRow(
+        Person|error? applicantRaw = db_client->queryRow(
             `SELECT *
             FROM avinya_db.person
             WHERE (email = ${person.email}  OR
@@ -352,11 +351,11 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
             jwt_sub_id = ${person.jwt_sub_id}) AND 
             avinya_type_id = ${avinya_type_raw.id};`
         );
-        
-        if(applicantRaw is Person) {
+
+        if (applicantRaw is Person) {
             return error("Applicant already exists. The phone, email or the social login account you are using is already used by another applicant");
         }
-        
+
         sql:ExecutionResult|error res = db_client->execute(
             `INSERT INTO avinya_db.person (
                 preferred_name,
@@ -384,30 +383,30 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 ${person.jwt_email}
             );`
         );
-        
+
         if (res is sql:ExecutionResult) {
-            
+
             int|string? insert_id = res.lastInsertId;
             if !(insert_id is int) {
                 return error("Unable to insert application");
             }
 
-            return new((), insert_id); 
-        } 
-            
+            return new ((), insert_id);
+        }
+
         return error("Error while inserting data", res);
-        
+
     }
 
-    remote function  add_student_applicant(Person person) returns PersonData|error? {
+    remote function add_student_applicant(Person person) returns PersonData|error? {
 
-        AvinyaType avinya_type_raw = check db_client -> queryRow(
+        AvinyaType avinya_type_raw = check db_client->queryRow(
             `SELECT *
             FROM avinya_db.avinya_type
             WHERE global_type = "applicant" AND  foundation_type = "student";`
         );
 
-        Person|error? applicantRaw = db_client -> queryRow(
+        Person|error? applicantRaw = db_client->queryRow(
             `SELECT *
             FROM avinya_db.person
             WHERE (email = ${person.email}  OR
@@ -415,11 +414,11 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
             jwt_sub_id = ${person.jwt_sub_id}) AND 
             avinya_type_id = ${avinya_type_raw.id};`
         );
-        
-        if(applicantRaw is Person) {
+
+        if (applicantRaw is Person) {
             return error("Applicant already exists. The phone, email or the social login account you are using is already used by another applicant");
         }
-        
+
         sql:ExecutionResult|error res = db_client->execute(
             `INSERT INTO avinya_db.person (
                 preferred_name,
@@ -447,32 +446,32 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 ${person.jwt_email}
             );`
         );
-        
+
         if (res is sql:ExecutionResult) {
-            
+
             int|string? insert_id = res.lastInsertId;
             if !(insert_id is int) {
                 return error("Unable to insert application");
             }
 
-            return new((), insert_id); 
-        } 
-            
+            return new ((), insert_id);
+        }
+
         return error("Error while inserting data", res);
-        
+
     }
 
-    remote function  add_student_applicant_consent(ApplicantConsent applicantConsent) returns ApplicantConsentData|error? {
-        
-        ApplicantConsent|error? applicantConsentRaw = db_client -> queryRow(
+    remote function add_student_applicant_consent(ApplicantConsent applicantConsent) returns ApplicantConsentData|error? {
+
+        ApplicantConsent|error? applicantConsentRaw = db_client->queryRow(
             `SELECT *
             FROM avinya_db.applicant_consent
             WHERE (email = ${applicantConsent.email}  OR
             phone = ${applicantConsent.phone}) AND 
             active = TRUE;`
         );
-        
-        if(applicantConsentRaw is ApplicantConsent) {
+
+        if (applicantConsentRaw is ApplicantConsent) {
             return error("Applicant already exists. The phone or the email you provided is already used by another applicant");
         }
 
@@ -505,7 +504,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
             return error("Unable to insert person");
         }
 
-        return new((), applicantConsent.phone);
+        return new ((), applicantConsent.phone);
     }
 
     remote function add_application(Application application) returns ApplicationData|error? {
@@ -532,12 +531,36 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
             );`
         ); // default status with for new application is "New" and is_terminal false
 
-
-        return new(insert_id);
+        return new (insert_id);
     }
 
-    remote function  add_evaluations(Evaluation[] evaluations) returns int|error? {
-        
+    resource function get all_evaluations() returns EvaluationData[]|error {
+        stream<Evaluation, error?> evaluations;
+        lock {
+            evaluations = db_client->query(
+                `SELECT *
+                FROM avinya_db.evaluation 
+                ORDER BY id DESC
+                `
+            );
+        }
+
+        EvaluationData[] evaluationsDatas = [];
+
+        check from Evaluation evaluation in evaluations
+            do {
+                EvaluationData|error evaluationData = new EvaluationData(0, evaluation);
+                if !(evaluationData is error) {
+                    evaluationsDatas.push(evaluationData);
+                }
+            };
+
+        check evaluations.close();
+        return evaluationsDatas;
+    }
+
+    remote function add_evaluations(Evaluation[] evaluations) returns int|error? {
+
         int count = 0;
 
         foreach Evaluation evaluation in evaluations {
@@ -546,6 +569,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                     evaluatee_id,
                     evaluator_id,
                     evaluation_criteria_id,
+                    activity_instance_id,
                     response,
                     notes,
                     grade
@@ -553,6 +577,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                     ${evaluation.evaluatee_id},
                     ${evaluation.evaluator_id},
                     ${evaluation.evaluation_criteria_id},
+                    ${evaluation.activity_instance_id},
                     ${evaluation.response},
                     ${evaluation.notes},
                     ${evaluation.grade}
@@ -561,7 +586,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
             int|string? insert_id = res.lastInsertId;
             if !(insert_id is int) {
-                return error("Unable to insert evaluation");
+                return error("Unable to insert evaluations");
             } else {
                 count += 1;
             }
@@ -577,7 +602,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                         parent_evaluation_id
                     ) VALUES (
                         ${child_idx}, ${insert_id}
-                    );` 
+                    );`
                 );
             }
 
@@ -588,12 +613,342 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                         parent_evaluation_id
                     ) VALUES (
                         ${insert_id}, ${parent_idx}
-                    );` 
+                    );`
                 );
             }
         }
 
         return count;
+    }
+
+    remote function update_evaluation(Evaluation evaluation) returns EvaluationData|error? {
+        int id = evaluation.id ?: 0;
+        if (id == 0) {
+            return error("Unable to update evaluation");
+        }
+
+        sql:ExecutionResult res = check db_client->execute(
+            `UPDATE avinya_db.evaluation SET
+                    evaluatee_id = ${evaluation.evaluatee_id},
+                    evaluator_id = ${evaluation.evaluator_id},
+                    evaluation_criteria_id = ${evaluation.evaluation_criteria_id},
+                    activity_instance_id = ${evaluation.activity_instance_id},
+                    response = ${evaluation.response},
+                    notes = ${evaluation.notes},
+                    grade = ${evaluation.grade}
+            WHERE id = ${id};`
+        );
+
+        if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+            return error("unable to update evaluations");
+        }
+        return new (id);
+    }
+
+    isolated resource function get evaluation_meta_data(int meta_evaluation_id) returns EvaluationMetadataData|error? {
+
+        return new (meta_evaluation_id);
+
+    }
+
+    remote function add_evaluation_meta_data(EvaluationMetadata metadata) returns EvaluationMetadataData|error? {
+
+        EvaluationMetadata|error? metaDataRaw = db_client->queryRow(
+            `SELECT *
+            FROM avinya_db.evaluation_metadata
+            WHERE evaluation_id = ${metadata.evaluation_id};`
+        );
+
+        if (metaDataRaw is EvaluationMetadata) {
+            return error("Evaluation id already exists");
+        }
+
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO avinya_db.evaluation_metadata(                
+                evaluation_id,
+				location,
+				level,
+				meta_type,
+                status,
+				focus,
+				metadata
+            ) VALUES(                
+				${metadata.evaluation_id},
+				${metadata.location},
+				${metadata.level},
+				${metadata.meta_type},
+                ${metadata.status},
+				${metadata.focus},	
+				${metadata.metadata}
+			);`
+        );
+
+        int|string? insert_id = res.lastInsertId;
+        if !(insert_id is int) {
+            return error("Unable to insert meta data");
+        }
+        return new (insert_id);
+
+    }
+
+    isolated resource function get evaluationCriteria(string? prompt, int? id) returns EvaluationCriteriaData|error {
+        return new (prompt, id);
+    }
+
+    remote function add_evaluation_criteria(EvaluationCriteria evaluationCriteria) returns EvaluationCriteriaData|error? {
+        EvaluationCriteria|error? criteriaRaw = db_client->queryRow(
+            `SELECT *
+            FROM avinya_db.evaluation_criteria
+            WHERE (prompt = ${evaluationCriteria.prompt} AND
+            id = ${evaluationCriteria.id});`
+        );
+        if (criteriaRaw is EvaluationCriteria) {
+            return error("Evaluation criteria already exists. The prompt and is  you are using is already used by another criteria");
+        }
+
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO  avinya_db.evaluation_criteria(
+                prompt,
+                description,
+                expected_answer,
+                rating_out_of
+                ) VALUES(
+                    ${evaluationCriteria.prompt},
+                    ${evaluationCriteria.description},
+                    ${evaluationCriteria.expected_answer},
+                    ${evaluationCriteria.rating_out_of}
+                    );`
+        );
+
+        int|string? insert_id = res.lastInsertId;
+        if !(insert_id is int) {
+            return error("Unable to insert evaluation criteria");
+        }
+
+        return new (evaluationCriteria.prompt);
+
+    }
+
+    remote function add_evaluation_answer_option(EvaluationCriteriaAnswerOption evaluationAnswer) returns EvaluationCriteriaAnswerOptionData|error? {
+
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO avinya_db.evaluation_criteria_answer_option(
+                evaluation_criteria_id,
+                answer,
+                expected_answer
+                ) VALUES(
+                    ${evaluationAnswer.evaluation_criteria_id},
+                    ${evaluationAnswer.answer},
+                    ${evaluationAnswer.expected_answer}
+                );`
+        );
+
+        int|string? insert_id = res.lastInsertId;
+        if !(insert_id is int) {
+            return error("Unable to insert evalution criteria answer");
+        }
+        return new (evaluationAnswer.answer);
+    }
+
+    remote function add_evaluation_cycle(EvaluationCycle evaluationCycle) returns int|error? {
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO  avinya_db.evaluation_cycle(
+                name,
+                description,
+                start_date,
+                end_date
+            ) VALUES (
+                ${evaluationCycle.name},
+                ${evaluationCycle.description},
+                ${evaluationCycle.start_date},
+                ${evaluationCycle.end_date}
+            );`
+        );
+
+        int|string? lastInsertId = res.lastInsertId;
+        if (lastInsertId is int) {
+            return lastInsertId;
+        } else {
+            return error("unable to obtain last insert Id for evaluaton Cycle");
+        }
+    }
+
+    # Description
+    #
+    # + id - Parameter Description  
+    # + name - Parameter Description
+    # + return - Return Value Description
+    isolated resource function get evaluation_cycle(string? name, int? id) returns EvaluationCycleData|error {
+        return new (name, id);
+    }
+
+    remote function update_evaluation_cycles(EvaluationCycle evaluation_cycle) returns int|error {
+        sql:ExecutionResult res = check db_client->execute(
+            `UPDATE avinya_db.evaluation_cycle SET
+                name = ${evaluation_cycle.name},
+                description =  ${evaluation_cycle.description},
+                start_date = ${evaluation_cycle.start_date},
+                end_date = ${evaluation_cycle.end_date}
+          WHERE  id = ${evaluation_cycle.id}`
+        );
+        int|string? affectedRows = res.affectedRowCount;
+        if (affectedRows is int) {
+            return affectedRows;
+        } else {
+            return error("Unable to obtian last affected count for evaluation cycle");
+        }
+    }
+
+    remote function add_education_experience(EducationExperience education_experience) returns EducationExperienceData|error? {
+
+        EducationExperience|error? education_experience_raw = db_client->queryRow(
+            `SELECT *
+            FROM avinya_db.education_experience
+            WHERE person_id = ${education_experience.person_id};`
+            );
+
+        if (education_experience_raw is EducationExperience) {
+            return error("Person is already exists. The person id already exists");
+        }
+
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO avinya_db.education_experience(
+                    person_id,
+                    school,
+                    start_date,
+                    end_date
+            ) VALUES(
+                ${education_experience.person_id},
+                ${education_experience.school},
+                ${education_experience.start_date},
+                ${education_experience.end_date}
+            );`
+        );
+
+        int|string? insert_id = res.lastInsertId;
+        if !(insert_id is int) {
+            return error("Unable to insert education_experience");
+        }
+
+        int[] education_eval_ids = education_experience.evaluation_id ?: [];
+
+        foreach int eval_idx in education_eval_ids {
+            _ = check db_client->execute(
+                            `INSERT INTO education_experience_evaluation(
+                                education_experience_id,
+                                evaluation_id
+                            ) VALUES(
+                                ${insert_id},
+                                ${eval_idx}
+                            );`
+                        );
+        }
+
+        return new (insert_id);
+
+    }
+
+    isolated resource function get education_experience(int? id) returns EducationExperienceData|error? {
+        return new (id);
+    }
+
+    isolated resource function get education_experience_byPerson(int? person_id) returns EducationExperienceData[]|error {
+        stream<EducationExperience, error?> education_experiences;
+        lock {
+            education_experiences = db_client->query(
+                `SELECT * 
+                FROM avinya_db.education_experience
+                WHERE person_id=${person_id}
+                `
+            );
+        }
+
+        EducationExperienceData[] educationExperienceDatas = [];
+
+        check from EducationExperience education_experience in education_experiences
+            do {
+                EducationExperienceData|error educationExperienceData = new EducationExperienceData(0, 0, education_experience);
+                if !(educationExperienceData is error) {
+                    educationExperienceDatas.push(educationExperienceData);
+                }
+            };
+        check education_experiences.close();
+        return educationExperienceDatas;
+    }
+
+    remote function add_work_experience(WorkExperience work_experience) returns WorkExperienceData|error? {
+
+        WorkExperience|error? work_experience_raw = db_client->queryRow(
+            `SELECT *
+            FROM avinya_db.work_experience
+            WHERE person_id = ${work_experience.person_id};`
+            );
+
+        if (work_experience_raw is WorkExperience) {
+            return error("Person is already exists.");
+        }
+
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO avinya_db.work_experience(
+                    person_id,
+                    organization,
+                    start_date,
+                    end_date
+            ) VALUES(
+                ${work_experience.person_id},
+                ${work_experience.organization},
+                ${work_experience.start_date},
+                ${work_experience.end_date}
+            );`
+        );
+
+        int|string? insert_id = res.lastInsertId;
+        if !(insert_id is int) {
+            return error("Unable to insert work_experience");
+        }
+        int[] work_eval_ids = work_experience.evaluation_id ?: [];
+
+        foreach int eval_idx in work_eval_ids {
+            _ = check db_client->execute(
+                            `INSERT INTO work_experience_evaluation(
+                                work_experience_id,
+                                evaluation_id
+                            ) VALUES(
+                                ${insert_id},
+                                ${eval_idx}
+                            );`
+                        );
+        }
+
+        return new (insert_id);
+
+    }
+
+    isolated resource function get work_experience(int? id) returns WorkExperienceData|error? {
+        return new (id);
+    }
+
+    isolated resource function get work_experience_ByPerson(int? person_id) returns WorkExperienceData[]|error? {
+        stream<WorkExperience, error?> work_experiences;
+        lock {
+            work_experiences = db_client->query(
+                `SELECT * 
+                FROM avinya_db.work_experience
+                WHERE person_id = ${person_id}`
+            );
+        }
+
+        WorkExperienceData[] workExperienceDatas = [];
+
+        check from WorkExperience work_experience in work_experiences
+            do {
+                WorkExperienceData|error workExperienceData = new WorkExperienceData(0, 0, work_experience);
+                if !(workExperienceData is error) {
+                    workExperienceDatas.push(workExperienceData);
+                }
+            };
+        check work_experiences.close();
+        return workExperienceDatas;
     }
 
     remote function add_address(Address address) returns AddressData|error? {
@@ -614,22 +969,22 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
             return error("Unable to insert addresss");
         }
 
-        return new(insert_id);
+        return new (insert_id);
     }
 
     remote function add_prospect(Prospect prospect) returns ProspectData|error? {
-        Prospect|error? prospectRaw = db_client -> queryRow(
+        Prospect|error? prospectRaw = db_client->queryRow(
             `SELECT *
             FROM avinya_db.prospect
             WHERE (email = ${prospect.email}  OR
             phone = ${prospect.phone}) AND 
             active = TRUE;`
         );
-        
-        if(prospectRaw is Prospect) {
+
+        if (prospectRaw is Prospect) {
             return error("Prospect already exists. The phone or the email you provided is already used by another prospect");
         }
-        
+
         sql:ExecutionResult res = check db_client->execute(
             `INSERT INTO avinya_db.prospect (
                 name,
@@ -661,7 +1016,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
             return error("Unable to insert addresss");
         }
 
-        return new(prospect.email, prospect.phone);
+        return new (prospect.email, prospect.phone);
     }
 
     remote function add_organization(Organization org) returns OrganizationData|error? {
@@ -703,7 +1058,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                     parent_org_id
                 ) VALUES (
                     ${child_idx}, ${insert_id}
-                );` 
+                );`
             );
         }
 
@@ -714,7 +1069,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                     parent_org_id
                 ) VALUES (
                     ${insert_id}, ${parent_idx}
-                );` 
+                );`
             );
         }
 
@@ -747,18 +1102,18 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
             return error("Unable to insert attendance");
         }
 
-        return new(insert_id);
+        return new (insert_id);
     }
 
-    remote function  add_empower_parent(Person person) returns PersonData|error? {
+    remote function add_empower_parent(Person person) returns PersonData|error? {
 
-        AvinyaType avinya_type_raw = check db_client -> queryRow(
+        AvinyaType avinya_type_raw = check db_client->queryRow(
             `SELECT *
             FROM avinya_db.avinya_type
             WHERE global_type = "customer" AND  foundation_type = "parent";`
         );
 
-        Person|error? applicantRaw = db_client -> queryRow(
+        Person|error? applicantRaw = db_client->queryRow(
             `SELECT *
             FROM avinya_db.person
             WHERE (email = ${person.email}  OR
@@ -766,11 +1121,11 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
             jwt_sub_id = ${person.jwt_sub_id}) AND 
             avinya_type_id = ${avinya_type_raw.id};`
         );
-        
-        if(applicantRaw is Person) {
+
+        if (applicantRaw is Person) {
             return error("Parent already exists. The phone, email or the social login account you are using is already used by another parent");
         }
-        
+
         sql:ExecutionResult res = check db_client->execute(
             `INSERT INTO avinya_db.person (
                 preferred_name,
@@ -800,10 +1155,10 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         );
 
         int|string? insert_id = res.lastInsertId;
-            if !(insert_id is int) {
-                return error("Unable to insert parent");
-            }
-        
+        if !(insert_id is int) {
+            return error("Unable to insert parent");
+        }
+
         // Insert child and parent student relationships
         int[] child_student_ids = person.child_student ?: [];
         int[] parent_student_ids = person.parent_student ?: [];
@@ -815,7 +1170,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                     parent_student_id
                 ) VALUES (
                     ${child_idx}, ${insert_id}
-                );` 
+                );`
             );
         }
 
@@ -826,24 +1181,24 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                     parent_student_id
                 ) VALUES (
                     ${insert_id}, ${parent_idx}
-                );` 
+                );`
             );
         }
 
         return new ((), insert_id);
-        
+
     }
- 
-    remote function  update_application_status(string applicationStatus, int applicationId) returns ApplicationStatusData|error? {
-        
-        ApplicationStatus|error? appStatusRaw = db_client -> queryRow(
+
+    remote function update_application_status(string applicationStatus, int applicationId) returns ApplicationStatusData|error? {
+
+        ApplicationStatus|error? appStatusRaw = db_client->queryRow(
             `SELECT *
             FROM avinya_db.application_status
             WHERE(application_id = ${applicationId});`
 
         );
 
-        if !(appStatusRaw is ApplicationStatus){
+        if !(appStatusRaw is ApplicationStatus) {
             return error("Application status does not exist");
         }
 
@@ -855,32 +1210,32 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         );
 
         if (res is sql:ExecutionResult) {
-            
+
             int? insert_count = res.affectedRowCount;
             if !(insert_count is int) {
                 return error("Unable to update application status");
             }
 
-            return new((), appStatusRaw); 
-        } 
-            
+            return new ((), appStatusRaw);
+        }
+
         return error("Error while inserting data", res);
 
     }
 
-    remote function update_person_avinya_type(int personId, int newAvinyaId, string transitionDate) returns PersonData|error?{
-        Person|error? personRaw = db_client -> queryRow(
+    remote function update_person_avinya_type(int personId, int newAvinyaId, string transitionDate) returns PersonData|error? {
+        Person|error? personRaw = db_client->queryRow(
             `SELECT *
             FROM avinya_db.person
             WHERE (id = ${personId});`
         );
 
-        if !(personRaw is Person){
+        if !(personRaw is Person) {
             return error("Person does not exist");
         }
 
         // add to person_avinya_type_transition_history
-        sql:ExecutionResult|error? resAdd = db_client -> execute(
+        sql:ExecutionResult|error? resAdd = db_client->execute(
             `INSERT INTO avinya_db.person_avinya_type_transition_history(
                     person_id,
                     previous_avinya_type_id,
@@ -895,60 +1250,60 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         );
 
         // update avinya_type_id in Person
-        sql:ExecutionResult|error? resUpdate = db_client -> execute(
+        sql:ExecutionResult|error? resUpdate = db_client->execute(
             `UPDATE avinya_db.person
             SET avinya_type_id = ${newAvinyaId}
             WHERE(id = ${personId});`
         );
 
         if (resUpdate is sql:ExecutionResult) {
-            
+
             int? insert_count = resUpdate.affectedRowCount;
             if !(insert_count is int) {
                 return error("Unable to update person's avinya type");
             }
-        } 
-        else{
-            return error("Error while updating data", resUpdate); 
-        } 
+        }
+        else {
+            return error("Error while updating data", resUpdate);
+        }
 
         if (resAdd is sql:ExecutionResult) {
-            
+
             int|string? insert_id = resAdd.lastInsertId;
             if !(insert_id is int) {
                 return error("Unable to insert person_avinya_type_transition_history");
             }
 
-            return new((), insert_id); 
-        } 
-            
+            return new ((), insert_id);
+        }
+
         return error("Error while inserting data", resAdd);
-               
+
     }
 
-    remote function update_person_organization(int personId, int newOrgId, string transitionDate) returns PersonData|error?{
-        Person|error? personRaw = db_client -> queryRow(
+    remote function update_person_organization(int personId, int newOrgId, string transitionDate) returns PersonData|error? {
+        Person|error? personRaw = db_client->queryRow(
             `SELECT *
             FROM avinya_db.person
             WHERE (id = ${personId});`
         );
 
-        if !(personRaw is Person){
+        if !(personRaw is Person) {
             return error("Person does not exist");
         }
 
-        Organization|error? orgRaw = db_client -> queryRow(
+        Organization|error? orgRaw = db_client->queryRow(
             `SELECT *
             FROM avinya_db.organization
             WHERE (id = ${newOrgId});`
         );
 
-        if !(orgRaw is Organization){
+        if !(orgRaw is Organization) {
             return error("New organization does not exist");
         }
 
         // add to person_organization_transition_history
-        sql:ExecutionResult|error? resAdd = db_client -> execute(
+        sql:ExecutionResult|error? resAdd = db_client->execute(
             `INSERT INTO avinya_db.person_organization_transition_history(
                     person_id,
                     previous_organization_id,
@@ -963,45 +1318,45 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         );
 
         // update avinya_type_id in Person
-        sql:ExecutionResult|error? resUpdate = db_client -> execute(
+        sql:ExecutionResult|error? resUpdate = db_client->execute(
             `UPDATE avinya_db.person
             SET organization_id = ${newOrgId}
             WHERE(id = ${personId});`
         );
 
         if (resUpdate is sql:ExecutionResult) {
-            
+
             int? insert_count = resUpdate.affectedRowCount;
             if !(insert_count is int) {
                 return error("Unable to update person's organization");
             }
-        } 
-        else{
-            return error("Error while updating data", resUpdate); 
-        } 
+        }
+        else {
+            return error("Error while updating data", resUpdate);
+        }
 
         if (resAdd is sql:ExecutionResult) {
-            
+
             int|string? insert_id = resAdd.lastInsertId;
             if !(insert_id is int) {
                 return error("Unable to insert person_organization_transition_history");
             }
 
-            return new((), insert_id); 
-        } 
-            
-        return error("Error while inserting data", resAdd);          
+            return new ((), insert_id);
+        }
+
+        return error("Error while inserting data", resAdd);
     }
-    
-    remote function add_activity(Activity activity) returns ActivityData|error?{
-        Activity|error? activityRaw = db_client -> queryRow(
+
+    remote function add_activity(Activity activity) returns ActivityData|error? {
+        Activity|error? activityRaw = db_client->queryRow(
             `SELECT *
             FROM avinya_db.activity
             WHERE (name = ${activity.name} AND
             avinya_type_id = ${activity.avinya_type_id});`
         );
 
-        if(activityRaw is Activity) {
+        if (activityRaw is Activity) {
             return error("Activity already exists. The name and avinya_type_id you are using is already used by another activity");
         }
 
@@ -1035,7 +1390,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                     parent_activity_id
                 ) VALUES (
                     ${child_idx}, ${insert_id}
-                );` 
+                );`
             );
         }
 
@@ -1046,15 +1401,15 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                     parent_activity_id
                 ) VALUES (
                     ${insert_id}, ${parent_idx}
-                );` 
+                );`
             );
         }
 
         return new ((), insert_id);
-        
+
     }
 
-    remote function add_activity_sequence_plan(ActivitySequencePlan activitySequencePlan) returns ActivitySequencePlanData|error?{
+    remote function add_activity_sequence_plan(ActivitySequencePlan activitySequencePlan) returns ActivitySequencePlanData|error? {
         sql:ExecutionResult res = check db_client->execute(
             `INSERT INTO avinya_db.activity_sequence_plan (
                 activity_id,
@@ -1079,7 +1434,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return new (insert_id);
     }
 
-    remote function add_activity_instance(ActivityInstance activityInstance) returns ActivityInstanceData|error?{
+    remote function add_activity_instance(ActivityInstance activityInstance) returns ActivityInstanceData|error? {
         sql:ExecutionResult res = check db_client->execute(
             `INSERT INTO avinya_db.activity_instance (
                 activity_id,
@@ -1110,18 +1465,18 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return new ((), insert_id);
     }
 
-    remote function add_activity_participant(ActivityParticipant activityParticipant) returns ActivityParticipantData|error?{
-        ActivityParticipant|error? activityParticipantRaw = db_client -> queryRow(
+    remote function add_activity_participant(ActivityParticipant activityParticipant) returns ActivityParticipantData|error? {
+        ActivityParticipant|error? activityParticipantRaw = db_client->queryRow(
             `SELECT *
             FROM avinya_db.activity_participant
             WHERE (activity_instance_id = ${activityParticipant.activity_instance_id} AND
             person_id = ${activityParticipant.person_id});`
         );
 
-        if(activityParticipantRaw is ActivityParticipant) {
+        if (activityParticipantRaw is ActivityParticipant) {
             return error("Activity participant already exists. The activity_instance_id and person_id you are using is already used by another activity participant");
         }
-        
+
         sql:ExecutionResult res = check db_client->execute(
             `INSERT INTO avinya_db.activity_participant (
                 activity_instance_id,
@@ -1150,14 +1505,14 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return new (insert_id);
     }
 
-    remote function update_attendance(int attendanceId, string sign_out_time) returns ActivityParticipantAttendanceData|error?{
-        ActivityParticipantAttendance|error? participantAttendanceRaw = db_client -> queryRow(
+    remote function update_attendance(int attendanceId, string sign_out_time) returns ActivityParticipantAttendanceData|error? {
+        ActivityParticipantAttendance|error? participantAttendanceRaw = db_client->queryRow(
             `SELECT *
             FROM avinya_db.activity_participant_attendance
             WHERE (id = ${attendanceId});`
         );
 
-        if !(participantAttendanceRaw is ActivityParticipantAttendance){
+        if !(participantAttendanceRaw is ActivityParticipantAttendance) {
             return error("Activity participant does not exist");
         }
 
@@ -1169,19 +1524,19 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         );
 
         if (res is sql:ExecutionResult) {
-            
+
             int? insert_count = res.affectedRowCount;
             if !(insert_count is int) {
                 return error("Unable to update attendance sign out time");
             }
 
-            return new((), participantAttendanceRaw); 
-        } 
-            
+            return new ((), participantAttendanceRaw);
+        }
+
         return error("Error while inserting data", res);
     }
 
-    remote function add_vacancy(Vacancy vacancy) returns VacancyData|error?{
+    remote function add_vacancy(Vacancy vacancy) returns VacancyData|error? {
         sql:ExecutionResult res = check db_client->execute(
             `INSERT INTO avinya_db.vacancy (
                 name,
@@ -1208,36 +1563,36 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return new ((), insert_id);
     }
 
-    remote function add_person(Person person, int? avinya_type_id) returns PersonData|error?{
+    remote function add_person(Person person, int? avinya_type_id) returns PersonData|error? {
         AvinyaType avinya_type_raw;
-        
-        if(avinya_type_id != null) {
-                avinya_type_raw = check db_client -> queryRow(
+
+        if (avinya_type_id != null) {
+            avinya_type_raw = check db_client->queryRow(
                     `SELECT *
                     FROM avinya_db.avinya_type
                     WHERE id = ${avinya_type_id};`
                 );
-        }else {
-            avinya_type_raw = check db_client -> queryRow(
+        } else {
+            avinya_type_raw = check db_client->queryRow(
                 `SELECT *
                 FROM avinya_db.avinya_type
                 WHERE global_type = "unassigned" AND  foundation_type = "unassigned";`
             );
         }
 
-        Person|error? personRaw = db_client -> queryRow(
+        Person|error? personRaw = db_client->queryRow(
             `SELECT *
             FROM avinya_db.person
             WHERE (email = ${person.email}  OR
             phone = ${person.phone} OR
             jwt_sub_id = ${person.jwt_sub_id}) AND 
             avinya_type_id = ${avinya_type_raw.id};`
-        ); 
-        
-        if(personRaw is Person) {
+        );
+
+        if (personRaw is Person) {
             return error("Person already exists. The phone, email or the social login account you are using is already used by another person");
         }
-        
+
         sql:ExecutionResult res = check db_client->execute(
             `INSERT INTO avinya_db.person (
                 preferred_name,
@@ -1282,7 +1637,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                     parent_student_id
                 ) VALUES (
                     ${child_idx}, ${insert_id}
-                );` 
+                );`
             );
         }
 
@@ -1293,11 +1648,11 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                     parent_student_id
                 ) VALUES (
                     ${insert_id}, ${parent_idx}
-                );` 
+                );`
             );
-        } 
+        }
 
-        return new ((), insert_id);  
+        return new ((), insert_id);
 
     }
 
@@ -1316,7 +1671,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         check from Asset asset in assets
             do {
-                AssetData|error assetData = new AssetData(0 ,0, asset);
+                AssetData|error assetData = new AssetData(0, 0, asset);
                 if !(assetData is error) {
                     assetDatas.push(assetData);
                 }
@@ -1339,7 +1694,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         check from Asset asset in assets
             do {
-                AssetData|error assetData = new AssetData(0 ,0, asset);
+                AssetData|error assetData = new AssetData(0, 0, asset);
                 if !(assetData is error) {
                     assetDatas.push(assetData);
                 }
@@ -1349,15 +1704,15 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return assetDatas;
     }
 
-    remote function add_asset(Asset asset) returns AssetData|error?{
-        Asset|error? assetRaw = db_client -> queryRow(
+    remote function add_asset(Asset asset) returns AssetData|error? {
+        Asset|error? assetRaw = db_client->queryRow(
             `SELECT *
             FROM avinya_db.asset
             WHERE name = ${asset.name} AND
             serial_number = ${asset.serial_number};`
         );
 
-        if(assetRaw is Asset) {
+        if (assetRaw is Asset) {
             return error("Asset already exists. The name or the serial number you are using is already used by another asset");
         }
 
@@ -1388,14 +1743,14 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         return new (insert_id);
     }
-    
-    remote function  update_asset(Asset asset) returns AssetData|error? {
+
+    remote function update_asset(Asset asset) returns AssetData|error? {
         int id = asset.id ?: 0;
         if (id == 0) {
             return error("Unable to update Asset Data");
         }
 
-        Asset|error? assetRaw = db_client -> queryRow(
+        Asset|error? assetRaw = db_client->queryRow(
             `SELECT *
             FROM avinya_db.asset
             WHERE name = ${asset.name} AND
@@ -1403,7 +1758,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         );
 
-        if !(assetRaw is Asset){
+        if !(assetRaw is Asset) {
             return error("Asset Data does not exist");
         }
 
@@ -1420,7 +1775,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         );
 
         if (res is sql:ExecutionResult) {
-            return new(id);
+            return new (id);
         } else {
             return error("Unable to update Asset Data");
         }
@@ -1453,14 +1808,14 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return supplierDatas;
     }
 
-    remote function add_supplier(Supplier supplier) returns SupplierData|error?{
-        Supplier|error? supplierRaw = db_client -> queryRow(
+    remote function add_supplier(Supplier supplier) returns SupplierData|error? {
+        Supplier|error? supplierRaw = db_client->queryRow(
             `SELECT *
             FROM avinya_db.supplier
             WHERE name = ${supplier.name};`
         );
 
-        if(supplierRaw is Supplier) {
+        if (supplierRaw is Supplier) {
             return error("Supplier already exists. The name you are using is already used by another supplier");
         }
 
@@ -1488,19 +1843,19 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return new (insert_id);
     }
 
-    remote function  update_supplier(Supplier supplier) returns SupplierData|error? {
+    remote function update_supplier(Supplier supplier) returns SupplierData|error? {
         int id = supplier.id ?: 0;
         if (id == 0) {
             return error("Unable to update Supplier Data");
         }
 
-        Supplier|error? supplierRaw = db_client -> queryRow(
+        Supplier|error? supplierRaw = db_client->queryRow(
             `SELECT *
             FROM avinya_db.supplier
             WHERE name = ${supplier.name};`
         );
 
-        if !(supplierRaw is Supplier){
+        if !(supplierRaw is Supplier) {
             return error("Supplier Data does not exist");
         }
 
@@ -1515,7 +1870,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         );
 
         if (res is sql:ExecutionResult) {
-            return new(id);
+            return new (id);
         } else {
             return error("Unable to update Supplier Data");
         }
@@ -1548,15 +1903,15 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return consumableDatas;
     }
 
-    remote function add_consumable(Consumable consumable) returns ConsumableData|error?{
-        Consumable|error? consumableRaw = db_client -> queryRow(
+    remote function add_consumable(Consumable consumable) returns ConsumableData|error? {
+        Consumable|error? consumableRaw = db_client->queryRow(
             `SELECT *
             FROM avinya_db.consumable
             WHERE name = ${consumable.name} AND
             avinya_type_id = ${consumable.avinya_type_id};`
         );
 
-        if(consumableRaw is Consumable) {
+        if (consumableRaw is Consumable) {
             return error("Consumable already exists. The name you are using is already used by another consumable");
         }
 
@@ -1586,27 +1941,27 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return new (insert_id);
     }
 
-    remote function add_pcti_notes(Evaluation evaluation) returns EvaluationData|error?{
-        ActivityInstance|error? activityRaw = db_client -> queryRow(
+    remote function add_pcti_notes(Evaluation evaluation) returns EvaluationData|error? {
+        ActivityInstance|error? activityRaw = db_client->queryRow(
             `SELECT *
             FROM avinya_db.activity_instance
             WHERE id = ${evaluation.activity_instance_id};`
         );
 
-        if !(activityRaw is ActivityInstance){
+        if !(activityRaw is ActivityInstance) {
             return error("PCTI activity instance does not exist");
         }
 
-        int|error? eval_criteria_id = db_client -> queryRow(
+        int|error? eval_criteria_id = db_client->queryRow(
             `SELECT id
             FROM avinya_db.evaluation_criteria
             WHERE evaluation_type = 'Activity Note';`
         );
 
-        if !(eval_criteria_id is int){
+        if !(eval_criteria_id is int) {
             return error("Evaluation criteria does not exist");
         }
-        
+
         sql:ExecutionResult res = check db_client->execute(
             `INSERT INTO avinya_db.evaluation(
                 evaluatee_id,
@@ -1637,14 +1992,14 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
             return error("Unable to update Consumable Data");
         }
 
-        Consumable|error? consumableRaw = db_client -> queryRow(
+        Consumable|error? consumableRaw = db_client->queryRow(
             `SELECT *
             FROM avinya_db.consumable
             WHERE name = ${consumable.name} AND
             avinya_type_id = ${consumable.avinya_type_id};`
         );
 
-        if !(consumableRaw is Consumable){
+        if !(consumableRaw is Consumable) {
             return error("Consumable Data does not exist");
         }
 
@@ -1660,7 +2015,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         );
 
         if (res is sql:ExecutionResult) {
-            return new(id);
+            return new (id);
         } else {
             return error("Unable to update Consumable Data");
         }
@@ -1693,15 +2048,15 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return resourcePropertyDatas;
     }
 
-    remote function add_resource_property(ResourceProperty resourceProperty) returns ResourcePropertyData|error?{
-        ResourceProperty|error? resourcePropertyRaw = db_client -> queryRow(
+    remote function add_resource_property(ResourceProperty resourceProperty) returns ResourcePropertyData|error? {
+        ResourceProperty|error? resourcePropertyRaw = db_client->queryRow(
             `SELECT *
             FROM avinya_db.resource_property
             WHERE property =  ${resourceProperty.property} AND
             asset_id = ${resourceProperty.asset_id};`
         );
 
-        if(resourcePropertyRaw is ResourceProperty) {
+        if (resourcePropertyRaw is ResourceProperty) {
             return error("Resource Property already exists. The name you are using is already used by another resource property");
         }
 
@@ -1731,14 +2086,14 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
             return error("Unable to update Resource Property Data");
         }
 
-        ResourceProperty|error? resourcePropertyRaw = db_client -> queryRow(
+        ResourceProperty|error? resourcePropertyRaw = db_client->queryRow(
             `SELECT *
             FROM avinya_db.resource_property
             WHERE property =  ${resourceProperty.property} AND
             asset_id = ${resourceProperty.asset_id};`
         );
 
-        if !(resourcePropertyRaw is ResourceProperty){
+        if !(resourcePropertyRaw is ResourceProperty) {
             return error("Resource Property Data does not exist");
         }
 
@@ -1752,7 +2107,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         );
 
         if (res is sql:ExecutionResult) {
-            return new(id);
+            return new (id);
         } else {
             return error("Unable to update Resource Property Data");
         }
@@ -1785,15 +2140,15 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return supplyDatas;
     }
 
-    remote function add_supply(Supply supply) returns SupplyData|error?{
-        Supply|error? supplyRaw = db_client -> queryRow(
+    remote function add_supply(Supply supply) returns SupplyData|error? {
+        Supply|error? supplyRaw = db_client->queryRow(
             `SELECT *
             FROM avinya_db.supply
             WHERE asset_id = ${supply.asset_id} AND
             supplier_id = ${supply.supplier_id};`
         );
 
-        if(supplyRaw is Supply) {
+        if (supplyRaw is Supply) {
             return error("Supply already exists. The name you are using is already used by another supply");
         }
 
@@ -1833,14 +2188,14 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
             return error("Unable to update supply Data");
         }
 
-        Supply|error? supplyRaw = db_client -> queryRow(
+        Supply|error? supplyRaw = db_client->queryRow(
             `SELECT *
             FROM avinya_db.supply
             WHERE asset_id = ${supply.asset_id} AND
             supplier_id = ${supply.supplier_id};`
         );
 
-        if !(supplyRaw is Supply){
+        if !(supplyRaw is Supply) {
             return error("Supply Data does not exist");
         }
 
@@ -1858,13 +2213,13 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         );
 
         if (res is sql:ExecutionResult) {
-            return new(id);
+            return new (id);
         } else {
             return error("Unable to update Supply Data");
         }
     }
 
-    isolated resource function get resource_allocation(int? id,int? person_id) returns ResourceAllocationData[]|error? {
+    isolated resource function get resource_allocation(int? id, int? person_id) returns ResourceAllocationData[]|error? {
         stream<ResourceAllocation, error?> resource_allocations;
         lock {
             resource_allocations = db_client->query(
@@ -1929,7 +2284,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         check from Asset asset in assets
             do {
-                AssetData|error assetData = new AssetData(0 ,0, asset);
+                AssetData|error assetData = new AssetData(0, 0, asset);
                 if !(assetData is error) {
                     assetDatas.push(assetData);
                 }
@@ -1938,7 +2293,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         check assets.close();
         return assetDatas;
     }
-   
+
     resource function get resource_allocations() returns ResourceAllocationData[]|error {
         stream<ResourceAllocation, error?> resource_allocations;
         lock {
@@ -1963,15 +2318,15 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return resourceAllocationDatas;
     }
 
-    remote function add_resource_allocation(ResourceAllocation resourceAllocation) returns ResourceAllocationData|error?{
-        ResourceAllocation|error? resourceAllocationRaw = db_client -> queryRow(
+    remote function add_resource_allocation(ResourceAllocation resourceAllocation) returns ResourceAllocationData|error? {
+        ResourceAllocation|error? resourceAllocationRaw = db_client->queryRow(
             `SELECT *
             FROM avinya_db.resource_allocation
             WHERE consumable_id = ${resourceAllocation.consumable_id} AND
             person_id = ${resourceAllocation.person_id};`
         );
 
-        if(resourceAllocationRaw is ResourceAllocation) {
+        if (resourceAllocationRaw is ResourceAllocation) {
             return error("Resource Allocation already exists. The name you are using is already used by another resource allocation");
         }
 
@@ -2015,14 +2370,14 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
             return error("Unable to update resource allocation Data");
         }
 
-        ResourceAllocation|error? resourceAllocationRaw = db_client -> queryRow(
+        ResourceAllocation|error? resourceAllocationRaw = db_client->queryRow(
             `SELECT *
             FROM avinya_db.resource_allocation
             WHERE consumable_id = ${resourceAllocation.consumable_id} AND
             person_id = ${resourceAllocation.person_id};`
         );
 
-        if !(resourceAllocationRaw is ResourceAllocation){
+        if !(resourceAllocationRaw is ResourceAllocation) {
             return error("Resource Allocation Data does not exist");
         }
 
@@ -2042,7 +2397,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         );
 
         if (res is sql:ExecutionResult) {
-            return new(id);
+            return new (id);
         } else {
             return error("Unable to update resource allocation Data");
         }
@@ -2075,15 +2430,15 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return inventoryDatas;
     }
 
-    remote function add_inventory(Inventory inventory) returns InventoryData|error?{
-        Inventory|error? inventoryRaw = db_client -> queryRow(
+    remote function add_inventory(Inventory inventory) returns InventoryData|error? {
+        Inventory|error? inventoryRaw = db_client->queryRow(
             `SELECT *
             FROM avinya_db.inventory
             WHERE asset_id = ${inventory.asset_id} AND
             consumable_id = ${inventory.consumable_id};`
         );
 
-        if(inventoryRaw is Inventory) {
+        if (inventoryRaw is Inventory) {
             return error("Inventory already exists. The name you are using is already used by another inventory");
         }
 
@@ -2121,14 +2476,14 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
             return error("Unable to update inventory Data");
         }
 
-        Inventory|error? inventoryRaw = db_client -> queryRow(
+        Inventory|error? inventoryRaw = db_client->queryRow(
             `SELECT *
             FROM avinya_db.inventory
             WHERE asset_id = ${inventory.asset_id} AND
             consumable_id = ${inventory.consumable_id};`
         );
 
-        if !(inventoryRaw is Inventory){
+        if !(inventoryRaw is Inventory) {
             return error("Inventory Data does not exist");
         }
 
@@ -2145,7 +2500,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         );
 
         if (res is sql:ExecutionResult) {
-            return new(id);
+            return new (id);
         } else {
             return error("Unable to update inventory Data");
         }
