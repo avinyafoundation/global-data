@@ -146,7 +146,7 @@ BEGIN
 END$$
 DELIMITER ;
 
-CREATE VIEW IF NOT EXISTS `avinya_types_for_asset` AS
+CREATE VIEW `avinya_types_for_asset` AS
     SELECT 
         `avinya_type`.`id` AS `id`,
         `avinya_type`.`active` AS `active`,
