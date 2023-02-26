@@ -12,7 +12,7 @@ public isolated service class ApplicationData {
         if(id > 0) { // application_id provided, give precedance to that
             Application application_raw = check db_client -> queryRow(
             `SELECT *
-            FROM avinya_db.application
+            FROM application
             WHERE
                 id = ${id};`);
         
@@ -25,7 +25,7 @@ public isolated service class ApplicationData {
         if(_person_id > 0) { 
             Application application_raw = check db_client -> queryRow(
             `SELECT *
-            FROM avinya_db.application
+            FROM application
             WHERE
                 person_id = ${_person_id};`);
         
@@ -85,7 +85,7 @@ public isolated service class ApplicationData {
         lock {
             application_status_stream = db_client->query(
                 `SELECT *
-                FROM avinya_db.application_status
+                FROM application_status
                 WHERE application_id = ${self.application.id}`
             );
         }
@@ -120,7 +120,7 @@ public isolated service class ApplicationStatusData {
         if(_application_id > 0) { // application_status_id provided, give precedance to that
             ApplicationStatus application_raw = check db_client -> queryRow(
             `SELECT *
-            FROM avinya_db.application_status
+            FROM application_status
             WHERE
                 application_id = ${_application_id};`);
             

@@ -15,7 +15,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         lock {
             avinyaTypes = db_client->query(
                 `SELECT *
-                FROM avinya_db.avinya_type`
+                FROM avinya_type`
             );
         }
 
@@ -35,7 +35,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
     remote function add_avinya_type(AvinyaType avinya_type) returns AvinyaTypeData|error? {
         sql:ExecutionResult res = check db_client->execute(
-            `INSERT INTO avinya_db.avinya_type (
+            `INSERT INTO avinya_type (
                 global_type,
                 foundation_type,
                 focus,
@@ -69,7 +69,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         }
 
         sql:ExecutionResult res = check db_client->execute(
-            `UPDATE avinya_db.avinya_type SET
+            `UPDATE avinya_type SET
                 global_type = ${avinya_type.global_type},
                 foundation_type = ${avinya_type.foundation_type},
                 focus = ${avinya_type.focus},
@@ -125,7 +125,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         lock {
             pctiNotes = db_client->query(
                 `SELECT *
-                FROM avinya_db.evaluation
+                FROM evaluation
                 WHERE activity_instance_id = ${pcti_instance_id}`
             );
         }
@@ -162,11 +162,11 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                     grade,
                     e.updated
                 FROM
-                    avinya_db.evaluation e
+                    evaluation e
                         JOIN
-                    avinya_db.activity_instance ai ON e.activity_instance_id = ai.id
+                    activity_instance ai ON e.activity_instance_id = ai.id
                         JOIN
-                    avinya_db.activity a ON ai.activity_id = a.id
+                    activity a ON ai.activity_id = a.id
                 WHERE
                     activity_id = ${pcti_activity_id};`
             );
@@ -191,7 +191,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
     isolated resource function get pcti_activity(string project_activity_name, string class_activity_name) returns ActivityData|error? {
         Activity|error? projectActivityRaw = db_client->queryRow(
             `SELECT *
-            FROM avinya_db.activity
+            FROM activity
             WHERE name = ${project_activity_name};`
         );
 
@@ -201,7 +201,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         Activity|error? classActivityRaw = db_client->queryRow(
             `SELECT *
-            FROM avinya_db.activity
+            FROM activity
             WHERE name = ${class_activity_name};`
         );
 
@@ -211,9 +211,9 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         Activity|error? pctiActivityRaw = db_client->queryRow(
             `SELECT A.*
-            FROM avinya_db.activity A
-            INNER JOIN avinya_db.parent_child_activity PCA1 ON A.id = PCA1.child_activity_id AND PCA1.parent_activity_id = ${projectActivityRaw.id}
-            INNER JOIN avinya_db.parent_child_activity PCA2 ON A.id = PCA2.child_activity_id AND PCA2.parent_activity_id = ${classActivityRaw.id};`
+            FROM activity A
+            INNER JOIN parent_child_activity PCA1 ON A.id = PCA1.child_activity_id AND PCA1.parent_activity_id = ${projectActivityRaw.id}
+            INNER JOIN parent_child_activity PCA2 ON A.id = PCA2.child_activity_id AND PCA2.parent_activity_id = ${classActivityRaw.id};`
         );
 
         if (pctiActivityRaw is Activity) {
@@ -228,9 +228,9 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         lock {
             pctiProjectActivities = db_client->query(
                 `SELECT A.*
-                FROM avinya_db.activity A
-                INNER JOIN avinya_db.parent_child_activity PCA ON A.id = PCA.child_activity_id
-                INNER JOIN avinya_db.activity B ON PCA.parent_activity_id = B.id
+                FROM activity A
+                INNER JOIN parent_child_activity PCA ON A.id = PCA.child_activity_id
+                INNER JOIN activity B ON PCA.parent_activity_id = B.id
                 WHERE B.name = "Project" AND A.teacher_id = ${teacher_id};`
             );
         }
@@ -255,18 +255,18 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         lock {
             pctiParticipantActivities = db_client->query(
                 `SELECT DISTINCT a.*
-                FROM avinya_db.activity a
-                JOIN avinya_db.parent_child_activity pca ON a.id = pca.child_activity_id
-                JOIN avinya_db.activity parent_activity ON pca.parent_activity_id = parent_activity.id
-                JOIN avinya_db.avinya_type at ON parent_activity.avinya_type_id = at.id AND at.name = 'group-project'
+                FROM activity a
+                JOIN parent_child_activity pca ON a.id = pca.child_activity_id
+                JOIN activity parent_activity ON pca.parent_activity_id = parent_activity.id
+                JOIN avinya_type at ON parent_activity.avinya_type_id = at.id AND at.name = 'group-project'
                 JOIN (
                 SELECT DISTINCT ai.*
-                FROM avinya_db.activity_instance ai
-                JOIN avinya_db.activity_participant ap ON ai.id = ap.activity_instance_id
+                FROM activity_instance ai
+                JOIN activity_participant ap ON ai.id = ap.activity_instance_id
                 JOIN (
                     SELECT o.*
-                    FROM avinya_db.organization o
-                    JOIN avinya_db.avinya_type at ON o.avinya_type = at.id
+                    FROM organization o
+                    JOIN avinya_type at ON o.avinya_type = at.id
                     WHERE at.name = 'homeroom'
                 ) o ON ai.organization_id = o.id
                 WHERE ap.person_id = ${participant_id}
@@ -293,7 +293,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         lock {
             pctiActivityInstancesToday = db_client->query(
                 `SELECT *
-                FROM avinya_db.activity_instance
+                FROM activity_instance
                 WHERE activity_id = ${activity_id} AND
                 DATE(start_time) = CURDATE();`
             );
@@ -316,13 +316,13 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
     isolated resource function get student_applicant(string? jwt_sub_id) returns PersonData|error? {
         AvinyaType avinya_type_raw = check db_client->queryRow(
             `SELECT *
-            FROM avinya_db.avinya_type
+            FROM avinya_type
             WHERE global_type = "applicant" AND  foundation_type = "student";`
         );
 
         Person|error? applicantRaw = db_client->queryRow(
             `SELECT *
-            FROM avinya_db.person
+            FROM person
             WHERE jwt_sub_id = ${jwt_sub_id} AND 
             avinya_type_id = ${avinya_type_raw.id};`
         );
@@ -339,13 +339,13 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         AvinyaType avinya_type_raw = check db_client->queryRow(
             `SELECT *
-            FROM avinya_db.avinya_type
+            FROM avinya_type
             WHERE global_type = "applicant" AND  foundation_type = "educator";`
         );
 
         Person|error? applicantRaw = db_client->queryRow(
             `SELECT *
-            FROM avinya_db.person
+            FROM person
             WHERE (email = ${person.email}  OR
             phone = ${person.phone} OR 
             jwt_sub_id = ${person.jwt_sub_id}) AND 
@@ -357,7 +357,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         }
 
         sql:ExecutionResult|error res = db_client->execute(
-            `INSERT INTO avinya_db.person (
+            `INSERT INTO person (
                 preferred_name,
                 full_name,
                 sex,
@@ -402,13 +402,13 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         AvinyaType avinya_type_raw = check db_client->queryRow(
             `SELECT *
-            FROM avinya_db.avinya_type
+            FROM avinya_type
             WHERE global_type = "applicant" AND  foundation_type = "student";`
         );
 
         Person|error? applicantRaw = db_client->queryRow(
             `SELECT *
-            FROM avinya_db.person
+            FROM person
             WHERE (email = ${person.email}  OR
             phone = ${person.phone} OR 
             jwt_sub_id = ${person.jwt_sub_id}) AND 
@@ -420,7 +420,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         }
 
         sql:ExecutionResult|error res = db_client->execute(
-            `INSERT INTO avinya_db.person (
+            `INSERT INTO person (
                 preferred_name,
                 full_name,
                 sex,
@@ -465,7 +465,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         ApplicantConsent|error? applicantConsentRaw = db_client->queryRow(
             `SELECT *
-            FROM avinya_db.applicant_consent
+            FROM applicant_consent
             WHERE (email = ${applicantConsent.email}  OR
             phone = ${applicantConsent.phone}) AND 
             active = TRUE;`
@@ -476,7 +476,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         }
 
         sql:ExecutionResult res = check db_client->execute(
-            `INSERT INTO avinya_db.applicant_consent (
+            `INSERT INTO applicant_consent (
                 name,
                 date_of_birth,
                 done_ol,
@@ -509,7 +509,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
     remote function add_application(Application application) returns ApplicationData|error? {
         sql:ExecutionResult res = check db_client->execute(
-            `INSERT INTO avinya_db.application (
+            `INSERT INTO application (
                 person_id,
                 vacancy_id
             ) VALUES (
@@ -524,7 +524,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         }
 
         res = check db_client->execute(
-            `INSERT INTO avinya_db.application_status (
+            `INSERT INTO application_status (
                 application_id
             ) VALUES (
                 ${insert_id}
@@ -539,7 +539,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         lock {
             evaluations = db_client->query(
                 `SELECT *
-                FROM avinya_db.evaluation 
+                FROM evaluation 
                 ORDER BY id DESC
                 `
             );
@@ -565,7 +565,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         foreach Evaluation evaluation in evaluations {
             sql:ExecutionResult res = check db_client->execute(
-                `INSERT INTO avinya_db.evaluation (
+                `INSERT INTO evaluation (
                     evaluatee_id,
                     evaluator_id,
                     evaluation_criteria_id,
@@ -597,7 +597,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
             foreach int child_idx in child_eval_ids {
                 _ = check db_client->execute(
-                    `INSERT INTO avinya_db.parent_child_evaluation (
+                    `INSERT INTO parent_child_evaluation (
                         child_evaluation_id,
                         parent_evaluation_id
                     ) VALUES (
@@ -608,7 +608,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
             foreach int parent_idx in parent_eval_ids {
                 _ = check db_client->execute(
-                    `INSERT INTO avinya_db.parent_child_evaluation (
+                    `INSERT INTO parent_child_evaluation (
                         child_evaluation_id,
                         parent_evaluation_id
                     ) VALUES (
@@ -628,7 +628,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         }
 
         sql:ExecutionResult res = check db_client->execute(
-            `UPDATE avinya_db.evaluation SET
+            `UPDATE evaluation SET
                     evaluatee_id = ${evaluation.evaluatee_id},
                     evaluator_id = ${evaluation.evaluator_id},
                     evaluation_criteria_id = ${evaluation.evaluation_criteria_id},
@@ -655,7 +655,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         EvaluationMetadata|error? metaDataRaw = db_client->queryRow(
             `SELECT *
-            FROM avinya_db.evaluation_metadata
+            FROM evaluation_metadata
             WHERE evaluation_id = ${metadata.evaluation_id};`
         );
 
@@ -664,7 +664,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         }
 
         sql:ExecutionResult res = check db_client->execute(
-            `INSERT INTO avinya_db.evaluation_metadata(                
+            `INSERT INTO evaluation_metadata(                
                 evaluation_id,
 				location,
 				level,
@@ -698,7 +698,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
     remote function add_evaluation_criteria(EvaluationCriteria evaluationCriteria) returns EvaluationCriteriaData|error? {
         EvaluationCriteria|error? criteriaRaw = db_client->queryRow(
             `SELECT *
-            FROM avinya_db.evaluation_criteria
+            FROM evaluation_criteria
             WHERE (prompt = ${evaluationCriteria.prompt} AND
             id = ${evaluationCriteria.id});`
         );
@@ -707,7 +707,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         }
 
         sql:ExecutionResult res = check db_client->execute(
-            `INSERT INTO  avinya_db.evaluation_criteria(
+            `INSERT INTO  evaluation_criteria(
                 prompt,
                 description,
                 expected_answer,
@@ -732,7 +732,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
     remote function add_evaluation_answer_option(EvaluationCriteriaAnswerOption evaluationAnswer) returns EvaluationCriteriaAnswerOptionData|error? {
 
         sql:ExecutionResult res = check db_client->execute(
-            `INSERT INTO avinya_db.evaluation_criteria_answer_option(
+            `INSERT INTO evaluation_criteria_answer_option(
                 evaluation_criteria_id,
                 answer,
                 expected_answer
@@ -752,7 +752,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
     remote function add_evaluation_cycle(EvaluationCycle evaluationCycle) returns int|error? {
         sql:ExecutionResult res = check db_client->execute(
-            `INSERT INTO  avinya_db.evaluation_cycle(
+            `INSERT INTO  evaluation_cycle(
                 name,
                 description,
                 start_date,
@@ -784,7 +784,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
     remote function update_evaluation_cycles(EvaluationCycle evaluation_cycle) returns int|error {
         sql:ExecutionResult res = check db_client->execute(
-            `UPDATE avinya_db.evaluation_cycle SET
+            `UPDATE evaluation_cycle SET
                 name = ${evaluation_cycle.name},
                 description =  ${evaluation_cycle.description},
                 start_date = ${evaluation_cycle.start_date},
@@ -803,7 +803,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         EducationExperience|error? education_experience_raw = db_client->queryRow(
             `SELECT *
-            FROM avinya_db.education_experience
+            FROM education_experience
             WHERE person_id = ${education_experience.person_id};`
             );
 
@@ -812,7 +812,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         }
 
         sql:ExecutionResult res = check db_client->execute(
-            `INSERT INTO avinya_db.education_experience(
+            `INSERT INTO education_experience(
                     person_id,
                     school,
                     start_date,
@@ -857,7 +857,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         lock {
             education_experiences = db_client->query(
                 `SELECT * 
-                FROM avinya_db.education_experience
+                FROM education_experience
                 WHERE person_id=${person_id}
                 `
             );
@@ -880,7 +880,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         WorkExperience|error? work_experience_raw = db_client->queryRow(
             `SELECT *
-            FROM avinya_db.work_experience
+            FROM work_experience
             WHERE person_id = ${work_experience.person_id};`
             );
 
@@ -889,7 +889,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         }
 
         sql:ExecutionResult res = check db_client->execute(
-            `INSERT INTO avinya_db.work_experience(
+            `INSERT INTO work_experience(
                     person_id,
                     organization,
                     start_date,
@@ -933,7 +933,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         lock {
             work_experiences = db_client->query(
                 `SELECT * 
-                FROM avinya_db.work_experience
+                FROM work_experience
                 WHERE person_id = ${person_id}`
             );
         }
@@ -953,7 +953,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
     remote function add_address(Address address) returns AddressData|error? {
         sql:ExecutionResult res = check db_client->execute(
-            `INSERT INTO avinya_db.address (
+            `INSERT INTO address (
                 street_address,
                 phone,
                 city_id
@@ -975,7 +975,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
     remote function add_prospect(Prospect prospect) returns ProspectData|error? {
         Prospect|error? prospectRaw = db_client->queryRow(
             `SELECT *
-            FROM avinya_db.prospect
+            FROM prospect
             WHERE (email = ${prospect.email}  OR
             phone = ${prospect.phone}) AND 
             active = TRUE;`
@@ -986,7 +986,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         }
 
         sql:ExecutionResult res = check db_client->execute(
-            `INSERT INTO avinya_db.prospect (
+            `INSERT INTO prospect (
                 name,
                 phone,
                 email,
@@ -1021,7 +1021,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
     remote function add_organization(Organization org) returns OrganizationData|error? {
         sql:ExecutionResult res = check db_client->execute(
-            `INSERT INTO avinya_db.organization (
+            `INSERT INTO organization (
                 name_en,
                 name_si,
                 name_ta,
@@ -1053,7 +1053,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         foreach int child_idx in child_eval_ids {
             _ = check db_client->execute(
-                `INSERT INTO avinya_db.parent_child_organization (
+                `INSERT INTO parent_child_organization (
                     child_org_id,
                     parent_org_id
                 ) VALUES (
@@ -1064,7 +1064,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         foreach int parent_idx in parent_eval_ids {
             _ = check db_client->execute(
-                `INSERT INTO avinya_db.parent_child_organization (
+                `INSERT INTO parent_child_organization (
                     child_org_id,
                     parent_org_id
                 ) VALUES (
@@ -1084,7 +1084,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
     remote function add_attendance(ActivityParticipantAttendance attendance) returns ActivityParticipantAttendanceData|error? {
         sql:ExecutionResult res = check db_client->execute(
-            `INSERT INTO avinya_db.activity_participant_attendance (
+            `INSERT INTO activity_participant_attendance (
                 activity_instance_id,
                 person_id,
                 sign_in_time,
@@ -1109,13 +1109,13 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         AvinyaType avinya_type_raw = check db_client->queryRow(
             `SELECT *
-            FROM avinya_db.avinya_type
+            FROM avinya_type
             WHERE global_type = "customer" AND  foundation_type = "parent";`
         );
 
         Person|error? applicantRaw = db_client->queryRow(
             `SELECT *
-            FROM avinya_db.person
+            FROM person
             WHERE (email = ${person.email}  OR
             phone = ${person.phone} OR
             jwt_sub_id = ${person.jwt_sub_id}) AND 
@@ -1127,7 +1127,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         }
 
         sql:ExecutionResult res = check db_client->execute(
-            `INSERT INTO avinya_db.person (
+            `INSERT INTO person (
                 preferred_name,
                 full_name,
                 sex,
@@ -1165,7 +1165,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         foreach int child_idx in child_student_ids {
             _ = check db_client->execute(
-                `INSERT INTO avinya_db.parent_child_student (
+                `INSERT INTO parent_child_student (
                     child_student_id,
                     parent_student_id
                 ) VALUES (
@@ -1176,7 +1176,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         foreach int parent_idx in parent_student_ids {
             _ = check db_client->execute(
-                `INSERT INTO avinya_db.parent_child_student (
+                `INSERT INTO parent_child_student (
                     child_student_id,
                     parent_student_id
                 ) VALUES (
@@ -1193,7 +1193,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         ApplicationStatus|error? appStatusRaw = db_client->queryRow(
             `SELECT *
-            FROM avinya_db.application_status
+            FROM application_status
             WHERE(application_id = ${applicationId});`
 
         );
@@ -1204,7 +1204,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         // add new application_status
         sql:ExecutionResult|error res = db_client->execute(
-            `UPDATE avinya_db.application_status
+            `UPDATE application_status
             SET status = ${applicationStatus}
             WHERE(application_id = ${applicationId});`
         );
@@ -1226,7 +1226,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
     remote function update_person_avinya_type(int personId, int newAvinyaId, string transitionDate) returns PersonData|error? {
         Person|error? personRaw = db_client->queryRow(
             `SELECT *
-            FROM avinya_db.person
+            FROM person
             WHERE (id = ${personId});`
         );
 
@@ -1236,7 +1236,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         // add to person_avinya_type_transition_history
         sql:ExecutionResult|error? resAdd = db_client->execute(
-            `INSERT INTO avinya_db.person_avinya_type_transition_history(
+            `INSERT INTO person_avinya_type_transition_history(
                     person_id,
                     previous_avinya_type_id,
                     new_avinya_type_id,
@@ -1251,7 +1251,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         // update avinya_type_id in Person
         sql:ExecutionResult|error? resUpdate = db_client->execute(
-            `UPDATE avinya_db.person
+            `UPDATE person
             SET avinya_type_id = ${newAvinyaId}
             WHERE(id = ${personId});`
         );
@@ -1284,7 +1284,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
     remote function update_person_organization(int personId, int newOrgId, string transitionDate) returns PersonData|error? {
         Person|error? personRaw = db_client->queryRow(
             `SELECT *
-            FROM avinya_db.person
+            FROM person
             WHERE (id = ${personId});`
         );
 
@@ -1294,7 +1294,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         Organization|error? orgRaw = db_client->queryRow(
             `SELECT *
-            FROM avinya_db.organization
+            FROM organization
             WHERE (id = ${newOrgId});`
         );
 
@@ -1304,7 +1304,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         // add to person_organization_transition_history
         sql:ExecutionResult|error? resAdd = db_client->execute(
-            `INSERT INTO avinya_db.person_organization_transition_history(
+            `INSERT INTO person_organization_transition_history(
                     person_id,
                     previous_organization_id,
                     new_organization_id,
@@ -1319,7 +1319,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         // update avinya_type_id in Person
         sql:ExecutionResult|error? resUpdate = db_client->execute(
-            `UPDATE avinya_db.person
+            `UPDATE person
             SET organization_id = ${newOrgId}
             WHERE(id = ${personId});`
         );
@@ -1351,7 +1351,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
     remote function add_activity(Activity activity) returns ActivityData|error? {
         Activity|error? activityRaw = db_client->queryRow(
             `SELECT *
-            FROM avinya_db.activity
+            FROM activity
             WHERE (name = ${activity.name} AND
             avinya_type_id = ${activity.avinya_type_id});`
         );
@@ -1361,7 +1361,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         }
 
         sql:ExecutionResult res = check db_client->execute(
-            `INSERT INTO avinya_db.activity (
+            `INSERT INTO activity (
                 name,
                 description,
                 avinya_type_id,
@@ -1385,7 +1385,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         foreach int child_idx in child_activities_ids {
             _ = check db_client->execute(
-                `INSERT INTO avinya_db.parent_child_activity (
+                `INSERT INTO parent_child_activity (
                     child_activity_id,
                     parent_activity_id
                 ) VALUES (
@@ -1396,7 +1396,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         foreach int parent_idx in parent_activities_ids {
             _ = check db_client->execute(
-                `INSERT INTO avinya_db.parent_child_activity (
+                `INSERT INTO parent_child_activity (
                     child_activity_id,
                     parent_activity_id
                 ) VALUES (
@@ -1411,7 +1411,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
     remote function add_activity_sequence_plan(ActivitySequencePlan activitySequencePlan) returns ActivitySequencePlanData|error? {
         sql:ExecutionResult res = check db_client->execute(
-            `INSERT INTO avinya_db.activity_sequence_plan (
+            `INSERT INTO activity_sequence_plan (
                 activity_id,
                 sequence_number,
                 timeslot_number,
@@ -1436,7 +1436,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
     remote function add_activity_instance(ActivityInstance activityInstance) returns ActivityInstanceData|error? {
         sql:ExecutionResult res = check db_client->execute(
-            `INSERT INTO avinya_db.activity_instance (
+            `INSERT INTO activity_instance (
                 activity_id,
                 name,
                 description,
@@ -1468,7 +1468,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
     remote function add_activity_participant(ActivityParticipant activityParticipant) returns ActivityParticipantData|error? {
         ActivityParticipant|error? activityParticipantRaw = db_client->queryRow(
             `SELECT *
-            FROM avinya_db.activity_participant
+            FROM activity_participant
             WHERE (activity_instance_id = ${activityParticipant.activity_instance_id} AND
             person_id = ${activityParticipant.person_id});`
         );
@@ -1478,7 +1478,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         }
 
         sql:ExecutionResult res = check db_client->execute(
-            `INSERT INTO avinya_db.activity_participant (
+            `INSERT INTO activity_participant (
                 activity_instance_id,
                 person_id,
                 organization_id,
@@ -1508,7 +1508,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
     remote function update_attendance(int attendanceId, string sign_out_time) returns ActivityParticipantAttendanceData|error? {
         ActivityParticipantAttendance|error? participantAttendanceRaw = db_client->queryRow(
             `SELECT *
-            FROM avinya_db.activity_participant_attendance
+            FROM activity_participant_attendance
             WHERE (id = ${attendanceId});`
         );
 
@@ -1518,7 +1518,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         // set sign_out_time
         sql:ExecutionResult|error res = db_client->execute(
-            `UPDATE avinya_db.activity_participant_attendance
+            `UPDATE activity_participant_attendance
             SET sign_out_time = ${sign_out_time}
             WHERE(id = ${attendanceId});`
         );
@@ -1538,7 +1538,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
     remote function add_vacancy(Vacancy vacancy) returns VacancyData|error? {
         sql:ExecutionResult res = check db_client->execute(
-            `INSERT INTO avinya_db.vacancy (
+            `INSERT INTO vacancy (
                 name,
                 description,
                 organization_id,
@@ -1569,20 +1569,20 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         if (avinya_type_id != null) {
             avinya_type_raw = check db_client->queryRow(
                     `SELECT *
-                    FROM avinya_db.avinya_type
+                    FROM avinya_type
                     WHERE id = ${avinya_type_id};`
                 );
         } else {
             avinya_type_raw = check db_client->queryRow(
                 `SELECT *
-                FROM avinya_db.avinya_type
+                FROM avinya_type
                 WHERE global_type = "unassigned" AND  foundation_type = "unassigned";`
             );
         }
 
         Person|error? personRaw = db_client->queryRow(
             `SELECT *
-            FROM avinya_db.person
+            FROM person
             WHERE (email = ${person.email}  OR
             phone = ${person.phone} OR
             jwt_sub_id = ${person.jwt_sub_id}) AND 
@@ -1594,7 +1594,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         }
 
         sql:ExecutionResult res = check db_client->execute(
-            `INSERT INTO avinya_db.person (
+            `INSERT INTO person (
                 preferred_name,
                 full_name,
                 sex,
@@ -1632,7 +1632,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         foreach int child_idx in child_student_ids {
             _ = check db_client->execute(
-                `INSERT INTO avinya_db.parent_child_student (
+                `INSERT INTO parent_child_student (
                     child_student_id,
                     parent_student_id
                 ) VALUES (
@@ -1643,7 +1643,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         foreach int parent_idx in parent_student_ids {
             _ = check db_client->execute(
-                `INSERT INTO avinya_db.parent_child_student (
+                `INSERT INTO parent_child_student (
                     child_student_id,
                     parent_student_id
                 ) VALUES (
@@ -1661,7 +1661,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         lock {
             assets = db_client->query(
                 `SELECT *
-                FROM avinya_db.asset
+                FROM asset
                 WHERE id = ${id} OR
                 avinya_type_id = ${avinya_type_id}`
             );
@@ -1686,7 +1686,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         lock {
             assets = db_client->query(
                 `SELECT *
-                FROM avinya_db.asset`
+                FROM asset`
             );
         }
 
@@ -1707,7 +1707,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
     remote function add_asset(Asset asset) returns AssetData|error? {
         Asset|error? assetRaw = db_client->queryRow(
             `SELECT *
-            FROM avinya_db.asset
+            FROM asset
             WHERE name = ${asset.name} AND
             serial_number = ${asset.serial_number};`
         );
@@ -1717,7 +1717,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         }
 
         sql:ExecutionResult res = check db_client->execute(
-            `INSERT INTO avinya_db.asset (
+            `INSERT INTO asset (
                 name,
                 manufacturer,
                 model,
@@ -1752,7 +1752,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         Asset|error? assetRaw = db_client->queryRow(
             `SELECT *
-            FROM avinya_db.asset
+            FROM asset
             WHERE name = ${asset.name} AND
             serial_number = ${asset.serial_number};`
 
@@ -1763,7 +1763,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         }
 
         sql:ExecutionResult|error res = db_client->execute(
-            `UPDATE avinya_db.asset SET
+            `UPDATE asset SET
                 name = ${asset.name},
                 manufacturer = ${asset.manufacturer},
                 model = ${asset.model},
@@ -1790,7 +1790,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         lock {
             suppliers = db_client->query(
                 `SELECT *
-                FROM avinya_db.supplier`
+                FROM supplier`
             );
         }
 
@@ -1811,7 +1811,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
     remote function add_supplier(Supplier supplier) returns SupplierData|error? {
         Supplier|error? supplierRaw = db_client->queryRow(
             `SELECT *
-            FROM avinya_db.supplier
+            FROM supplier
             WHERE name = ${supplier.name};`
         );
 
@@ -1820,7 +1820,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         }
 
         sql:ExecutionResult res = check db_client->execute(
-            `INSERT INTO avinya_db.supplier (
+            `INSERT INTO supplier (
                 name,
                 phone,
                 email,
@@ -1851,7 +1851,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         Supplier|error? supplierRaw = db_client->queryRow(
             `SELECT *
-            FROM avinya_db.supplier
+            FROM supplier
             WHERE name = ${supplier.name};`
         );
 
@@ -1860,7 +1860,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         }
 
         sql:ExecutionResult|error res = db_client->execute(
-            `UPDATE avinya_db.supplier SET
+            `UPDATE supplier SET
                 name = ${supplier.name},
                 phone = ${supplier.phone},
                 email = ${supplier.email},
@@ -1885,7 +1885,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         lock {
             consumables = db_client->query(
                 `SELECT *
-                FROM avinya_db.consumable`
+                FROM consumable`
             );
         }
 
@@ -1906,7 +1906,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
     remote function add_consumable(Consumable consumable) returns ConsumableData|error? {
         Consumable|error? consumableRaw = db_client->queryRow(
             `SELECT *
-            FROM avinya_db.consumable
+            FROM consumable
             WHERE name = ${consumable.name} AND
             avinya_type_id = ${consumable.avinya_type_id};`
         );
@@ -1916,7 +1916,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         }
 
         sql:ExecutionResult res = check db_client->execute(
-            `INSERT INTO avinya_db.consumable (
+            `INSERT INTO consumable (
                 name,
                 description,
                 manufacturer,
@@ -1944,7 +1944,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
     remote function add_pcti_notes(Evaluation evaluation) returns EvaluationData|error? {
         ActivityInstance|error? activityRaw = db_client->queryRow(
             `SELECT *
-            FROM avinya_db.activity_instance
+            FROM activity_instance
             WHERE id = ${evaluation.activity_instance_id};`
         );
 
@@ -1954,7 +1954,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         int|error? eval_criteria_id = db_client->queryRow(
             `SELECT id
-            FROM avinya_db.evaluation_criteria
+            FROM evaluation_criteria
             WHERE evaluation_type = 'Activity Note';`
         );
 
@@ -1963,7 +1963,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         }
 
         sql:ExecutionResult res = check db_client->execute(
-            `INSERT INTO avinya_db.evaluation(
+            `INSERT INTO evaluation(
                 evaluatee_id,
                 evaluator_id,
                 evaluation_criteria_id,
@@ -1994,7 +1994,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         Consumable|error? consumableRaw = db_client->queryRow(
             `SELECT *
-            FROM avinya_db.consumable
+            FROM consumable
             WHERE name = ${consumable.name} AND
             avinya_type_id = ${consumable.avinya_type_id};`
         );
@@ -2004,7 +2004,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         }
 
         sql:ExecutionResult|error res = db_client->execute(
-            `UPDATE avinya_db.consumable SET
+            `UPDATE consumable SET
                 name = ${consumable.name},
                 description = ${consumable.description},
                 manufacturer = ${consumable.manufacturer},
@@ -2030,7 +2030,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         lock {
             resource_properties = db_client->query(
                 `SELECT *
-                FROM avinya_db.resource_property`
+                FROM resource_property`
             );
         }
 
@@ -2051,7 +2051,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
     remote function add_resource_property(ResourceProperty resourceProperty) returns ResourcePropertyData|error? {
         ResourceProperty|error? resourcePropertyRaw = db_client->queryRow(
             `SELECT *
-            FROM avinya_db.resource_property
+            FROM resource_property
             WHERE property =  ${resourceProperty.property} AND
             asset_id = ${resourceProperty.asset_id};`
         );
@@ -2061,7 +2061,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         }
 
         sql:ExecutionResult res = check db_client->execute(
-            `INSERT INTO avinya_db.resource_property (
+            `INSERT INTO resource_property (
                 property,
                 value,
                 asset_id
@@ -2088,7 +2088,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         ResourceProperty|error? resourcePropertyRaw = db_client->queryRow(
             `SELECT *
-            FROM avinya_db.resource_property
+            FROM resource_property
             WHERE property =  ${resourceProperty.property} AND
             asset_id = ${resourceProperty.asset_id};`
         );
@@ -2098,7 +2098,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         }
 
         sql:ExecutionResult|error res = db_client->execute(
-            `UPDATE avinya_db.resource_property SET
+            `UPDATE resource_property SET
                 property = ${resourceProperty.property},
                 value = ${resourceProperty.value},
                 consumable_id = ${resourceProperty.consumable_id},
@@ -2122,7 +2122,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         lock {
             supplies = db_client->query(
                 `SELECT *
-                FROM avinya_db.supply`
+                FROM supply`
             );
         }
 
@@ -2143,7 +2143,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
     remote function add_supply(Supply supply) returns SupplyData|error? {
         Supply|error? supplyRaw = db_client->queryRow(
             `SELECT *
-            FROM avinya_db.supply
+            FROM supply
             WHERE asset_id = ${supply.asset_id} AND
             supplier_id = ${supply.supplier_id};`
         );
@@ -2153,7 +2153,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         }
 
         sql:ExecutionResult res = check db_client->execute(
-            `INSERT INTO avinya_db.supply (
+            `INSERT INTO supply (
                 asset_id,
                 consumable_id,
                 supplier_id,
@@ -2190,7 +2190,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         Supply|error? supplyRaw = db_client->queryRow(
             `SELECT *
-            FROM avinya_db.supply
+            FROM supply
             WHERE asset_id = ${supply.asset_id} AND
             supplier_id = ${supply.supplier_id};`
         );
@@ -2200,7 +2200,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         }
 
         sql:ExecutionResult|error res = db_client->execute(
-            `UPDATE avinya_db.supply SET
+            `UPDATE supply SET
                 asset_id = ${supply.asset_id},
                 consumable_id = ${supply.consumable_id},
                 supplier_id = ${supply.supplier_id},
@@ -2224,7 +2224,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         lock {
             resource_allocations = db_client->query(
                 `SELECT *
-                FROM avinya_db.resource_allocation
+                FROM resource_allocation
                 WHERE person_id = ${person_id} OR
                 id = ${id}`
             );
@@ -2251,7 +2251,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         lock {
             avinyaTypes = db_client->query(
                 `SELECT *
-                FROM avinya_db.avinya_types_for_asset`
+                FROM avinya_types_for_asset`
             );
         }
 
@@ -2299,7 +2299,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         lock {
             resource_allocations = db_client->query(
                 `SELECT *
-                FROM avinya_db.resource_allocation
+                FROM resource_allocation
                 `
             );
         }
@@ -2321,7 +2321,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
     remote function add_resource_allocation(ResourceAllocation resourceAllocation) returns ResourceAllocationData|error? {
         ResourceAllocation|error? resourceAllocationRaw = db_client->queryRow(
             `SELECT *
-            FROM avinya_db.resource_allocation
+            FROM resource_allocation
             WHERE consumable_id = ${resourceAllocation.consumable_id} AND
             person_id = ${resourceAllocation.person_id};`
         );
@@ -2331,7 +2331,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         }
 
         sql:ExecutionResult res = check db_client->execute(
-            `INSERT INTO avinya_db.resource_allocation (
+            `INSERT INTO resource_allocation (
                 requested,
                 approved,
                 allocated,
@@ -2372,7 +2372,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         ResourceAllocation|error? resourceAllocationRaw = db_client->queryRow(
             `SELECT *
-            FROM avinya_db.resource_allocation
+            FROM resource_allocation
             WHERE consumable_id = ${resourceAllocation.consumable_id} AND
             person_id = ${resourceAllocation.person_id};`
         );
@@ -2382,7 +2382,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         }
 
         sql:ExecutionResult|error res = db_client->execute(
-            `UPDATE avinya_db.resource_allocation SET
+            `UPDATE resource_allocation SET
                 requested = ${resourceAllocation.requested},
                 approved = ${resourceAllocation.approved},
                 allocated = ${resourceAllocation.allocated},
@@ -2412,7 +2412,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         lock {
             inventories = db_client->query(
                 `SELECT *
-                FROM avinya_db.inventory`
+                FROM inventory`
             );
         }
 
@@ -2433,7 +2433,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
     remote function add_inventory(Inventory inventory) returns InventoryData|error? {
         Inventory|error? inventoryRaw = db_client->queryRow(
             `SELECT *
-            FROM avinya_db.inventory
+            FROM inventory
             WHERE asset_id = ${inventory.asset_id} AND
             consumable_id = ${inventory.consumable_id};`
         );
@@ -2443,7 +2443,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         }
 
         sql:ExecutionResult res = check db_client->execute(
-            `INSERT INTO avinya_db.inventory (
+            `INSERT INTO inventory (
                 asset_id,
                 consumable_id,
                 organization_id,
@@ -2478,7 +2478,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         Inventory|error? inventoryRaw = db_client->queryRow(
             `SELECT *
-            FROM avinya_db.inventory
+            FROM inventory
             WHERE asset_id = ${inventory.asset_id} AND
             consumable_id = ${inventory.consumable_id};`
         );
@@ -2488,7 +2488,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         }
 
         sql:ExecutionResult|error res = db_client->execute(
-            `UPDATE avinya_db.inventory SET
+            `UPDATE inventory SET
                 asset_id = ${inventory.asset_id},
                 consumable_id = ${inventory.consumable_id},
                 organization_id = ${inventory.organization_id},

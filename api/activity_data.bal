@@ -14,14 +14,14 @@ public isolated service class ActivityData {
         if(id > 0) { // activity_id provided, give precedance to that
             activity_raw = check db_client -> queryRow(
             `SELECT *
-            FROM avinya_db.activity
+            FROM activity
             WHERE
                 id = ${id};`);
         } else 
         {
             activity_raw = check db_client -> queryRow(
             `SELECT *
-            FROM avinya_db.activity
+            FROM activity
             WHERE
                 name LIKE ${_name};`);
         }
@@ -71,7 +71,7 @@ public isolated service class ActivityData {
         lock {
             child_activity_ids = db_client->query(
                 `SELECT *
-                FROM avinya_db.parent_child_activity
+                FROM parent_child_activity
                 WHERE parent_activity_id = ${self.activity.id}`
             );
         }
@@ -95,7 +95,7 @@ public isolated service class ActivityData {
         lock {
             parent_activity_ids = db_client->query(
                 `SELECT *
-                FROM avinya_db.parent_child_activity
+                FROM parent_child_activity
                 WHERE child_activity_id = ${self.activity.id}`
             );
         }
@@ -118,7 +118,7 @@ public isolated service class ActivityData {
         lock {
             activity_sequence_plans = db_client->query(
                 `SELECT *
-                FROM avinya_db.activity_sequence_plan
+                FROM activity_sequence_plan
                 WHERE activity_id = ${self.activity.id}`
             );
         }
@@ -142,7 +142,7 @@ public isolated service class ActivityData {
         lock {
             activity_instances = db_client->query(
                 `SELECT *
-                FROM avinya_db.activity_instance
+                FROM activity_instance
                 WHERE activity_id = ${self.activity.id}`
             );
         }

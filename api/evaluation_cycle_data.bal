@@ -14,14 +14,14 @@ public isolated service class EvaluationCycleData {
         if(id > 0) { // evaluation_cycle_id provided, give precedance to that
             evaluation_cycle_raw = check db_client -> queryRow(
             `SELECT *
-            FROM avinya_db.evaluation_cycle
+            FROM evaluation_cycle
             WHERE
                 id = ${id};`);
         } else 
         {
             evaluation_cycle_raw = check db_client -> queryRow(
             `SELECT *
-            FROM avinya_db.evaluation_cycle
+            FROM evaluation_cycle
             WHERE
                 name LIKE ${_name};`);
         }

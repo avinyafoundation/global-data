@@ -9,7 +9,7 @@ public isolated service class SupplierData{
         lock{
             Supplier supplier_raw = check db_client->queryRow(
                 `SELECT *
-                FROM avinya_db.supplier
+                FROM supplier
                 WHERE id = ${id};`
             );
             self.supplier = supplier_raw.cloneReadOnly();

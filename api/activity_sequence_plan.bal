@@ -21,7 +21,7 @@ public isolated service class ActivitySequencePlanData {
         if(_activity_id > 0) { // activity_sequence_plan_id provided, give precedance to that
             activity_sequence_plan_raw = check db_client -> queryRow(
             `SELECT *
-            FROM avinya_db.activity_sequence_plan
+            FROM activity_sequence_plan
             WHERE
                 id = ${_activity_id};`);
             self.activity_sequence_plan = activity_sequence_plan_raw.cloneReadOnly();

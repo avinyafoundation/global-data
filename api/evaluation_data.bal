@@ -12,7 +12,7 @@ public isolated service class EvaluationData {
         if (id > 0) { // evaluation_id provided, give precedance to that
             Evaluation evaluation_raw = check db_client->queryRow(
             `SELECT *
-            FROM avinya_db.evaluation
+            FROM evaluation
             WHERE
                 id = ${id};`);
             self.evaluation = evaluation_raw.cloneReadOnly();
@@ -79,7 +79,7 @@ public isolated service class EvaluationData {
         lock {
             child_eval_ids = db_client->query(
                 `SELECT *
-                FROM avinya_db.parent_child_evaluation
+                FROM parent_child_evaluation
                 WHERE parent_evaluation_id = ${self.evaluation.id}`
             );
         }
@@ -103,7 +103,7 @@ public isolated service class EvaluationData {
         lock {
             parent_evaluation_ids = db_client->query(
                 `SELECT *
-                FROM avinya_db.parent_child_evaluation
+                FROM parent_child_evaluation
                 WHERE child_evaluation_id = ${self.evaluation.id}`
             );
         }
@@ -149,7 +149,7 @@ public isolated service class EvaluationMetadataData {
         if (id > 0) { // metadata_id provided, give precedance to that
             EvaluationMetadata evaluation_raw = check db_client->queryRow(
             `SELECT *
-            FROM avinya_db.evaluation_metadata
+            FROM evaluation_metadata
             WHERE
                 id = ${id};`);
             self.metadata = evaluation_raw.cloneReadOnly();
@@ -217,7 +217,7 @@ public isolated service class EvaluationMetadataData {
     //     lock {
     //         child_eval_ids = db_client->query(
     //             `SELECT *
-    //             FROM avinya_db.parent_child_evaluation
+    //             FROM parent_child_evaluation
     //             WHERE parent_evaluation_id = ${self.evaluation.id}`
     //         );
     //     }

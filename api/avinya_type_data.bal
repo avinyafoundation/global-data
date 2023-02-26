@@ -11,7 +11,7 @@ public isolated service class AvinyaTypeData {
 
         AvinyaType avinya_type_raw = check db_client -> queryRow(
             `SELECT *
-            FROM avinya_db.avinya_type
+            FROM avinya_type
             WHERE id = ${id};`
         );
 

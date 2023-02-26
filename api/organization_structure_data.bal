@@ -12,13 +12,13 @@ public isolated service class OrganizationStructureData {
 
         stream<Organization, error?> resultStream =  db_client -> query(
             `SELECT *
-            FROM avinya_db.organization AS org
+            FROM organization AS org
             WHERE
                 (org.id = ${_id}
                 OR org.name_en LIKE ${_name}) 
                 AND 
                 org.avinya_type IN 
-                (SELECT atype.id FROM avinya_db.avinya_type AS atype WHERE atype.level >= ${level});`
+                (SELECT atype.id FROM avinya_type AS atype WHERE atype.level >= ${level});`
         );
 
         check from Organization organization in resultStream

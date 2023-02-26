@@ -14,14 +14,14 @@ public isolated service class EvaluationCriteriaData {
         if (id > 0) { // evaluation_criteria_id provided, give precedance to that
             evaluation_criteria_raw = check db_client->queryRow(
             `SELECT *
-            FROM avinya_db.evaluation_criteria
+            FROM evaluation_criteria
             WHERE
                 id = ${id};`);
         } else
         {
             evaluation_criteria_raw = check db_client->queryRow(
             `SELECT *
-            FROM avinya_db.evaluation_criteria
+            FROM evaluation_criteria
             WHERE
                 prompt LIKE ${_prompt};`);
         }
@@ -77,7 +77,7 @@ public isolated service class EvaluationCriteriaData {
         lock {
             answer_options = db_client->query(
                 `SELECT *
-                FROM avinya_db.evaluation_criteria_answer_option
+                FROM evaluation_criteria_answer_option
                 WHERE evaluation_criteria_id = ${self.evaluation_criteria.id}`
             );
         }
@@ -114,14 +114,14 @@ public isolated service class EvaluationCriteriaAnswerOptionData {
         if (id > 0) { // evaluation_criteria_answer_option_id provided, give precedance to that
             evaluation_criteria_raw = check db_client->queryRow(
             `SELECT *
-            FROM avinya_db.evaluation_criteria_answer_option
+            FROM evaluation_criteria_answer_option
             WHERE
                 id = ${id};`);
         } else
         {
             evaluation_criteria_raw = check db_client->queryRow(
             `SELECT *
-            FROM avinya_db.evaluation_criteria_answer_option
+            FROM evaluation_criteria_answer_option
             WHERE
                 answer LIKE ${_answer};`);
         }

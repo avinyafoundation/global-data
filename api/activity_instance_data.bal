@@ -14,14 +14,14 @@ public isolated service class ActivityInstanceData {
         if(id > 0) { // activity_instance_id provided, give precedance to that
             activity_instance_raw = check db_client -> queryRow(
             `SELECT *
-            FROM avinya_db.activity_instance
+            FROM activity_instance
             WHERE
                 id = ${id};`);
         } else 
         {
             activity_instance_raw = check db_client -> queryRow(
             `SELECT *
-            FROM avinya_db.activity_instance
+            FROM activity_instance
             WHERE
                 name_en LIKE ${_name};`);
         }
@@ -130,7 +130,7 @@ public isolated service class ActivityInstanceData {
         lock {
             activityParticipants = db_client->query(
                 `SELECT *
-                FROM avinya_db.activity_participant
+                FROM activity_participant
                 WHERE activity_instance_id = ${self.activity_instance.id}`
             );
         }
@@ -154,7 +154,7 @@ public isolated service class ActivityInstanceData {
         lock {
             activityParticipantAttendances = db_client->query(
                 `SELECT *
-                FROM avinya_db.activity_participant_attendance
+                FROM activity_participant_attendance
                 WHERE activity_instance_id = ${self.activity_instance.id}`
             );
         }
@@ -178,7 +178,7 @@ public isolated service class ActivityInstanceData {
         lock {
             evaluations = db_client->query(
                 `SELECT *
-                FROM avinya_db.evaluation
+                FROM evaluation
                 WHERE activity_instance_id = ${self.activity_instance.id}`
             );
         }

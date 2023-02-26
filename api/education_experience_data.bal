@@ -13,14 +13,14 @@ public isolated service class EducationExperienceData {
             if (id > 0 && person_id == 0) { // education_experience_id provided, give precedance to that
                 education_experience_raw = check db_client->queryRow(
             `SELECT *
-            FROM avinya_db.education_experience
+            FROM education_experience
             WHERE
                 id = ${id};`);
 
             } else {
                 education_experience_raw = check db_client->queryRow(
             `SELECT *
-            FROM avinya_db.education_experience
+            FROM education_experience
             WHERE
                 person_id = ${person_id};`);
             }
@@ -58,7 +58,7 @@ public isolated service class EducationExperienceData {
         lock {
             education_eval_ids = db_client->query(
                 `SELECT *
-                FROM avinya_db.education_experience_evaluation
+                FROM education_experience_evaluation
                 WHERE education_experience_id = ${self.education_experience.id}`
             );
         }
@@ -92,7 +92,7 @@ public isolated service class EducationExperienceEvaluationData {
         if (id > 0) { // education_experience_evaluation_id provided, give precedance to that
             EducationExperienceEvaluation education_experience_raw = check db_client->queryRow(
             `SELECT *
-            FROM avinya_db.education_experience_evaluation
+            FROM education_experience_evaluation
             WHERE
                 id = ${id};`);
             self.education_experience_evaluation = education_experience_raw.cloneReadOnly();

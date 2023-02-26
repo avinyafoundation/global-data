@@ -14,14 +14,14 @@ public isolated service class WorkExperienceData {
             if (id > 0 && person_id == 0) { // work_experience_id provided, give precedance to that
                 work_experience_raw = check db_client->queryRow(
             `SELECT *
-            FROM avinya_db.work_experience
+            FROM work_experience
             WHERE
                 id = ${id};`);
 
             } else {
                 work_experience_raw = check db_client->queryRow(
             `SELECT *
-            FROM avinya_db.work_experience
+            FROM work_experience
             WHERE
                 person_id = ${person_id};`);
             }
@@ -72,7 +72,7 @@ public isolated service class WorkExperienceEvaluationData {
         if (id > 0) { // work_experience_evaluation_id provided, give precedance to that
             WorkExperienceEvaluation work_experience_raw = check db_client->queryRow(
             `SELECT *
-            FROM avinya_db.work_experience_evaluation
+            FROM work_experience_evaluation
             WHERE
                 id = ${id};`);
             self.work_experience_evaluation = work_experience_raw.cloneReadOnly();
