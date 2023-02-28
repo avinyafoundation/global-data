@@ -211,4 +211,10 @@ public isolated service class PersonData {
         return parent_students;
     }
 
+    isolated resource function get street_address() returns string?{
+        lock {
+            return self.person.street_address;
+        }
+    }
+
 }

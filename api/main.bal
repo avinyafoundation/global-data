@@ -1605,7 +1605,8 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 permanent_address_id,
                 mailing_address_id,
                 jwt_sub_id,
-                jwt_email
+                jwt_email,
+                street_address
             ) VALUES (
                 ${person.preferred_name},
                 ${person.full_name},
@@ -1617,7 +1618,8 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 ${person.permanent_address_id},
                 ${person.mailing_address_id},
                 ${person.jwt_sub_id},
-                ${person.jwt_email}
+                ${person.jwt_email},
+                ${person.street_address}
             );`
         );
 

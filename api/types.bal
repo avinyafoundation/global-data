@@ -108,6 +108,7 @@ public type Person record {|
     string? updated;
     int[] child_student?;
     int[] parent_student?;
+    string? street_address;
 |};
 
 type ParentChildStudent record {|
