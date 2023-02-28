@@ -23,7 +23,7 @@ public isolated service class ActivityParticipantData {
         if(_activity_participant_id > 0) { // activity_participant_id provided, give precedance to that
             activity_instance_raw = check db_client -> queryRow(
             `SELECT *
-            FROM avinya_db.activity_participant
+            FROM activity_participant
             WHERE
                 id = ${_activity_participant_id};`);
             self.activity_participant = activity_instance_raw.cloneReadOnly();

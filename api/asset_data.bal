@@ -1,19 +1,28 @@
 public isolated service class AssetData{
     private Asset asset;
 
-    isolated function init(int id,Asset? asset=null) returns error?{
+    isolated function init(int? id = 0, int? avinya_type_id = 0, Asset? asset=null) returns error?{
         if(asset != null){
             self.asset = asset.cloneReadOnly();
             return;
         }
+        
         lock{
-            Asset asset_raw = check db_client->queryRow(
+            Asset asset_raw;
+            if(id > 0 && avinya_type_id == 0) {
+                asset_raw = check db_client->queryRow(
                 `SELECT *
-                FROM avinya_db.asset
-                WHERE id = ${id};`
-            );
+                FROM asset
+                WHERE id = ${id};`);
+            }else{
+                asset_raw = check db_client->queryRow(
+                `SELECT *
+                FROM asset
+                WHERE avinya_type_id = ${avinya_type_id};`);
+            }
             self.asset = asset_raw.cloneReadOnly();
         }
+        
     }
 
     isolated resource function get id() returns int?|error {

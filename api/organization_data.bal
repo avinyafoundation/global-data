@@ -14,14 +14,14 @@ public isolated service class OrganizationData {
         if(id > 0) { // organization_id provided, give precedance to that
             org_raw = check db_client -> queryRow(
             `SELECT *
-            FROM avinya_db.organization
+            FROM organization
             WHERE
                 id = ${id};`);
         } else 
         {
             org_raw = check db_client -> queryRow(
             `SELECT *
-            FROM avinya_db.organization
+            FROM organization
             WHERE
                 name_en LIKE ${_name};`);
         }
@@ -94,7 +94,7 @@ public isolated service class OrganizationData {
         lock {
             child_org_ids = db_client->query(
                 `SELECT *
-                FROM avinya_db.parent_child_organization
+                FROM parent_child_organization
                 WHERE parent_org_id = ${self.organization.id}`
             );
         }
@@ -118,7 +118,7 @@ public isolated service class OrganizationData {
         lock {
             parent_org_ids = db_client->query(
                 `SELECT *
-                FROM avinya_db.parent_child_organization
+                FROM parent_child_organization
                 WHERE child_org_id = ${self.organization.id}`
             );
         }
@@ -142,7 +142,7 @@ public isolated service class OrganizationData {
         lock {
             people = db_client->query(
                 `SELECT *
-                FROM avinya_db.person
+                FROM person
                 WHERE organization_id = ${self.organization.id}`
             );
         }
@@ -167,7 +167,7 @@ public isolated service class OrganizationData {
         lock {
             vacancies = db_client->query(
                 `SELECT *
-                FROM avinya_db.vacancy
+                FROM vacancy
                 WHERE organization_id = ${self.organization.id} AND
                     evaluation_cycle_id IN (
                         SELECT id 

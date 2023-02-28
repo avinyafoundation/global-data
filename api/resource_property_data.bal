@@ -9,7 +9,7 @@ public isolated service class ResourcePropertyData{
         lock{
             ResourceProperty resource_property_raw = check db_client->queryRow(
                 `SELECT *
-                FROM avinya_db.resource_property
+                FROM resource_property
                 WHERE id = ${id};`
             );
             self.resource_property = resource_property_raw.cloneReadOnly();

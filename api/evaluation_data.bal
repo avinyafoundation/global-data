@@ -1,28 +1,28 @@
 public isolated service class EvaluationData {
-    private Evaluation evaluation = {id:0, evaluatee_id: 0, evaluator_id: 0, evaluation_criteria_id: 0, activity_instance_id: 0, response: (), grade: 0, notes: (), updated: ()};
+    private Evaluation evaluation = {id: 0, evaluatee_id: 0, evaluator_id: 0, evaluation_criteria_id: 0, activity_instance_id: 0, response: (), grade: 0, notes: (), updated: ()};
 
     isolated function init(int? evaluation_id = 0, Evaluation? evaluation = null) returns error? {
-        if(evaluation != null) { // if evaluation is provided, then use that and do not load from DB
+        if (evaluation != null) { // if evaluation is provided, then use that and do not load from DB
             self.evaluation = evaluation.cloneReadOnly();
             return;
         }
 
         int id = evaluation_id ?: 0;
 
-        if(id > 0) { // evaluation_id provided, give precedance to that
-            Evaluation evaluation_raw = check db_client -> queryRow(
+        if (id > 0) { // evaluation_id provided, give precedance to that
+            Evaluation evaluation_raw = check db_client->queryRow(
             `SELECT *
-            FROM avinya_db.evaluation
+            FROM evaluation
             WHERE
                 id = ${id};`);
             self.evaluation = evaluation_raw.cloneReadOnly();
-        } 
-        
+        }
+
     }
 
     isolated resource function get id() returns int? {
         lock {
-                return self.evaluation.id;
+            return self.evaluation.id;
         }
     }
 
@@ -38,8 +38,8 @@ public isolated service class EvaluationData {
         }
     }
 
-    isolated resource function get activity_instance_id() returns int?{
-        lock{
+    isolated resource function get activity_instance_id() returns int? {
+        lock {
             return self.evaluation.activity_instance_id;
         }
     }
@@ -52,22 +52,26 @@ public isolated service class EvaluationData {
 
     isolated resource function get updated() returns string? {
         lock {
-                return self.evaluation.updated;
+            return self.evaluation.updated;
         }
     }
 
     isolated resource function get notes() returns string? {
         lock {
-                return self.evaluation.notes;
+            return self.evaluation.notes;
         }
     }
 
     isolated resource function get grade() returns int? {
         lock {
-                return self.evaluation.grade;
+            return self.evaluation.grade;
         }
     }
-
+    isolated resource function get response() returns string? {
+        lock {
+            return self.evaluation.response;
+        }
+    }
 
     isolated resource function get child_evaluations() returns EvaluationData[]|error? {
         // Get list of child evaluations
@@ -75,7 +79,7 @@ public isolated service class EvaluationData {
         lock {
             child_eval_ids = db_client->query(
                 `SELECT *
-                FROM avinya_db.parent_child_evaluation
+                FROM parent_child_evaluation
                 WHERE parent_evaluation_id = ${self.evaluation.id}`
             );
         }
@@ -99,7 +103,7 @@ public isolated service class EvaluationData {
         lock {
             parent_evaluation_ids = db_client->query(
                 `SELECT *
-                FROM avinya_db.parent_child_evaluation
+                FROM parent_child_evaluation
                 WHERE child_evaluation_id = ${self.evaluation.id}`
             );
         }
@@ -121,26 +125,42 @@ public isolated service class EvaluationData {
 
 public isolated service class EvaluationMetadataData {
     private EvaluationMetadata metadata =
-        {id:0, evaluation_id: 0, focus: (), is_terminal: false, level: 0, location: (), meta_type: (),
-        metadata: (), on_date_time: (), status: ()};
+        {
+        id: 0,
+        evaluation_id: 0,
+        focus: (),
+        // is_terminal: false,
+        level: 0,
+        location: (),
+        meta_type: (),
+        metadata: (),
+        on_date_time: (),
+        status: ()
+    };
 
     isolated function init(int? evaluation_id = 0, EvaluationMetadata? metadata = null) returns error? {
-        if(metadata != null) { // if metadata is provided, then use that and do not load from DB
+        if (metadata != null) { // if metadata is provided, then use that and do not load from DB
             self.metadata = metadata.cloneReadOnly();
             return;
         }
 
         int id = evaluation_id ?: 0;
 
-        if(id > 0) { // metadata_id provided, give precedance to that
-            EvaluationMetadata evaluation_raw = check db_client -> queryRow(
+        if (id > 0) { // metadata_id provided, give precedance to that
+            EvaluationMetadata evaluation_raw = check db_client->queryRow(
             `SELECT *
-            FROM avinya_db.metadata
+            FROM evaluation_metadata
             WHERE
                 id = ${id};`);
             self.metadata = evaluation_raw.cloneReadOnly();
-        } 
-        
+        }
+
+    }
+
+    isolated resource function get id() returns int? {
+        lock {
+            return self.metadata.id;
+        }
     }
 
     isolated resource function get evaluation_id() returns int? {
@@ -163,13 +183,13 @@ public isolated service class EvaluationMetadataData {
 
     isolated resource function get level() returns int? {
         lock {
-                return self.metadata.level;
+            return self.metadata.level;
         }
     }
 
     isolated resource function get meta_type() returns string? {
         lock {
-                return self.metadata.meta_type;
+            return self.metadata.meta_type;
         }
     }
 
@@ -181,19 +201,30 @@ public isolated service class EvaluationMetadataData {
 
     isolated resource function get focus() returns string? {
         lock {
-                return self.metadata.focus;
+            return self.metadata.focus;
         }
     }
 
     isolated resource function get metadata() returns string? {
         lock {
-                return self.metadata.metadata;
+            return self.metadata.metadata;
         }
     }
-    isolated resource function get is_terminal() returns boolean? {
-        lock {
-                return self.metadata.is_terminal;
-        }
-    }
+
+    // isolated resource function get child_evaluations() returns EvaluationData[]|error? {
+    //     // Get list of child evaluations
+    //     stream<ParentChildEvaluation, error?> child_eval_ids;
+    //     lock {
+    //         child_eval_ids = db_client->query(
+    //             `SELECT *
+    //             FROM parent_child_evaluation
+    //             WHERE parent_evaluation_id = ${self.evaluation.id}`
+    //         );
+    //     }
+    // isolated resource function get is_terminal() returns boolean? {
+    //     lock {
+    //         return self.metadata.is_terminal;
+    //     }
+    // }
 
 }

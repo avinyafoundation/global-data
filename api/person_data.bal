@@ -16,14 +16,14 @@ public isolated service class PersonData {
         if(id > 0) { // organization_id provided, give precedance to that
             person_raw = check db_client -> queryRow(
             `SELECT *
-            FROM avinya_db.person
+            FROM person
             WHERE
                 id = ${id};`);
         } else 
         {
             person_raw = check db_client -> queryRow(
             `SELECT *
-            FROM avinya_db.person
+            FROM person
             WHERE
                 preferred_name LIKE ${_name};`);
         }
@@ -175,7 +175,7 @@ public isolated service class PersonData {
         lock {
             child_student_ids = db_client->query(
                 `SELECT *
-                FROM avinya_db.parent_child_student
+                FROM parent_child_student
                 WHERE parent_student_id = ${self.person.id}`
             );
         }
@@ -199,7 +199,7 @@ public isolated service class PersonData {
         lock {
             parent_student_ids = db_client->query(
                 `SELECT *
-                FROM avinya_db.parent_child_student
+                FROM parent_child_student
                 WHERE child_student_id = ${self.person.id}`
             );
         }

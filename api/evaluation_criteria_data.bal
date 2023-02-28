@@ -2,7 +2,7 @@ public isolated service class EvaluationCriteriaData {
     private EvaluationCriteria evaluation_criteria;
 
     isolated function init(string? prompt = null, int? evaluation_criteria_id = 0, EvaluationCriteria? evaluation_criteria = null) returns error? {
-        if(evaluation_criteria != null) { // if evaluation_criteria is provided, then use that and do not load from DB
+        if (evaluation_criteria != null) { // if evaluation_criteria is provided, then use that and do not load from DB
             self.evaluation_criteria = evaluation_criteria.cloneReadOnly();
             return;
         }
@@ -11,30 +11,29 @@ public isolated service class EvaluationCriteriaData {
         int id = evaluation_criteria_id ?: 0;
 
         EvaluationCriteria evaluation_criteria_raw;
-        if(id > 0) { // evaluation_criteria_id provided, give precedance to that
-            evaluation_criteria_raw = check db_client -> queryRow(
+        if (id > 0) { // evaluation_criteria_id provided, give precedance to that
+            evaluation_criteria_raw = check db_client->queryRow(
             `SELECT *
-            FROM avinya_db.evaluation_criteria
+            FROM evaluation_criteria
             WHERE
                 id = ${id};`);
-        } else 
+        } else
         {
-            evaluation_criteria_raw = check db_client -> queryRow(
+            evaluation_criteria_raw = check db_client->queryRow(
             `SELECT *
-            FROM avinya_db.evaluation_criteria
+            FROM evaluation_criteria
             WHERE
                 prompt LIKE ${_prompt};`);
         }
-        
+
         self.evaluation_criteria = evaluation_criteria_raw.cloneReadOnly();
     }
 
     isolated resource function get prompt() returns string? {
         lock {
-                return self.evaluation_criteria.prompt;
+            return self.evaluation_criteria.prompt;
         }
     }
-
 
     isolated resource function get description() returns string? {
         lock {
@@ -48,9 +47,9 @@ public isolated service class EvaluationCriteriaData {
         }
     }
 
-    isolated resource function get evalualtion_type() returns string? {
+    isolated resource function get evaluation_type() returns string? {
         lock {
-            return self.evaluation_criteria.evalualtion_type;
+            return self.evaluation_criteria.evaluation_type;
         }
     }
 
@@ -78,7 +77,7 @@ public isolated service class EvaluationCriteriaData {
         lock {
             answer_options = db_client->query(
                 `SELECT *
-                FROM avinya_db.evaluation_criteria_answer_option
+                FROM evaluation_criteria_answer_option
                 WHERE evaluation_criteria_id = ${self.evaluation_criteria.id}`
             );
         }
@@ -94,17 +93,16 @@ public isolated service class EvaluationCriteriaData {
             };
 
         check answer_options.close();
-        
+
         return answer_options_data;
     }
 }
-
 
 public isolated service class EvaluationCriteriaAnswerOptionData {
     private EvaluationCriteriaAnswerOption evaluation_criteria_answer_option;
 
     isolated function init(string? answer = null, int? evaluation_criteria_answer_option_id = 0, EvaluationCriteriaAnswerOption? evaluation_criteria_answer_option = null) returns error? {
-        if(evaluation_criteria_answer_option != null) { // if evaluation_criteria_answer_option is provided, then use that and do not load from DB
+        if (evaluation_criteria_answer_option != null) { // if evaluation_criteria_answer_option is provided, then use that and do not load from DB
             self.evaluation_criteria_answer_option = evaluation_criteria_answer_option.cloneReadOnly();
             return;
         }
@@ -113,30 +111,29 @@ public isolated service class EvaluationCriteriaAnswerOptionData {
         int id = evaluation_criteria_answer_option_id ?: 0;
 
         EvaluationCriteriaAnswerOption evaluation_criteria_raw;
-        if(id > 0) { // evaluation_criteria_answer_option_id provided, give precedance to that
-            evaluation_criteria_raw = check db_client -> queryRow(
+        if (id > 0) { // evaluation_criteria_answer_option_id provided, give precedance to that
+            evaluation_criteria_raw = check db_client->queryRow(
             `SELECT *
-            FROM avinya_db.evaluation_criteria_answer_option
+            FROM evaluation_criteria_answer_option
             WHERE
                 id = ${id};`);
-        } else 
+        } else
         {
-            evaluation_criteria_raw = check db_client -> queryRow(
+            evaluation_criteria_raw = check db_client->queryRow(
             `SELECT *
-            FROM avinya_db.evaluation_criteria_answer_option
+            FROM evaluation_criteria_answer_option
             WHERE
                 answer LIKE ${_answer};`);
         }
-        
+
         self.evaluation_criteria_answer_option = evaluation_criteria_raw.cloneReadOnly();
     }
 
     isolated resource function get answer() returns string? {
         lock {
-                return self.evaluation_criteria_answer_option.answer;
+            return self.evaluation_criteria_answer_option.answer;
         }
     }
-
 
     isolated resource function get expected_answer() returns boolean? {
         lock {
