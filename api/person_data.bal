@@ -133,6 +133,12 @@ public isolated service class PersonData {
         return new AvinyaTypeData(id);
     }
 
+    isolated resource function get avinya_type_id() returns int? {
+        lock {
+            return self.person.avinya_type_id;
+        }
+    }
+
     isolated resource function get notes() returns string?{
         lock {
             return self.person.notes;
