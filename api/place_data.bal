@@ -14,14 +14,14 @@ public isolated service class PlaceData {
         if(id > 0) { // place_id provided, give precedance to that
             place_raw = check db_client -> queryRow(
             `SELECT *
-            FROM avinya_db.place
+            FROM place
             WHERE
                 id = ${id};`);
         } else 
         {
             place_raw = check db_client -> queryRow(
             `SELECT *
-            FROM avinya_db.place
+            FROM place
             WHERE
                 name_en LIKE ${_name};`);
         }
@@ -116,7 +116,7 @@ public isolated service class PlaceData {
         lock {
             child_place_ids = db_client->query(
                 `SELECT *
-                FROM avinya_db.parent_child_place
+                FROM parent_child_place
                 WHERE parent_place_id = ${self.place.id}`
             );
         }
@@ -140,7 +140,7 @@ public isolated service class PlaceData {
         lock {
             parent_place_ids = db_client->query(
                 `SELECT *
-                FROM avinya_db.parent_child_place
+                FROM parent_child_place
                 WHERE child_place_id = ${self.place.id}`
             );
         }

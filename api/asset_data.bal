@@ -12,12 +12,12 @@ public isolated service class AssetData{
             if(id > 0 && avinya_type_id == 0) {
                 asset_raw = check db_client->queryRow(
                 `SELECT *
-                FROM avinya_db.asset
+                FROM asset
                 WHERE id = ${id};`);
             }else{
                 asset_raw = check db_client->queryRow(
                 `SELECT *
-                FROM avinya_db.asset
+                FROM asset
                 WHERE avinya_type_id = ${avinya_type_id};`);
             }
             self.asset = asset_raw.cloneReadOnly();

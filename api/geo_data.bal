@@ -28,7 +28,7 @@ public isolated service class ProvinceData {
         lock {
              Province province_raw = check db_client->queryRow(
                 `SELECT *
-                FROM avinya_db.province
+                FROM province
                 WHERE
                     id = ${province_id}
                     OR name_en = ${name};`
@@ -64,10 +64,10 @@ public isolated service class ProvinceData {
 
         stream<District, error?> candidate_districts = db_client->query(
             `SELECT district.id
-            FROM avinya_db.district
-            RIGHT JOIN avinya_db.province
-            ON avinya_db.district.province_id = avinya_db.province.id
-            WHERE avinya_db.province.id = ${id};`
+            FROM district
+            RIGHT JOIN province
+            ON district.province_id = province.id
+            WHERE province.id = ${id};`
         );
         // Build and add DistrictData to list; raise error if we encounter
         check from District d in candidate_districts
@@ -90,7 +90,7 @@ public isolated  service class DistrictData {
     isolated function init(string? name, int? district_id) returns error? {
         District district_raw = check db_client->queryRow(
             `SELECT *
-            FROM avinya_db.district
+            FROM district
             WHERE
                 id = ${district_id}
                 OR name_en = ${name};`
@@ -130,10 +130,10 @@ public isolated  service class DistrictData {
 
         stream<City, error?> candidate_cities = db_client->query(
             `SELECT city.id
-            FROM avinya_db.city
-            RIGHT JOIN avinya_db.district
-            ON avinya_db.city.district_id = avinya_db.district.id
-            WHERE avinya_db.district.id = ${id};`
+            FROM city
+            RIGHT JOIN district
+            ON city.district_id = district.id
+            WHERE district.id = ${id};`
         );
         // Build and add CityData to list; raise error if we encounter
         check from City c in candidate_cities
@@ -156,7 +156,7 @@ public isolated service class CityData {
     isolated function init(string? name, int? city_id) returns error? {
         City city_raw = check db_client->queryRow(
             `SELECT *
-            FROM avinya_db.city
+            FROM city
             WHERE
                 id = ${city_id}
                 OR name_en = ${name};`
@@ -195,7 +195,7 @@ public isolated service class AddressData {
     isolated function init(int address_id) returns error? {
         Address address_raw = check db_client -> queryRow(
             `SELECT *
-            FROM avinya_db.address
+            FROM address
             WHERE id = ${address_id};`
         );
 

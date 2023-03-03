@@ -14,13 +14,13 @@ public isolated service class ApplicantConsentData {
         if(_phone > 0) { // applicant_consent_id provided, give precedance to that
             consent_raw = check db_client -> queryRow(
             `SELECT *
-            FROM avinya_db.applicant_consent
+            FROM applicant_consent
             WHERE
                 phone = ${_phone};`);
         } else if (email != null) { // if applicant_consent_id is not provided, then use email
             consent_raw = check db_client -> queryRow(
             `SELECT *
-            FROM avinya_db.applicant_consent
+            FROM applicant_consent
             WHERE
                 email = ${email};`);
         } else {

@@ -14,13 +14,13 @@ public isolated service class ProspectData {
         if(_phone > 0) { // phone provided, give precedance to that
             consent_raw = check db_client -> queryRow(
             `SELECT *
-            FROM avinya_db.prospect
+            FROM prospect
             WHERE
                 phone = ${_phone};`);
         } else if (email != null) { // if phone is not provided, then use email
             consent_raw = check db_client -> queryRow(
             `SELECT *
-            FROM avinya_db.prospect
+            FROM prospect
             WHERE
                 email = ${email};`);
         } else {

@@ -9,7 +9,7 @@ public isolated service class InventoryData{
         lock{
             Inventory inventory_raw = check db_client->queryRow(
                 `SELECT *
-                FROM avinya_db.inventory
+                FROM inventory
                 WHERE id = ${id};`
             );
             self.inventory = inventory_raw.cloneReadOnly();

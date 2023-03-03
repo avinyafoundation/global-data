@@ -14,14 +14,14 @@ public isolated service class VacancyData {
         if(id > 0) { // vacancy_id provided, give precedance to that
             vacancy_raw = check db_client -> queryRow(
             `SELECT *
-            FROM avinya_db.vacancy
+            FROM vacancy
             WHERE
                 id = ${id};`);
         } else 
         {
             vacancy_raw = check db_client -> queryRow(
             `SELECT *
-            FROM avinya_db.vacancy
+            FROM vacancy
             WHERE
                 name LIKE ${_name};`);
         }
@@ -80,7 +80,7 @@ public isolated service class VacancyData {
         lock {
             evaluation_criteria = db_client->query(
                 `SELECT *
-                FROM avinya_db.evaluation_criteria
+                FROM evaluation_criteria
                 WHERE evalualtion_type = 'Essay' AND id IN 
                 (SELECT evaluation_criteria_id FROM vacancy_evaluation_criteria 
 	                WHERE vacancy_id = ${self.vacancy.id});`
@@ -101,7 +101,7 @@ public isolated service class VacancyData {
         lock {
             evaluation_criteria = db_client->query(
                 `SELECT *
-                FROM avinya_db.evaluation_criteria
+                FROM evaluation_criteria
                 WHERE evalualtion_type = 'Multiple Choice' AND 
                 difficulty = 'Easy' AND id IN 
                 (SELECT evaluation_criteria_id FROM vacancy_evaluation_criteria 
@@ -125,7 +125,7 @@ public isolated service class VacancyData {
         lock {
             evaluation_criteria = db_client->query(
                 `SELECT *
-                FROM avinya_db.evaluation_criteria
+                FROM evaluation_criteria
                 WHERE evalualtion_type = 'Multiple Choice' AND 
                 difficulty = 'Medium' AND id IN 
                 (SELECT evaluation_criteria_id FROM vacancy_evaluation_criteria 
@@ -147,7 +147,7 @@ public isolated service class VacancyData {
         lock {
             evaluation_criteria = db_client->query(
                 `SELECT *
-                FROM avinya_db.evaluation_criteria
+                FROM evaluation_criteria
                 WHERE evalualtion_type = 'Multiple Choice' AND 
                 difficulty = 'Hard' AND id IN 
                 (SELECT evaluation_criteria_id FROM vacancy_evaluation_criteria 

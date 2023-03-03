@@ -9,7 +9,7 @@ public isolated service class ConsumableData{
         lock{
             Consumable consumable_raw = check db_client->queryRow(
                 `SELECT *
-                FROM avinya_db.consumable
+                FROM consumable
                 WHERE id = ${id};`
             );
             self.consumable = consumable_raw.cloneReadOnly();

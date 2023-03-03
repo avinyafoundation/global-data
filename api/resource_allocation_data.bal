@@ -12,12 +12,12 @@ public isolated service class ResourceAllocationData{
             if(id > 0 && person_id == 0) {
                 resource_allocation_raw = check db_client->queryRow(
                 `SELECT *
-                FROM avinya_db.resource_allocation
+                FROM resource_allocation
                 WHERE id = ${id};`);
             }else{
                  resource_allocation_raw = check db_client->queryRow(
                 `SELECT *
-                FROM avinya_db.resource_allocation
+                FROM resource_allocation
                 WHERE person_id = ${person_id};`);
             }
             self.resource_allocation = resource_allocation_raw.cloneReadOnly();
