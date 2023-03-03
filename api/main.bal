@@ -133,6 +133,33 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return new (eval_id);
     }
 
+    isolated resource function get pcti_activities() returns ActivityData[]|error? {
+        stream<Activity, error?> pctiActivities;
+        lock {
+            pctiActivities = db_client->query(
+                ` SELECT *
+                FROM avinya_db.activity
+                WHERE activity.avinya_type_id IN 
+                (SELECT avinya_type.id
+                FROM avinya_db.avinya_type
+                WHERE name = "pcti");`
+            );
+        }
+
+        ActivityData[] pctiActivityDatas = [];
+
+        check from Activity pctiActivity in pctiActivities
+            do {
+                ActivityData|error pctiActivityData = new ActivityData((),(), pctiActivity);
+                if !(pctiActivityData is error) {
+                    pctiActivityDatas.push(pctiActivityData);
+                }
+            };
+
+        check pctiActivities.close();
+        return pctiActivityDatas;
+    }
+    
     // will return notes of a PCTI instance
     isolated resource function get pcti_instance_notes(int pcti_instance_id) returns EvaluationData[]|error? {
         stream<Evaluation, error?> pctiNotes;
@@ -326,6 +353,94 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         check pctiActivityInstancesToday.close();
         return pctiActivityInstancesTodayData;
     }
+
+
+    isolated resource function get activity_instances_future(int activity_id) returns ActivityInstanceData[]|error? {
+        stream<ActivityInstance, error?> activityInstancesFuture;
+        lock {
+            activityInstancesFuture = db_client->query(
+                `SELECT *
+                FROM avinya_db.activity_instance
+                WHERE activity_id = ${activity_id} AND
+                DATE(start_time) >= CURDATE();`
+            );
+        }
+
+        ActivityInstanceData[] activityInstancesFutureData = [];
+
+        check from ActivityInstance activityInstanceFuture in activityInstancesFuture
+            do {
+                ActivityInstanceData|error activityInstanceFutureData = new ActivityInstanceData((), activityInstanceFuture.id);
+                if !(activityInstanceFutureData is error) {
+                    activityInstancesFutureData.push(activityInstanceFutureData);
+                }
+            };
+
+        check activityInstancesFuture.close();
+        return activityInstancesFutureData;
+    }
+
+    isolated resource function get available_teachers(int activity_instance_id) returns PersonData[]|error? {
+        stream<Person, error?> availableTeachers;
+        lock {
+            availableTeachers = db_client->query(
+                `SELECT DISTINCT person.*
+                FROM avinya_db.person
+                LEFT JOIN avinya_db.activity_participant ON person.id = activity_participant.person_id
+                LEFT JOIN avinya_db.activity_instance ON activity_participant.activity_instance_id = activity_instance.id
+                INNER JOIN avinya_db.avinya_type ON person.avinya_type_id = avinya_type.id
+                WHERE avinya_type.name = 'bootcamp-teacher'
+                AND (
+                activity_participant.activity_instance_id IS NULL
+                OR (
+                    activity_instance.start_time > (SELECT end_time FROM avinya_db.activity_instance WHERE id = ${activity_instance_id})
+                    OR activity_instance.end_time < (SELECT start_time FROM avinya_db.activity_instance WHERE id = ${activity_instance_id}))
+                )`
+            );
+        }
+
+        PersonData[] availableTeachersData = [];
+
+        check from Person availableTeacher in availableTeachers
+            do {
+                PersonData|error availableTeacherData = new PersonData((), availableTeacher.id);
+                if !(availableTeacherData is error) {
+                    availableTeachersData.push(availableTeacherData);
+                }
+            };
+
+        check availableTeachers.close();
+        return availableTeachersData;
+    }
+
+    isolated resource function get project_tasks(int activity_id) returns ActivityData[]|error?{
+        stream<Activity, error?> projectTasks;
+        lock {
+            projectTasks = db_client->query(
+                `SELECT a.*
+                FROM avinya_db.activity a
+                JOIN avinya_db.avinya_type at ON a.avinya_type_id = at.id
+                JOIN avinya_db.parent_child_activity pca ON a.id = pca.child_activity_id
+                WHERE at.name = 'project-task'
+                AND pca.parent_activity_id = ${activity_id};`
+            );
+        }
+
+        ActivityData[] projectTasksData = [];
+
+        check from Activity projectTask in projectTasks
+            do {
+                ActivityData|error projectTaskData = new ActivityData((), projectTask.id);
+                if !(projectTaskData is error) {
+                    projectTasksData.push(projectTaskData);
+                }
+            };
+
+        check projectTasks.close();
+        return projectTasksData;
+    }
+
+
 
     isolated resource function get student_applicant(string? jwt_sub_id) returns PersonData|error? {
         AvinyaType avinya_type_raw = check db_client->queryRow(
@@ -1619,7 +1734,8 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 permanent_address_id,
                 mailing_address_id,
                 jwt_sub_id,
-                jwt_email
+                jwt_email,
+                street_address
             ) VALUES (
                 ${person.preferred_name},
                 ${person.full_name},
@@ -1631,7 +1747,8 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 ${person.permanent_address_id},
                 ${person.mailing_address_id},
                 ${person.jwt_sub_id},
-                ${person.jwt_email}
+                ${person.jwt_email},
+                ${person.street_address}
             );`
         );
 

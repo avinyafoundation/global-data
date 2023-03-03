@@ -54,6 +54,7 @@ INSERT INTO avinya_type (description, name, global_type, foundation_type, focus,
 INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('Breakfast', 'breakfast-break', 'meeting', 'vacation', 'empower', 2750);
 INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('Homeroom', 'homeroom', 'meeting', 'academic', 'homeroom', 1750);
 INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('Teacher Foundation Meeting', 'teacher-foundation-meeting', 'meeting', 'leadership', 'empower', 2750);
+INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('Project Task', 'project-task', 'meeting', 'academic', 'empower', 1250);
 INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('unassigned', 'unassigned', 'unassigned', 'unassigned', 'unassigned', 0);
 INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('asset', 'mobile', 'Mobile', 'academic', 'empower', 600);
 INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('asset', 'laptop', 'Laptop', 'academic', 'empower', 700);
