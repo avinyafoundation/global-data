@@ -61,6 +61,10 @@ INSERT INTO avinya_type (description, name, global_type, foundation_type, focus,
 INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('asset', 'accessories', 'Accessories', 'academic', 'empower', 500);
 INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('asset', 'stationary', 'Stationary', 'academic', 'empower', 400);
 
+INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('Empower Intake', 'Empower Intake', 'team', 'intake', 'empower', 150);
+INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('Empower Campus Batch', 'Empower Campus Batch', 'team', 'campus', 'empower', 100);
+INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('Empower Class', 'Empower Class', 'team', 'class', 'empower', 50);
+
 INSERT INTO `address` VALUES (1,'20, Palm Gorove, Colombo 03',NULL,1838),(2,'PXJ8+Q5P, Panadura',NULL,660);
 
 INSERT INTO `organization` VALUES (1,'Avinya Foundation',' அவின்யா அறக்கட்டளை','අවින්යා  පදනම',NULL,NULL,NULL,1,1),(2,'Avinya Academy - Bandaragama','அவினியா அகாடமி - பண்டாரகம','අවින්යා   විද්‍යායතනය - බණ්ඩාරගම',NULL,NULL,NULL,2,2),(3,'Advisors',NULL,NULL,NULL,NULL,NULL,NULL,3),(4,'Executive',NULL,NULL,NULL,NULL,NULL,NULL,4),(5,'Technology',NULL,NULL,NULL,NULL,NULL,NULL,5),(6,'Educators',NULL,NULL,NULL,NULL,NULL,NULL,6),(7,'Operations',NULL,NULL,NULL,NULL,NULL,NULL,7),(8,'HR',NULL,NULL,NULL,NULL,NULL,NULL,8),(9,'Empower Program',NULL,NULL,NULL,NULL,NULL,NULL,9),(10,'Vocational IT',NULL,NULL,NULL,NULL,NULL,NULL,10),(11,'Vocational Healthcare',NULL,NULL,NULL,NULL,NULL,NULL,11),(12,'Vocational Hospitality',NULL,NULL,NULL,NULL,NULL,NULL,12),(13,'Shool Operations',NULL,NULL,NULL,NULL,NULL,NULL,13);
