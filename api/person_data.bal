@@ -223,4 +223,10 @@ public isolated service class PersonData {
         }
     }
 
+    isolated resource function get digital_id() returns string?{
+        lock {
+            return self.person.digital_id;
+        }
+    }
+
 }
