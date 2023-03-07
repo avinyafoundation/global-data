@@ -104,6 +104,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
     }
 
     isolated resource function get person_by_jwt(string? id) returns PersonData|error? {
+
         Person|error? personJwtId = check db_client->queryRow(
             `SELECT *
             FROM person
