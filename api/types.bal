@@ -109,6 +109,11 @@ public type Person record {|
     int[] child_student?;
     int[] parent_student?;
     string? street_address;
+    string? digital_id;
+    int? avinya_phone;
+    string? bank_name;
+    string? bank_account_number;
+    string? bank_account_name;
 |};
 
 type ParentChildStudent record {|

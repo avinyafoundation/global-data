@@ -1,5 +1,6 @@
 import ballerina/graphql;
 import ballerina/sql;
+import ballerina/io;
 
 // @display {
 //     label: "Global Data API",
@@ -561,7 +562,8 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 permanent_address_id,
                 mailing_address_id,
                 jwt_sub_id,
-                jwt_email
+                jwt_email,
+                street_address
             ) VALUES (
                 ${person.preferred_name},
                 ${person.full_name},
@@ -573,7 +575,8 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 ${person.permanent_address_id},
                 ${person.mailing_address_id},
                 ${person.jwt_sub_id},
-                ${person.jwt_email}
+                ${person.jwt_email}, 
+                ${person.street_address}
             );`
         );
 
@@ -1329,14 +1332,18 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         );
 
         if !(appStatusRaw is ApplicationStatus) {
-            return error("Application status does not exist");
+            return error("Application does not exist");
         }
 
         // add new application_status
         sql:ExecutionResult|error res = db_client->execute(
-            `UPDATE application_status
-            SET status = ${applicationStatus}
-            WHERE(application_id = ${applicationId});`
+            `INSERT INTO application_status (
+                application_id,
+                status
+            ) VALUES (
+                ${applicationId},
+                ${applicationStatus}
+            );`
         );
 
         if (res is sql:ExecutionResult) {
@@ -1348,6 +1355,8 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
             return new ((), appStatusRaw);
         }
+
+        io:println(res.toString());
 
         return error("Error while inserting data", res);
 
