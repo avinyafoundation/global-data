@@ -223,4 +223,34 @@ public isolated service class PersonData {
         }
     }
 
+    isolated resource function get digital_id() returns string?{
+        lock {
+            return self.person.digital_id;
+        }
+    }
+
+    isolated resource function get avinya_phone() returns int?{
+        lock {
+            return self.person.avinya_phone;
+        }
+    }
+
+    isolated resource function get bank_name() returns string?{
+        lock {
+            return self.person.bank_name;
+        }
+    }
+
+    isolated resource function get bank_account_number() returns string?{
+        lock {
+            return self.person.bank_account_number;
+        }
+    }
+
+    isolated resource function get bank_account_name() returns string?{
+        lock {
+            return self.person.bank_account_name;
+        }
+    }
+
 }
