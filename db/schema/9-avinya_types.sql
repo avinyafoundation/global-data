@@ -61,6 +61,11 @@ INSERT INTO avinya_type (description, name, global_type, foundation_type, focus,
 INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('asset', 'accessories', 'Accessories', 'academic', 'empower', 500);
 INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('asset', 'stationary', 'Stationary', 'academic', 'empower', 400);
 
+INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('Arrival', 'arrival', 'meeting', 'academic', null, 3500);
+INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('Departure', 'departure', 'meeting', 'academic', null, 3500);
+INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('Free time', 'free-time', 'meeting', 'vacation', 'empower', 2750);
+INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('Work', 'work', 'meeting', 'academic', 'empower', 2750);
+
 INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('Empower Intake', 'Empower Intake', 'team', 'intake', 'empower', 150);
 INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('Empower Campus Batch', 'Empower Campus Batch', 'team', 'campus', 'empower', 100);
 INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('Empower Class', 'Empower Class', 'team', 'class', 'empower', 50);
