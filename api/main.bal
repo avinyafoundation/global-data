@@ -104,18 +104,18 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return new (name, id);
     }
 
-    isolated resource function get person_by_jwt(string? id) returns PersonData|error? {
+    isolated resource function get person_by_digital_id(string? id) returns PersonData|error? {
 
         Person|error? personJwtId = check db_client->queryRow(
             `SELECT *
             FROM person
-            WHERE jwt_sub_id = ${id};`
+            WHERE digital_id = ${id};`
         );
 
         if(personJwtId is Person){
             return new((),0,personJwtId);
         }
-        return error("Unable to find person by jwt id");
+        return error("Unable to find person by digital id");
     }
         
     
