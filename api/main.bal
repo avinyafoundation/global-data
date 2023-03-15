@@ -331,7 +331,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return pctiParticipantActivitiesData;
     }
 
-    isolated resource function get pcti_activity_instances_today(int activity_id) returns ActivityInstanceData[]|error? {
+    isolated resource function get activity_instances_today(int activity_id) returns ActivityInstanceData[]|error? {
         stream<ActivityInstance, error?> pctiActivityInstancesToday;
         lock {
             pctiActivityInstancesToday = db_client->query(
