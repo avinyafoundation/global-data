@@ -253,4 +253,10 @@ public isolated service class PersonData {
         }
     }
 
+    isolated resource function get academy_org_id() returns int?{
+        lock {
+            return self.person.academy_org_id;
+        }
+    }
+
 }

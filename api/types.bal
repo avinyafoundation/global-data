@@ -114,6 +114,7 @@ public type Person record {|
     string? bank_name;
     string? bank_account_number;
     string? bank_account_name;
+    int? academy_org_id;
 |};
 
 type ParentChildStudent record {|
