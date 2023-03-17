@@ -55,6 +55,18 @@ public isolated service class PersonData {
         }
     }
 
+    isolated resource function get created() returns string?{
+        lock {
+            return self.person.created;
+        }
+    }
+
+    isolated resource function get updated() returns string?{
+        lock {
+            return self.person.updated;
+        }
+    }
+
     isolated resource function get sex() returns string?{
         lock {
             return self.person.sex;
