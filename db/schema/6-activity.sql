@@ -112,6 +112,8 @@ CREATE TABLE IF NOT EXISTS activity_participant_attendance (
     activity_instance_id INT NOT NULL,
     sign_in_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     sign_out_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    in_marked_by VARCHAR(254) DEFAULT 'system@avinya.edu.lk',
+    out_marked_by VARCHAR(254) DEFAULT 'system@avinya.edu.lk',
     created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (activity_instance_id) REFERENCES activity_instance(id),
