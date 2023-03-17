@@ -409,6 +409,8 @@ public type ActivityParticipantAttendance record {|
     int? activity_instance_id;
     string? sign_in_time;
     string? sign_out_time;
+    string? in_marked_by;
+    string? out_marked_by;
     string? created;
     string? updated;
 |};

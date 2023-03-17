@@ -4,6 +4,8 @@ public isolated service class ActivityParticipantAttendanceData {
         person_id: -1,
         sign_in_time: "" ,
         sign_out_time: "" ,
+        in_marked_by: "system@avinya.edu.lk",
+        out_marked_by: "'system@avinya.edu.lk'",
         created: "",
         updated: ""
      };
@@ -75,6 +77,18 @@ public isolated service class ActivityParticipantAttendanceData {
     isolated resource function get updated() returns string? {
         lock {
                 return self.activity_participant_attendance.updated;
+        }
+    }
+
+    isolated resource function get in_marked_by() returns string? {
+        lock {
+                return self.activity_participant_attendance.in_marked_by;
+        }
+    }
+
+     isolated resource function get out_marked_by() returns string? {
+        lock {
+                return self.activity_participant_attendance.out_marked_by;
         }
     }
     
