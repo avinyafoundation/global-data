@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS person (
     bank_name VARCHAR(254) DEFAULT NULL,
     bank_account_number VARCHAR(254) DEFAULT NULL,
     bank_account_name VARCHAR(254) DEFAULT NULL,
+    academy_org_id INT DEFAULT NULL,
     FOREIGN KEY (permanent_address_id) REFERENCES address(id),
     FOREIGN KEY (mailing_address_id) REFERENCES address(id),
     FOREIGN KEY (organization_id) REFERENCES organization(id),

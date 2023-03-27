@@ -331,7 +331,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return pctiParticipantActivitiesData;
     }
 
-    isolated resource function get pcti_activity_instances_today(int activity_id) returns ActivityInstanceData[]|error? {
+    isolated resource function get activity_instances_today(int activity_id) returns ActivityInstanceData[]|error? {
         stream<ActivityInstance, error?> pctiActivityInstancesToday;
         lock {
             pctiActivityInstancesToday = db_client->query(
@@ -1221,12 +1221,16 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 activity_instance_id,
                 person_id,
                 sign_in_time,
-                sign_out_time
+                sign_out_time,
+                in_marked_by,
+                out_marked_by
             ) VALUES (
                 ${attendance.activity_instance_id},
                 ${attendance.person_id},
                 ${attendance.sign_in_time},
-                ${attendance.sign_out_time}
+                ${attendance.sign_out_time},
+                ${attendance.in_marked_by},
+                ${attendance.out_marked_by}
             );`
         );
 

@@ -55,6 +55,18 @@ public isolated service class PersonData {
         }
     }
 
+    isolated resource function get created() returns string?{
+        lock {
+            return self.person.created;
+        }
+    }
+
+    isolated resource function get updated() returns string?{
+        lock {
+            return self.person.updated;
+        }
+    }
+
     isolated resource function get sex() returns string?{
         lock {
             return self.person.sex;
@@ -250,6 +262,12 @@ public isolated service class PersonData {
     isolated resource function get bank_account_name() returns string?{
         lock {
             return self.person.bank_account_name;
+        }
+    }
+
+    isolated resource function get academy_org_id() returns int?{
+        lock {
+            return self.person.academy_org_id;
         }
     }
 
