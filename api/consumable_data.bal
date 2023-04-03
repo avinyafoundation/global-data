@@ -1,11 +1,21 @@
 public isolated service class ConsumableData{
     private Consumable consumable;
 
-    isolated function init(int id,Consumable? consumable=null) returns error?{
+    isolated function init(int? id=0, string? updated=null, int? avinya_type_id=0, Consumable? consumable=null) returns error?{
         if(consumable != null){
             self.consumable = consumable.cloneReadOnly();
             return;
         }
+//         if(updated != null){
+//             Consumable consumable_raw = check db_client->queryRow(
+//                 `SELECT *
+//                 FROM consumable
+//     WHERE avinya_type_id = ${avinya_type_id} AND updated LIKE '${updated}%';
+// `
+//             );
+//             self.consumable = consumable_raw.cloneReadOnly();
+//             return;
+//         }
         lock{
             Consumable consumable_raw = check db_client->queryRow(
                 `SELECT *

@@ -140,10 +140,10 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         lock {
             pctiActivities = db_client->query(
                 ` SELECT *
-                FROM avinya_db.activity
+                FROM activity
                 WHERE activity.avinya_type_id IN 
                 (SELECT avinya_type.id
-                FROM avinya_db.avinya_type
+                FROM avinya_type
                 WHERE name = "pcti");`
             );
         }
@@ -362,7 +362,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         lock {
             activityInstancesFuture = db_client->query(
                 `SELECT *
-                FROM avinya_db.activity_instance
+                FROM activity_instance
                 WHERE activity_id = ${activity_id} AND
                 DATE(start_time) >= CURDATE();`
             );
@@ -387,16 +387,16 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         lock {
             availableTeachers = db_client->query(
                 `SELECT DISTINCT person.*
-                FROM avinya_db.person
-                LEFT JOIN avinya_db.activity_participant ON person.id = activity_participant.person_id
-                LEFT JOIN avinya_db.activity_instance ON activity_participant.activity_instance_id = activity_instance.id
-                INNER JOIN avinya_db.avinya_type ON person.avinya_type_id = avinya_type.id
+                FROM person
+                LEFT JOIN activity_participant ON person.id = activity_participant.person_id
+                LEFT JOIN activity_instance ON activity_participant.activity_instance_id = activity_instance.id
+                INNER JOIN avinya_type ON person.avinya_type_id = avinya_type.id
                 WHERE avinya_type.name = 'bootcamp-teacher'
                 AND (
                 activity_participant.activity_instance_id IS NULL
                 OR (
-                    activity_instance.start_time > (SELECT end_time FROM avinya_db.activity_instance WHERE id = ${activity_instance_id})
-                    OR activity_instance.end_time < (SELECT start_time FROM avinya_db.activity_instance WHERE id = ${activity_instance_id}))
+                    activity_instance.start_time > (SELECT end_time FROM activity_instance WHERE id = ${activity_instance_id})
+                    OR activity_instance.end_time < (SELECT start_time FROM activity_instance WHERE id = ${activity_instance_id}))
                 )`
             );
         }
@@ -420,9 +420,9 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         lock {
             projectTasks = db_client->query(
                 `SELECT a.*
-                FROM avinya_db.activity a
-                JOIN avinya_db.avinya_type at ON a.avinya_type_id = at.id
-                JOIN avinya_db.parent_child_activity pca ON a.id = pca.child_activity_id
+                FROM activity a
+                JOIN avinya_type at ON a.avinya_type_id = at.id
+                JOIN parent_child_activity pca ON a.id = pca.child_activity_id
                 WHERE at.name = 'project-task'
                 AND pca.parent_activity_id = ${activity_id};`
             );
@@ -2025,6 +2025,54 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return new ConsumableData(id);
     }
 
+//     isolated resource function get consumableByUpdate(string updated,int avinya_type_id) returns ConsumableData[]|error {
+//     stream<Consumable, error?> consumables;
+//     lock {
+//         consumables = db_client->query(
+//             `SELECT * 
+//             FROM consumable 
+//             WHERE avinya_type_id = ${avinya_type_id} AND DATE_FORMAT(updated, '%Y-%m-%d %H:%i:%s') LIKE '${updated}%';
+// `
+//         );
+//     }
+
+//     ConsumableData[] consumableDatas = [];
+
+//     check from Consumable consumable in consumables
+//         do {
+//             ConsumableData|error consumableData = new ConsumableData(null, 0, consumable);
+//             if !(consumableData is error) {
+//                 consumableDatas.push(consumableData);
+//             }
+//         };
+
+//     check consumables.close();
+//     return consumableDatas;
+//     }
+
+        isolated resource function get consumableByUpdate(string? updated, int? avinya_type_id) returns ConsumableData[]|error? {
+        stream<Consumable, error?> consumables;
+        string _updated =  (updated == null? "": updated + "%");
+        lock {
+            consumables = db_client->query(
+                `SELECT * FROM consumable WHERE avinya_type_id = ${avinya_type_id} AND DATE_FORMAT(updated, '%Y-%m-%d %H:%i:%s') LIKE ${_updated};`
+            );
+        }
+
+        ConsumableData[] consumableDatas = [];
+
+        check from Consumable consumable in consumables
+            do {
+                ConsumableData|error consumableData = new ConsumableData(0, null, 0, consumable);
+                if !(consumableData is error) {
+                    consumableDatas.push(consumableData);
+                }
+            };
+
+        check consumables.close();
+        return consumableDatas;
+    }
+
     resource function get consumables() returns ConsumableData[]|error {
         stream<Consumable, error?> consumables;
         lock {
@@ -2038,7 +2086,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         check from Consumable consumable in consumables
             do {
-                ConsumableData|error consumableData = new ConsumableData(0, consumable);
+                ConsumableData|error consumableData = new ConsumableData(0, null, 0, consumable);
                 if !(consumableData is error) {
                     consumableDatas.push(consumableData);
                 }

@@ -119,7 +119,7 @@ BEGIN
     DECLARE count INT DEFAULT 0;
     DECLARE firstId INT;
     SET count = (SELECT COUNT(*)
-                 FROM avinya_db.asset
+                 FROM asset
                  WHERE avinya_type_id = at_id 
                  AND asset.id NOT IN (
                     SELECT asset_id
@@ -128,7 +128,7 @@ BEGIN
                  ));
     IF count > 0 THEN
         SET firstId = (SELECT asset.id
-                       FROM avinya_db.asset
+                       FROM asset
                        WHERE avinya_type_id = at_id
                        AND asset.id NOT IN (
                             SELECT asset_id
@@ -138,7 +138,7 @@ BEGIN
                        ORDER BY asset.id ASC
                        LIMIT 1);
         SELECT asset.*
-        FROM avinya_db.asset
+        FROM asset
         WHERE id = firstId;
     ELSE
         SELECT count;
