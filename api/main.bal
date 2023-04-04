@@ -2,6 +2,7 @@ import ballerina/graphql;
 import ballerina/sql;
 import ballerina/io;
 
+
 // @display {
 //     label: "Global Data API",
 //     id: "global-data"
@@ -1240,6 +1241,31 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         }
 
         return new (insert_id);
+    }
+
+    isolated resource function get class_attendance_today(int? organization_id, int? activity_id) returns ActivityParticipantAttendanceData[]|error? {
+        stream<ActivityParticipantAttendance, error?> attendance_records;
+        
+        lock {
+            attendance_records = db_client->query(
+                `SELECT * 
+                FROM activity_participant_attendance
+                WHERE person_id in (SELECT id FROM person WHERE organization_id = ${organization_id}) AND 
+                activity_instance_id in (SELECT id FROM activity_instance WHERE activity_id = ${activity_id} AND start_time >= CURDATE() AND end_time <= CURDATE() + INTERVAL 1 DAY);`
+            );
+        }
+
+        ActivityParticipantAttendanceData[] attendnaceDatas = [];
+
+        check from ActivityParticipantAttendance attendance_record in attendance_records
+            do {
+                ActivityParticipantAttendanceData|error activityParticipantAttendanceData = new ActivityParticipantAttendanceData(0, attendance_record);
+                if !(activityParticipantAttendanceData is error) {
+                    attendnaceDatas.push(activityParticipantAttendanceData);
+                }
+            };
+        check attendance_records.close();
+        return attendnaceDatas;
     }
 
     remote function add_empower_parent(Person person) returns PersonData|error? {
