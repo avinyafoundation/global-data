@@ -42,6 +42,12 @@ public isolated service class ActivityParticipantAttendanceData {
         }
     }
 
+    isolated resource function get person_id() returns int? {
+        lock {
+                return self.activity_participant_attendance.person_id;
+        }
+    }
+
     
     isolated resource function get person() returns PersonData|error? {
         int id = 0;
