@@ -1,5 +1,6 @@
 import ballerina/graphql;
 import ballerina/sql;
+import ballerina/log;
 import ballerina/io;
 
 
@@ -333,6 +334,39 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
     }
 
     isolated resource function get activity_instances_today(int activity_id) returns ActivityInstanceData[]|error? {
+        // first check if activity instances for today are already created
+        ActivityInstance|error todayActitivutyInstance =  db_client->queryRow(
+            `SELECT *
+            FROM activity_instance
+            WHERE DATE(start_time) = CURDATE();`
+        );
+        
+        // if not, create them
+        if!(todayActitivutyInstance is ActivityInstance) {
+            log:printError("No activity instance today");
+            log:printInfo("Creating activity instances for today");
+
+            sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO activity_instance (activity_id, name, daily_sequence, start_time, end_time) VALUES
+                (1, "School Day", 1, DATE_ADD(CURDATE(), INTERVAL '7:00' HOUR_MINUTE), DATE_ADD(CURDATE(), INTERVAL '16:30' HOUR_MINUTE)),
+                (2, "Daily Arrival", 2, DATE_ADD(CURDATE(), INTERVAL '7:00' HOUR_MINUTE), DATE_ADD(CURDATE(), INTERVAL '8:00' HOUR_MINUTE)),
+                (4, "Daily Homeroom", 3, DATE_ADD(CURDATE(), INTERVAL '8:30' HOUR_MINUTE), DATE_ADD(CURDATE(), INTERVAL '9:00' HOUR_MINUTE) ),
+                (5, "Daily PCTI 1", 4, DATE_ADD(CURDATE(), INTERVAL '9:00' HOUR_MINUTE), DATE_ADD(CURDATE(), INTERVAL '11:00' HOUR_MINUTE)),
+                (8, "Daily Tea Break", 5, DATE_ADD(CURDATE(), INTERVAL '11:00' HOUR_MINUTE), DATE_ADD(CURDATE(), INTERVAL '11:30' HOUR_MINUTE)),
+                (5, "Daily PCTI 2", 6, DATE_ADD(CURDATE(), INTERVAL '11:30' HOUR_MINUTE), DATE_ADD(CURDATE(), INTERVAL '13:00' HOUR_MINUTE)),
+                (10, "Daily Lunch", 7, DATE_ADD(CURDATE(), INTERVAL '13:00' HOUR_MINUTE), DATE_ADD(CURDATE(), INTERVAL '13:45' HOUR_MINUTE)),
+                (11, "Daily Lunch", 8, DATE_ADD(CURDATE(), INTERVAL '13:45' HOUR_MINUTE), DATE_ADD(CURDATE(), INTERVAL '14:15' HOUR_MINUTE)),
+                (11, "Daily Work", 9, DATE_ADD(CURDATE(), INTERVAL '14:15' HOUR_MINUTE), DATE_ADD(CURDATE(), INTERVAL '15:00' HOUR_MINUTE) ),
+                (12, "Daily Departure", 10, DATE_ADD(CURDATE(), INTERVAL '15:00' HOUR_MINUTE), DATE_ADD(CURDATE(), INTERVAL '16:30' HOUR_MINUTE) );`
+            );
+
+            int|string? insert_id = res.lastInsertId;
+            if !(insert_id is int) {
+                return error("Unable to create activity instances for today");
+            }
+        }
+
+        // now move on to finding the activity instances for today for given activity id
         stream<ActivityInstance, error?> pctiActivityInstancesToday;
         lock {
             pctiActivityInstancesToday = db_client->query(
@@ -354,6 +388,11 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
             };
 
         check pctiActivityInstancesToday.close();
+
+        if (pctiActivityInstancesTodayData.length() == 0) {
+            log:printError("No activity instances for today");
+        }
+
         return pctiActivityInstancesTodayData;
     }
 
