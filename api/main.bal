@@ -1320,6 +1320,84 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return attendnaceDatas;
     }
 
+    isolated resource function get person_attendance_report(int? person_id, int? activity_id, int? result_limit = -1) returns ActivityParticipantAttendanceData[]|error? {
+        stream<ActivityParticipantAttendance, error?> attendance_records;
+
+        if (result_limit > 0) {
+            lock {
+                attendance_records = db_client->query(
+                    `SELECT * 
+                    FROM activity_participant_attendance
+                    WHERE person_id = ${person_id} AND 
+                    activity_instance_id in (SELECT id FROM activity_instance WHERE activity_id = ${activity_id}) 
+                    ORDER BY created DESC
+                    LIMIT ${result_limit};`
+                );
+            }
+        } else {
+            lock {
+                attendance_records = db_client->query(
+                    `SELECT * 
+                    FROM activity_participant_attendance
+                    WHERE person_id = ${person_id} AND 
+                    activity_instance_id in (SELECT id FROM activity_instance WHERE activity_id = ${activity_id})
+                    ORDER BY created DESC;`
+                );
+            }
+        }
+
+        ActivityParticipantAttendanceData[] attendnaceDatas = [];
+
+        check from ActivityParticipantAttendance attendance_record in attendance_records
+            do {
+                ActivityParticipantAttendanceData|error activityParticipantAttendanceData = new ActivityParticipantAttendanceData(0, attendance_record);
+                if !(activityParticipantAttendanceData is error) {
+                    attendnaceDatas.push(activityParticipantAttendanceData);
+                }
+            };
+        check attendance_records.close();
+        return attendnaceDatas;
+    }
+
+    isolated resource function get class_attendance_report(int? organization_id, int? activity_id, int? result_limit = -1) returns ActivityParticipantAttendanceData[]|error? {
+        stream<ActivityParticipantAttendance, error?> attendance_records;
+
+        if (result_limit > 0) {
+            lock {
+                attendance_records = db_client->query(
+                    `SELECT * 
+                    FROM activity_participant_attendance
+                    WHERE person_id in (SELECT id FROM person WHERE organization_id = ${organization_id}) AND 
+                    activity_instance_id in (SELECT id FROM activity_instance WHERE activity_id = ${activity_id}) 
+                    ORDER BY created DESC
+                    LIMIT ${result_limit};`
+                );
+            }
+        } else {
+            lock {
+                attendance_records = db_client->query(
+                    `SELECT * 
+                    FROM activity_participant_attendance
+                    WHERE person_id in (SELECT id FROM person WHERE organization_id = ${organization_id}) AND 
+                    activity_instance_id in (SELECT id FROM activity_instance WHERE activity_id = ${activity_id})
+                    ORDER BY created DESC;`
+                );
+            }
+        }
+
+        ActivityParticipantAttendanceData[] attendnaceDatas = [];
+
+        check from ActivityParticipantAttendance attendance_record in attendance_records
+            do {
+                ActivityParticipantAttendanceData|error activityParticipantAttendanceData = new ActivityParticipantAttendanceData(0, attendance_record);
+                if !(activityParticipantAttendanceData is error) {
+                    attendnaceDatas.push(activityParticipantAttendanceData);
+                }
+            };
+        check attendance_records.close();
+        return attendnaceDatas;
+    }
+
     remote function add_empower_parent(Person person) returns PersonData|error? {
 
         AvinyaType avinya_type_raw = check db_client->queryRow(
