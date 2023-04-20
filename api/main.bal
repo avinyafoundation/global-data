@@ -2880,4 +2880,67 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
             return error("Unable to update inventory Data");
         }
     }
+
+
+    remote function add_consumablemeals(Consumable consumable) returns ConsumableMealsData|error? {
+        Consumable|error? consumableRaw = db_client->queryRow(
+            `SELECT *
+            FROM consumable
+            WHERE name = ${consumable.name} AND
+            avinya_type_id = ${consumable.avinya_type_id};`
+        );
+
+        if (consumableRaw is Consumable) {
+            return error("The meal is already exists");
+        }
+
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO consumable (
+                name,
+                description,
+                manufacturer,
+                model,
+                serial_number,
+                avinya_type_id
+            ) VALUES (
+                ${consumable.name},
+                ${consumable.description},
+                ${consumable.manufacturer},
+                ${consumable.model},
+                ${consumable.serial_number},
+                ${consumable.avinya_type_id}
+            );`
+        );
+
+        int|string? insert_id = res.lastInsertId;
+        if !(insert_id is int) {
+            return error("Unable to insert the meal");
+        }
+
+        return new (insert_id);
+    }
+
+
+    resource function get meals() returns ConsumableMealsData[]|error {
+        stream<Consumable, error?> meals;
+        lock {
+            meals = db_client->query(
+                `SELECT *
+                FROM consumable`
+            );
+        }
+
+        ConsumableMealsData[] consumablemealsDatas = [];
+
+        check from Consumable consumable in meals
+            do {
+                ConsumableMealsData|error consumablemealsData = new ConsumableMealsData(0, null, 0, consumable);
+                if !(consumablemealsData is error) {
+                    consumablemealsDatas.push(consumablemealsData);
+                }
+            };
+
+        check meals.close();
+        return consumablemealsDatas;
+    }
 }
