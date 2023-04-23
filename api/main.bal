@@ -1,5 +1,6 @@
 import ballerina/graphql;
 import ballerina/sql;
+import ballerina/log;
 import ballerina/io;
 
 
@@ -333,6 +334,40 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
     }
 
     isolated resource function get activity_instances_today(int activity_id) returns ActivityInstanceData[]|error? {
+        // first check if activity instances for today are already created
+        ActivityInstance|error todayActitivutyInstance =  db_client->queryRow(
+            `SELECT *
+            FROM activity_instance
+            WHERE DATE(start_time) = CURDATE();`
+        );
+        
+        // if not, create them
+        if!(todayActitivutyInstance is ActivityInstance) {
+            log:printError("No activity instance today");
+            log:printInfo("Creating activity instances for today");
+
+            sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO activity_instance (activity_id, name, daily_sequence, start_time, end_time) VALUES
+                (1, "School Day", 1, DATE_ADD(CURDATE(), INTERVAL '7:00' HOUR_MINUTE), DATE_ADD(CURDATE(), INTERVAL '16:30' HOUR_MINUTE)),
+                (2, "Daily Arrival", 2, DATE_ADD(CURDATE(), INTERVAL '7:00' HOUR_MINUTE), DATE_ADD(CURDATE(), INTERVAL '8:00' HOUR_MINUTE)),
+                (3, "Daily Breakfast", 3, DATE_ADD(CURDATE(), INTERVAL '8:00' HOUR_MINUTE), DATE_ADD(CURDATE(), INTERVAL '8:30' HOUR_MINUTE)),
+                (4, "Daily Homeroom", 4, DATE_ADD(CURDATE(), INTERVAL '8:30' HOUR_MINUTE), DATE_ADD(CURDATE(), INTERVAL '9:00' HOUR_MINUTE)),
+                (5, "Daily PCTI 1", 5, DATE_ADD(CURDATE(), INTERVAL '9:00' HOUR_MINUTE), DATE_ADD(CURDATE(), INTERVAL '11:00' HOUR_MINUTE)),
+                (8, "Daily Tea Break", 6, DATE_ADD(CURDATE(), INTERVAL '11:00' HOUR_MINUTE), DATE_ADD(CURDATE(), INTERVAL '11:30' HOUR_MINUTE)),
+                (5, "Daily PCTI 2", 7, DATE_ADD(CURDATE(), INTERVAL '11:30' HOUR_MINUTE), DATE_ADD(CURDATE(), INTERVAL '13:00' HOUR_MINUTE)),
+                (10, "Daily Lunch", 8, DATE_ADD(CURDATE(), INTERVAL '13:00' HOUR_MINUTE), DATE_ADD(CURDATE(), INTERVAL '13:45' HOUR_MINUTE)),
+                (9, "Daily Free Time", 9, DATE_ADD(CURDATE(), INTERVAL '13:45' HOUR_MINUTE), DATE_ADD(CURDATE(), INTERVAL '14:15' HOUR_MINUTE)),
+                (11, "Daily Work", 10, DATE_ADD(CURDATE(), INTERVAL '14:15' HOUR_MINUTE), DATE_ADD(CURDATE(), INTERVAL '15:00' HOUR_MINUTE) ),
+                (12, "Daily Departure", 11, DATE_ADD(CURDATE(), INTERVAL '15:00' HOUR_MINUTE), DATE_ADD(CURDATE(), INTERVAL '16:30' HOUR_MINUTE));`
+            );
+
+            int|string? insert_id = res.lastInsertId;
+            if !(insert_id is int) {
+                return error("Unable to create activity instances for today");
+            }
+        }
+
+        // now move on to finding the activity instances for today for given activity id
         stream<ActivityInstance, error?> pctiActivityInstancesToday;
         lock {
             pctiActivityInstancesToday = db_client->query(
@@ -354,6 +389,11 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
             };
 
         check pctiActivityInstancesToday.close();
+
+        if (pctiActivityInstancesTodayData.length() == 0) {
+            log:printError("No activity instances for today");
+        }
+
         return pctiActivityInstancesTodayData;
     }
 
@@ -1243,6 +1283,19 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return new (insert_id);
     }
 
+    remote function delete_attendance(int id) returns int?|error? {
+        sql:ExecutionResult res = check db_client->execute(
+            `DELETE FROM activity_participant_attendance WHERE id = ${id};`
+        );
+
+        int? delete_id = res.affectedRowCount;
+        if (delete_id <= 0) {
+            return error("Unable to delete attendance instance with id: " + id.toString());
+        }
+
+        return delete_id;
+    }
+
     isolated resource function get class_attendance_today(int? organization_id, int? activity_id) returns ActivityParticipantAttendanceData[]|error? {
         stream<ActivityParticipantAttendance, error?> attendance_records;
         
@@ -1253,6 +1306,110 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 WHERE person_id in (SELECT id FROM person WHERE organization_id = ${organization_id}) AND 
                 activity_instance_id in (SELECT id FROM activity_instance WHERE activity_id = ${activity_id} AND start_time >= CURDATE() AND end_time <= CURDATE() + INTERVAL 1 DAY);`
             );
+        }
+
+        ActivityParticipantAttendanceData[] attendnaceDatas = [];
+
+        check from ActivityParticipantAttendance attendance_record in attendance_records
+            do {
+                ActivityParticipantAttendanceData|error activityParticipantAttendanceData = new ActivityParticipantAttendanceData(0, attendance_record);
+                if !(activityParticipantAttendanceData is error) {
+                    attendnaceDatas.push(activityParticipantAttendanceData);
+                }
+            };
+        check attendance_records.close();
+        return attendnaceDatas;
+    }
+
+    isolated resource function get person_attendance_today(int? person_id, int? activity_id) returns ActivityParticipantAttendanceData[]|error? {
+        stream<ActivityParticipantAttendance, error?> attendance_records;
+        
+        lock {
+            attendance_records = db_client->query(
+                `SELECT * 
+                FROM activity_participant_attendance
+                WHERE person_id = ${person_id} AND 
+                activity_instance_id in (SELECT id FROM activity_instance WHERE activity_id = ${activity_id} AND 
+                start_time >= CURDATE() AND end_time <= CURDATE() + INTERVAL 1 DAY);`
+            );
+        }
+
+        ActivityParticipantAttendanceData[] attendnaceDatas = [];
+
+        check from ActivityParticipantAttendance attendance_record in attendance_records
+            do {
+                ActivityParticipantAttendanceData|error activityParticipantAttendanceData = new ActivityParticipantAttendanceData(0, attendance_record);
+                if !(activityParticipantAttendanceData is error) {
+                    attendnaceDatas.push(activityParticipantAttendanceData);
+                }
+            };
+        check attendance_records.close();
+        return attendnaceDatas;
+    }
+
+    isolated resource function get person_attendance_report(int? person_id, int? activity_id, int? result_limit = -1) returns ActivityParticipantAttendanceData[]|error? {
+        stream<ActivityParticipantAttendance, error?> attendance_records;
+
+        if (result_limit > 0) {
+            lock {
+                attendance_records = db_client->query(
+                    `SELECT * 
+                    FROM activity_participant_attendance
+                    WHERE person_id = ${person_id} AND 
+                    activity_instance_id in (SELECT id FROM activity_instance WHERE activity_id = ${activity_id}) 
+                    ORDER BY created DESC
+                    LIMIT ${result_limit};`
+                );
+            }
+        } else {
+            lock {
+                attendance_records = db_client->query(
+                    `SELECT * 
+                    FROM activity_participant_attendance
+                    WHERE person_id = ${person_id} AND 
+                    activity_instance_id in (SELECT id FROM activity_instance WHERE activity_id = ${activity_id})
+                    ORDER BY created DESC;`
+                );
+            }
+        }
+
+        ActivityParticipantAttendanceData[] attendnaceDatas = [];
+
+        check from ActivityParticipantAttendance attendance_record in attendance_records
+            do {
+                ActivityParticipantAttendanceData|error activityParticipantAttendanceData = new ActivityParticipantAttendanceData(0, attendance_record);
+                if !(activityParticipantAttendanceData is error) {
+                    attendnaceDatas.push(activityParticipantAttendanceData);
+                }
+            };
+        check attendance_records.close();
+        return attendnaceDatas;
+    }
+
+    isolated resource function get class_attendance_report(int? organization_id, int? activity_id, int? result_limit = -1) returns ActivityParticipantAttendanceData[]|error? {
+        stream<ActivityParticipantAttendance, error?> attendance_records;
+
+        if (result_limit > 0) {
+            lock {
+                attendance_records = db_client->query(
+                    `SELECT * 
+                    FROM activity_participant_attendance
+                    WHERE person_id in (SELECT id FROM person WHERE organization_id = ${organization_id}) AND 
+                    activity_instance_id in (SELECT id FROM activity_instance WHERE activity_id = ${activity_id}) 
+                    ORDER BY created DESC
+                    LIMIT ${result_limit};`
+                );
+            }
+        } else {
+            lock {
+                attendance_records = db_client->query(
+                    `SELECT * 
+                    FROM activity_participant_attendance
+                    WHERE person_id in (SELECT id FROM person WHERE organization_id = ${organization_id}) AND 
+                    activity_instance_id in (SELECT id FROM activity_instance WHERE activity_id = ${activity_id})
+                    ORDER BY created DESC;`
+                );
+            }
         }
 
         ActivityParticipantAttendanceData[] attendnaceDatas = [];
