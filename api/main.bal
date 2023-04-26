@@ -1257,6 +1257,32 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
     }
 
     remote function add_attendance(ActivityParticipantAttendance attendance) returns ActivityParticipantAttendanceData|error? {
+        // only today's attendance can be added with this method 
+        ActivityParticipantAttendance|error todayActivityParticipantAttendance =  db_client->queryRow(
+            `SELECT *
+            FROM activity_participant_attendance
+            WHERE person_id = ${attendance.person_id} and 
+            activity_instance_id = ${attendance.activity_instance_id} and
+            DATE(sign_in_time) = CURDATE();`
+        );
+        if (todayActivityParticipantAttendance is ActivityParticipantAttendance) {
+            if (attendance.sign_in_time != null) {
+                
+            return new (todayActivityParticipantAttendance.id);
+            }
+            else if (attendance.sign_out_time != null) {
+                todayActivityParticipantAttendance =  db_client->queryRow(
+                    `SELECT *
+                    FROM activity_participant_attendance
+                    WHERE person_id = ${attendance.person_id} and 
+                    activity_instance_id = ${attendance.activity_instance_id} and
+                    DATE(sign_out_time) = CURDATE();`
+                );
+                if(todayActivityParticipantAttendance is ActivityParticipantAttendance ) {
+                    return new (todayActivityParticipantAttendance.id);
+                }
+            }
+        }
         sql:ExecutionResult res = check db_client->execute(
             `INSERT INTO activity_participant_attendance (
                 activity_instance_id,
