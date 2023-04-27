@@ -357,8 +357,9 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 (5, "Daily PCTI 2", 7, DATE_ADD(CURDATE(), INTERVAL '11:30' HOUR_MINUTE), DATE_ADD(CURDATE(), INTERVAL '13:00' HOUR_MINUTE)),
                 (10, "Daily Lunch", 8, DATE_ADD(CURDATE(), INTERVAL '13:00' HOUR_MINUTE), DATE_ADD(CURDATE(), INTERVAL '13:45' HOUR_MINUTE)),
                 (9, "Daily Free Time", 9, DATE_ADD(CURDATE(), INTERVAL '13:45' HOUR_MINUTE), DATE_ADD(CURDATE(), INTERVAL '14:15' HOUR_MINUTE)),
-                (11, "Daily Work", 10, DATE_ADD(CURDATE(), INTERVAL '14:15' HOUR_MINUTE), DATE_ADD(CURDATE(), INTERVAL '15:00' HOUR_MINUTE) ),
-                (12, "Daily Departure", 11, DATE_ADD(CURDATE(), INTERVAL '15:00' HOUR_MINUTE), DATE_ADD(CURDATE(), INTERVAL '16:30' HOUR_MINUTE));`
+                (11, "Daily Work", 10, DATE_ADD(CURDATE(), INTERVAL '14:15' HOUR_MINUTE), DATE_ADD(CURDATE(), INTERVAL '15:00' HOUR_MINUTE)),
+                (12, "Daily Departure", 11, DATE_ADD(CURDATE(), INTERVAL '15:00' HOUR_MINUTE), DATE_ADD(CURDATE(), INTERVAL '16:30' HOUR_MINUTE)),
+                (13, "Daily After School", 12, DATE_ADD(CURDATE(), INTERVAL '15:00' HOUR_MINUTE), DATE_ADD(CURDATE(), INTERVAL '16:30' HOUR_MINUTE));`
             );
 
             int|string? insert_id = res.lastInsertId;
