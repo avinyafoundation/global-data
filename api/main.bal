@@ -1380,6 +1380,20 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return delete_id;
     }
 
+    remote function delete_person_attendance(int person_id) returns int?|error? {
+        sql:ExecutionResult res = check db_client->execute(
+            `DELETE FROM activity_participant_attendance WHERE person_id = ${person_id} AND
+            DATE(created) = CURDATE();`
+        );
+
+        int? delete_count = res.affectedRowCount;
+        if (delete_count <= 0) {
+            return error("Unable to delete attendance instance with id: " + person_id.toString());
+        }
+
+        return delete_count;
+    }
+
     isolated resource function get class_attendance_today(int? organization_id, int? activity_id) returns ActivityParticipantAttendanceData[]|error? {
         stream<ActivityParticipantAttendance, error?> attendance_records;
         
