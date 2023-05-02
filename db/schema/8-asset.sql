@@ -55,6 +55,7 @@ CREATE TABLE IF NOT EXISTS resource_property (
 -- consumable Supplier
 CREATE TABLE IF NOT EXISTS supply (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    avinya_type_id INT DEFAULT NULL,
     asset_id INT DEFAULT NULL,
     consumable_id INT DEFAULT NULL,
     supplier_id INT DEFAULT NULL,
@@ -65,6 +66,7 @@ CREATE TABLE IF NOT EXISTS supply (
     order_amount INT DEFAULT 0,
     created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (avinya_type_id) REFERENCES avinya_type(id),
     FOREIGN KEY (asset_id) REFERENCES asset(id),
     FOREIGN KEY (consumable_id) REFERENCES consumable(id),
     FOREIGN KEY (supplier_id) REFERENCES supplier(id),
