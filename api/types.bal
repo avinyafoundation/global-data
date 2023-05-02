@@ -215,6 +215,7 @@ public type Evaluation record {|
     int? evaluation_criteria_id;
     int? activity_instance_id;
     string? updated;
+    string? created;
     string? response;
     string? notes;
     int? grade;
