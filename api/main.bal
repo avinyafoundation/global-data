@@ -820,6 +820,63 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return new (id);
     }
 
+    isolated resource function get activity_evaluations(int activity_id) returns EvaluationData[]|error? {
+        stream<Evaluation, error?> activityEvaluations;
+        lock {
+            activityEvaluations = db_client->query(
+                `SELECT e.*
+                FROM
+                    evaluation e
+                        JOIN
+                    activity_instance ai ON e.activity_instance_id = ai.id
+                        JOIN
+                    activity a ON ai.activity_id = a.id
+                WHERE
+                    activity_id = ${activity_id};`
+            );
+        }
+
+        EvaluationData[] activityEvaluationsData = [];
+        
+
+        check from Evaluation evaluation in activityEvaluations
+            do {
+                EvaluationData|error evaluationData = new EvaluationData((), evaluation);
+                if !(evaluationData is error) {
+                    activityEvaluationsData.push(evaluationData);
+                }
+            };
+
+        check activityEvaluations.close();
+        return activityEvaluationsData;
+
+    }
+
+    isolated resource function get activity_instance_evaluations(int activity_instance_id) returns EvaluationData[]|error? {
+        stream<Evaluation, error?> activityInstanceEvaluations;
+        lock {
+            activityInstanceEvaluations = db_client->query(
+                `SELECT *
+                FROM evaluation
+                WHERE activity_instance_id = ${activity_instance_id};`
+            );
+        }
+
+        EvaluationData[] activityInstanceEvaluationsData = [];
+
+        check from Evaluation pctiEvaluation in activityInstanceEvaluations
+            do {
+                EvaluationData|error pctiEvaluationData = new EvaluationData((), pctiEvaluation);
+                if !(pctiEvaluationData is error) {
+                    activityInstanceEvaluationsData.push(pctiEvaluationData);
+                }
+            };
+
+        check activityInstanceEvaluations.close();
+        return activityInstanceEvaluationsData;
+
+    }
+
     isolated resource function get evaluation_meta_data(int meta_evaluation_id) returns EvaluationMetadataData|error? {
 
         return new (meta_evaluation_id);

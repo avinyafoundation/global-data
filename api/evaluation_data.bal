@@ -1,5 +1,5 @@
 public isolated service class EvaluationData {
-    private Evaluation evaluation = {id: 0, evaluatee_id: 0, evaluator_id: 0, evaluation_criteria_id: 0, activity_instance_id: 0, response: (), grade: 0, notes: (), updated: ()};
+    private Evaluation evaluation = {id: 0, evaluatee_id: 0, evaluator_id: 0, evaluation_criteria_id: 0, activity_instance_id: 0, response: (), grade: 0, notes: (), updated: (), created: ()};
 
     isolated function init(int? evaluation_id = 0, Evaluation? evaluation = null) returns error? {
         if (evaluation != null) { // if evaluation is provided, then use that and do not load from DB
@@ -53,6 +53,12 @@ public isolated service class EvaluationData {
     isolated resource function get updated() returns string? {
         lock {
             return self.evaluation.updated;
+        }
+    }
+
+     isolated resource function get created() returns string? {
+        lock {
+            return self.evaluation.created;
         }
     }
 
