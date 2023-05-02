@@ -60,6 +60,7 @@ INSERT INTO avinya_type (description, name, global_type, foundation_type, focus,
 INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('asset', 'laptop', 'Laptop', 'academic', 'empower', 700);
 INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('asset', 'accessories', 'Accessories', 'academic', 'empower', 500);
 INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('asset', 'stationary', 'Stationary', 'academic', 'empower', 400);
+INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('asset', 'sim', 'Sim', 'academic', 'empower', 550);
 
 INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('Arrival', 'arrival', 'meeting', 'academic', null, 3500);
 INSERT INTO avinya_type (description, name, global_type, foundation_type, focus, level) VALUES ('Departure', 'departure', 'meeting', 'academic', null, 3500);
