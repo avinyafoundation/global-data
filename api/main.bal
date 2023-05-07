@@ -820,6 +820,19 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return new (id);
     }
 
+    remote function delete_evaluation(int id) returns int?|error? {
+        sql:ExecutionResult res = check db_client->execute(
+            `DELETE FROM evaluation WHERE id = ${id};`
+        );
+
+        int? delete_id = res.affectedRowCount;
+        if (delete_id <= 0) {
+            return error("Unable to delete evaluation with id: " + id.toString());
+        }
+
+        return delete_id;
+    }
+
     isolated resource function get activity_evaluations(int activity_id) returns EvaluationData[]|error? {
         stream<Evaluation, error?> activityEvaluations;
         lock {
