@@ -1497,7 +1497,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return attendnaceDatas;
     }
 
-    isolated resource function get class_attendance_report(int? organization_id, int? activity_id, int? result_limit = -1) returns ActivityParticipantAttendanceData[]|error? {
+    isolated resource function get class_attendance_report(int? organization_id, int? activity_id, int? result_limit = -1, string? from_date = null, string? to_date = null ) returns ActivityParticipantAttendanceData[]|error? {
         stream<ActivityParticipantAttendance, error?> attendance_records;
 
         if (result_limit > 0) {
@@ -1512,14 +1512,27 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 );
             }
         } else {
-            lock {
-                attendance_records = db_client->query(
-                    `SELECT * 
-                    FROM activity_participant_attendance
-                    WHERE person_id in (SELECT id FROM person WHERE organization_id = ${organization_id}) AND 
-                    activity_instance_id in (SELECT id FROM activity_instance WHERE activity_id = ${activity_id})
-                    ORDER BY created DESC;`
-                );
+            if(from_date != null && to_date != null){
+                lock {
+                    attendance_records = db_client->query(
+                        `SELECT *
+                        FROM activity_participant_attendance
+                        WHERE person_id IN (SELECT id FROM person WHERE organization_id = ${organization_id})
+                        AND activity_instance_id IN (SELECT id FROM activity_instance WHERE activity_id = ${activity_id})
+                        AND DATE(sign_in_time) BETWEEN ${from_date} AND ${to_date}
+                        ORDER BY created DESC;`
+                    );
+                }
+            } else {
+                lock {
+                    attendance_records = db_client->query(
+                        `SELECT * 
+                        FROM activity_participant_attendance
+                        WHERE person_id in (SELECT id FROM person WHERE organization_id = ${organization_id}) AND 
+                        activity_instance_id in (SELECT id FROM activity_instance WHERE activity_id = ${activity_id}) 
+                        ORDER BY created DESC;`
+                    );
+                }
             }
         }
 
