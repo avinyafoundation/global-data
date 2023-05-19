@@ -253,6 +253,12 @@ public isolated service class PersonData {
         }
     }
 
+    isolated resource function get bank_branch() returns string?{
+        lock {
+            return self.person.bank_branch;
+        }
+    }
+
     isolated resource function get bank_account_number() returns string?{
         lock {
             return self.person.bank_account_number;
