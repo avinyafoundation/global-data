@@ -102,6 +102,33 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return new (name, id);
     }
 
+    isolated resource function get student_list_by_parent(int? id) returns PersonData[]|error? {
+        stream<Person, error?> studentList;
+        lock {
+            studentList = db_client->query(
+                `SELECT * FROM person WHERE organization_id in
+                (SELECT child_org_id FROM parent_child_organization WHERE parent_org_id IN
+                (SELECT organization_id FROM organization_metadata WHERE organization_id IN
+                (SELECT id FROM organization WHERE id in (SELECT child_org_id FROM parent_child_organization WHERE parent_org_id = 2 ) AND avinya_type = 86)
+                AND organization_id IN (SELECT organization_id FROM organization_metadata WHERE key_name = 'start_date' AND CURRENT_DATE() >= value)
+                AND organization_id IN (SELECT organization_id FROM organization_metadata WHERE key_name = 'end_date' AND CURRENT_DATE() <= value)));`
+            );
+        }
+
+        PersonData[] studentListDatas = [];
+
+        check from Person student in studentList
+            do {
+                PersonData|error studentData = new PersonData((),(), student);
+                if !(studentData is error) {
+                    studentListDatas.push(studentData);
+                }
+            };
+
+        check studentList.close();
+        return studentListDatas;
+    }
+
     isolated resource function get person(string? name, int? id) returns PersonData|error? {
         return new (name, id);
     }
@@ -1497,7 +1524,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return attendnaceDatas;
     }
 
-    isolated resource function get class_attendance_report(int? organization_id, int? activity_id, int? result_limit = -1, string? from_date = null, string? to_date = null ) returns ActivityParticipantAttendanceData[]|error? {
+    isolated resource function get class_attendance_report(int? organization_id, int? parent_organization_id, int? activity_id, int? result_limit = -1, string? from_date = null, string? to_date = null) returns ActivityParticipantAttendanceData[]|error? {
         stream<ActivityParticipantAttendance, error?> attendance_records;
 
         if (result_limit > 0) {
@@ -1513,7 +1540,8 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
             }
         } else {
             if(from_date != null && to_date != null){
-                lock {
+                if(organization_id != null){
+                    lock {
                     attendance_records = db_client->query(
                         `SELECT *
                         FROM activity_participant_attendance
@@ -1523,6 +1551,19 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                         ORDER BY created DESC;`
                     );
                 }
+                }else{
+                    lock {
+                        attendance_records = db_client->query(
+                            `SELECT *
+                            FROM activity_participant_attendance
+                            WHERE person_id in (SELECT id FROM person WHERE 
+                            organization_id in (SELECT id FROM organization WHERE id in (SELECT child_org_id FROM parent_child_organization WHERE parent_org_id IN (SELECT child_org_id from parent_child_organization where parent_org_id = ${parent_organization_id})) AND avinya_type = 87))
+                            AND activity_instance_id in (SELECT id FROM activity_instance WHERE activity_id = ${activity_id}) 
+                            AND DATE(sign_in_time) BETWEEN ${from_date} AND ${to_date}
+                            ORDER BY DATE(sign_in_time),created DESC;`
+                        );
+                    }
+                }  
             } else {
                 lock {
                     attendance_records = db_client->query(
