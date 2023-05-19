@@ -112,6 +112,7 @@ public type Person record {|
     string? digital_id;
     int? avinya_phone;
     string? bank_name;
+    string? bank_branch;
     string? bank_account_number;
     string? bank_account_name;
     int? academy_org_id;
