@@ -1495,7 +1495,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                     FROM activity_participant_attendance
                     WHERE person_id = ${person_id} AND 
                     activity_instance_id in (SELECT id FROM activity_instance WHERE activity_id = ${activity_id}) 
-                    ORDER BY created DESC
+                    ORDER BY sign_in_time DESC
                     LIMIT ${result_limit};`
                 );
             }
@@ -1506,7 +1506,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                     FROM activity_participant_attendance
                     WHERE person_id = ${person_id} AND 
                     activity_instance_id in (SELECT id FROM activity_instance WHERE activity_id = ${activity_id})
-                    ORDER BY created DESC;`
+                    ORDER BY sign_in_time DESC;`
                 );
             }
         }
