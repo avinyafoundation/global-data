@@ -2,6 +2,7 @@ import ballerina/graphql;
 import ballerina/sql;
 import ballerina/log;
 import ballerina/io;
+import ballerina/time;
 
 
 // @display {
@@ -1527,6 +1528,8 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
     isolated resource function get class_attendance_report(int? organization_id, int? parent_organization_id, int? activity_id, int? result_limit = -1, string? from_date = null, string? to_date = null) returns ActivityParticipantAttendanceData[]|error? {
         stream<ActivityParticipantAttendance, error?> attendance_records;
 
+        time:Utc startTime = time:utcNow();
+
         if (result_limit > 0) {
             lock {
                 attendance_records = db_client->query(
@@ -1576,6 +1579,11 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 }
             }
         }
+
+        time:Utc endTime = time:utcNow();
+        time:Seconds seconds = time:utcDiffSeconds(endTime, startTime);
+
+        log:printInfo("Time taken to query execution in class_attendance_report in seconds = " + seconds.toString()); 
 
         ActivityParticipantAttendanceData[] attendnaceDatas = [];
 
