@@ -277,4 +277,16 @@ public isolated service class PersonData {
         }
     }
 
+    isolated resource function get organization_id() returns int?{
+        lock {
+            return self.person.organization_id;
+        }
+    }
+
+    isolated resource function get branch_code() returns string?{
+        lock {
+            return self.person.branch_code;
+        }
+    }
+
 }
