@@ -143,7 +143,7 @@ public isolated service class OrganizationData {
             people = db_client->query(
                 `SELECT *
                 FROM person
-                WHERE organization_id = ${self.organization.id}`
+                WHERE organization_id = ${self.organization.id} AND avinya_type_id=37`
             );
         }
 
