@@ -3,7 +3,6 @@ import ballerina/sql;
 import ballerina/log;
 import ballerina/io;
 import ballerina/time;
-import ballerina/regex;
 
 
 // @display {
@@ -617,24 +616,31 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         avinya_type_id = ${avinya_type_raw.id};`
     );
 
+    Reference referenceRaw = check db_client->queryRow(
+        `SELECT *
+        FROM reference_number
+        WHERE branch_code = ${person.branch_code} AND foundation_type = 'Student';`
+    );
+
     if (applicantRaw is Person) {
         return error("Applicant already exists. The phone, email, or the social login account you are using is already used by another applicant");
     }
 
-    time:Utc currentTime = time:utcNow();
+//     time:Utc currentTime = time:utcNow();
 
-string date = time:utcToString(currentTime);
+// string date = time:utcToString(currentTime);
 
-    string[] timeArray = regex:split(date, "-");
-    string year = timeArray[0].substring(2);
+//     string[] timeArray = regex:split(date, "-");
+//     string year = timeArray[0].substring(2);
 
     // Generate the dynamic number with leading zeros
-    int dynamicNumber = 1;  // You can replace this with your own logic to generate the dynamic number
-    string dynamicNumberString = padStartWithZeros(dynamicNumber.toString(), 3);
+    int newLastRefNo = referenceRaw.last_reference_no + 1;
+    string dynamicNumberString = padStartWithZeros(newLastRefNo.toString(), 3);
+    string newBatchNo = padStartWithZeros(referenceRaw.batch_no.toString(), 2);
 
     string branch_code = person.branch_code.toString();
 
-    string id_no = string `AF-${branch_code}-${year}-ST01-${dynamicNumberString}`;
+    string id_no = string `AF-${branch_code}-${referenceRaw.acedemic_year}-ST${newBatchNo}-${dynamicNumberString}`;
 
 io:println(id_no);
 
@@ -665,6 +671,24 @@ io:println(id_no);
             ${id_no}
         );`
     );
+
+    // update last_reference_no in reference_number
+        sql:ExecutionResult|error? resUpdate = db_client->execute(
+            `UPDATE reference_number
+            SET last_reference_no = ${newLastRefNo}
+            WHERE branch_code = ${person.branch_code} AND foundation_type = 'Student';`
+        );
+
+        if (resUpdate is sql:ExecutionResult) {
+
+            int? insert_count = resUpdate.affectedRowCount;
+            if !(insert_count is int) {
+                return error("Unable to update Reference Number");
+            }
+        }
+        else {
+            return error("Error while updating data", resUpdate);
+        }
 
     if (res is sql:ExecutionResult) {
 
@@ -699,6 +723,10 @@ io:println(id_no);
 
         sql:ExecutionResult res = check db_client->execute(
             `INSERT INTO applicant_consent (
+                organization_id,
+                avinya_type_id,
+                person_id,
+                application_id,
                 name,
                 date_of_birth,
                 done_ol,
@@ -709,6 +737,10 @@ io:println(id_no);
                 information_correct_consent,
                 agree_terms_consent
             ) VALUES (
+                ${applicantConsent.organization_id},
+                ${applicantConsent.avinya_type_id},
+                ${applicantConsent.person_id},
+                ${applicantConsent.application_id},
                 ${applicantConsent.name},
                 ${applicantConsent.date_of_birth},
                 ${applicantConsent.done_ol},
