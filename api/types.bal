@@ -64,6 +64,16 @@ public type AvinyaType record {|
     int? level;
 |};
 
+public type Reference record {|
+    readonly string? record_type = "reference";
+    int id?;
+    int last_reference_no;
+    int batch_no;
+    string? branch_code;
+    string foundation_type;
+    string acedemic_year;
+|};
+
 public type Organization record {|
     readonly string? record_type = "organization";
     int id?;

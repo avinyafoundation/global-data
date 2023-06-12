@@ -109,4 +109,26 @@ public isolated service class ApplicantConsentData {
         }
     }
 
+    isolated resource function get application_id() returns int? {
+        lock {
+            return self.applicant_consent.application_id;
+        }
+    }
+
+    isolated resource function get person_id() returns int? {
+        lock {
+            return self.applicant_consent.person_id;
+        }
+    }
+    isolated resource function get avinya_type_id() returns int? {
+        lock {
+            return self.applicant_consent.avinya_type_id;
+        }
+    }
+    isolated resource function get organization_id() returns int? {
+        lock {
+            return self.applicant_consent.organization_id;
+        }
+    }
+
 }
