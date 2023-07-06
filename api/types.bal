@@ -507,6 +507,7 @@ public type ResourceAllocation record {|
     string? end_date;
     string? created;
     string? updated;
+    ResourceProperty[] resource_properties?;
 |};
 
 public type Inventory record {|

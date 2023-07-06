@@ -103,6 +103,32 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return new (name, id);
     }
 
+    isolated resource function get organizations_by_avinya_type(int? avinya_type) returns OrganizationData[]|error? {
+       
+        stream<Organization, error?> org_list;
+        lock {
+            org_list = db_client->query(
+                 `SELECT *
+	             FROM organization
+	             WHERE avinya_type = ${avinya_type}
+                `
+            );
+        }
+
+        OrganizationData[] organizationListDatas = [];
+
+        check from Organization organization in org_list
+            do {
+                OrganizationData|error organizationData = new OrganizationData((),(), organization);
+                if !(organizationData is error) {
+                    organizationListDatas.push(organizationData);
+                }
+            };
+
+        check org_list.close();
+        return organizationListDatas;
+    }
+
     isolated resource function get student_list_by_parent(int? id) returns PersonData[]|error? {
         stream<Person, error?> studentList;
         lock {
@@ -3054,4 +3080,38 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
             return error("Unable to update inventory Data");
         }
     }
+
+    resource function get resource_allocations_report(int? organization_id,int? avinya_type_id) returns ResourceAllocationData[]|error {
+        stream<ResourceAllocation, error?> resource_allocations;
+        lock {
+            resource_allocations = db_client->query(
+                `SELECT *
+	             FROM resource_allocation
+	             WHERE asset_id in (select id from asset where avinya_type_id = ${avinya_type_id})
+                 AND ( organization_id 
+                 in (select child_org_id from parent_child_organization where parent_org_id 
+                 in (select child_org_id from parent_child_organization where parent_org_id = ${organization_id}))
+                 OR organization_id = ${organization_id})
+                `
+            );
+        }
+
+        ResourceAllocationData[] resourceAllocationDatas = [];
+
+        check from ResourceAllocation resourceAllocation in resource_allocations
+            do {
+                ResourceAllocationData|error resourceAllocationData = new ResourceAllocationData(0, 0, resourceAllocation);
+                if !(resourceAllocationData is error) {
+                    resourceAllocationDatas.push(resourceAllocationData);
+                }
+            };
+
+        check resource_allocations.close();
+        return resourceAllocationDatas;
+    }
+
+
+
+
+
 }

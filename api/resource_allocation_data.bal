@@ -121,5 +121,33 @@ public isolated service class ResourceAllocationData{
             return self.resource_allocation.updated;
         }
     }
+
+    //2023-06-21 added lahiru
+    isolated resource function get resource_properties() returns ResourcePropertyData[]|error {
+
+        stream<ResourceProperty, error?> resource_properties;
+
+        lock {
+            resource_properties = db_client->query(
+               `SELECT *
+                FROM resource_property
+                WHERE asset_id = ${self.resource_allocation.asset_id};`
+            );
+        }
+
+        ResourcePropertyData[] resource_property_data = [];
+
+        check from ResourceProperty rp in  resource_properties
+           do{
+              ResourcePropertyData| error  resource_data = new ResourcePropertyData(0,rp);
+              if !(resource_data is error){
+                  resource_property_data.push(resource_data);
+              }
+           };
+
+        check resource_properties.close();
+        return resource_property_data;
+        
+    }
 }
 
