@@ -133,7 +133,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         stream<Person, error?> studentList;
         lock {
             studentList = db_client->query(
-                `SELECT * FROM person WHERE organization_id in
+                `SELECT * FROM person WHERE avinya_type_id=37 AND organization_id in
                 (SELECT child_org_id FROM parent_child_organization WHERE parent_org_id IN
                 (SELECT organization_id FROM organization_metadata WHERE organization_id IN
                 (SELECT id FROM organization WHERE id in (SELECT child_org_id FROM parent_child_organization WHERE parent_org_id = 2 ) AND avinya_type = 86)
@@ -627,68 +627,111 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
     remote function add_student_applicant(Person person) returns PersonData|error? {
 
-        AvinyaType avinya_type_raw = check db_client->queryRow(
-            `SELECT *
-            FROM avinya_type
-            WHERE global_type = "applicant" AND  foundation_type = "student";`
-        );
+    AvinyaType avinya_type_raw = check db_client->queryRow(
+        `SELECT *
+        FROM avinya_type
+        WHERE global_type = "applicant" AND  foundation_type = "student";`
+    );
 
-        Person|error? applicantRaw = db_client->queryRow(
-            `SELECT *
-            FROM person
-            WHERE (email = ${person.email}  OR
-            phone = ${person.phone} OR 
-            jwt_sub_id = ${person.jwt_sub_id}) AND 
-            avinya_type_id = ${avinya_type_raw.id};`
-        );
+    Person|error? applicantRaw = db_client->queryRow(
+        `SELECT *
+        FROM person
+        WHERE (email = ${person.email}  OR
+        phone = ${person.phone} OR 
+        jwt_sub_id = ${person.jwt_sub_id}) AND 
+        avinya_type_id = ${avinya_type_raw.id};`
+    );
 
-        if (applicantRaw is Person) {
-            return error("Applicant already exists. The phone, email or the social login account you are using is already used by another applicant");
-        }
+    Reference referenceRaw = check db_client->queryRow(
+        `SELECT *
+        FROM reference_number
+        WHERE branch_code = ${person.branch_code} AND foundation_type = 'Student';`
+    );
 
-        sql:ExecutionResult|error res = db_client->execute(
-            `INSERT INTO person (
-                preferred_name,
-                full_name,
-                sex,
-                organization_id,
-                phone,
-                email,
-                avinya_type_id,
-                permanent_address_id,
-                mailing_address_id,
-                jwt_sub_id,
-                jwt_email,
-                street_address
-            ) VALUES (
-                ${person.preferred_name},
-                ${person.full_name},
-                ${person.sex},
-                ${person.organization_id},
-                ${person.phone},
-                ${person.email},
-                ${avinya_type_raw.id},
-                ${person.permanent_address_id},
-                ${person.mailing_address_id},
-                ${person.jwt_sub_id},
-                ${person.jwt_email}, 
-                ${person.street_address}
-            );`
-        );
-
-        if (res is sql:ExecutionResult) {
-
-            int|string? insert_id = res.lastInsertId;
-            if !(insert_id is int) {
-                return error("Unable to insert application");
-            }
-
-            return new ((), insert_id);
-        }
-
-        return error("Error while inserting data", res);
-
+    if (applicantRaw is Person) {
+        return error("Applicant already exists. The phone, email, or the social login account you are using is already used by another applicant");
     }
+
+//     time:Utc currentTime = time:utcNow();
+
+// string date = time:utcToString(currentTime);
+
+//     string[] timeArray = regex:split(date, "-");
+//     string year = timeArray[0].substring(2);
+
+    // Generate the dynamic number with leading zeros
+    int newLastRefNo = referenceRaw.last_reference_no + 1;
+    string dynamicNumberString = padStartWithZeros(newLastRefNo.toString(), 3);
+    string newBatchNo = padStartWithZeros(referenceRaw.batch_no.toString(), 2);
+
+    string branch_code = person.branch_code.toString();
+
+    string id_no = string `AF-${branch_code}-${referenceRaw.acedemic_year}-ST${newBatchNo}-${dynamicNumberString}`;
+
+io:println(id_no);
+
+    sql:ExecutionResult|error res = db_client->execute(
+        `INSERT INTO person (
+            preferred_name,
+            full_name,
+            sex,
+            organization_id,
+            phone,
+            email,
+            avinya_type_id,
+            jwt_sub_id,
+            jwt_email,
+            street_address,
+            id_no
+        ) VALUES (
+            ${person.preferred_name},
+            ${person.full_name},
+            ${person.sex},
+            ${person.organization_id},
+            ${person.phone},
+            ${person.email},
+            ${person.avinya_type_id},
+            ${person.jwt_sub_id},
+            ${person.jwt_email}, 
+            ${person.street_address},
+            ${id_no}
+        );`
+    );
+
+    // update last_reference_no in reference_number
+        sql:ExecutionResult|error? resUpdate = db_client->execute(
+            `UPDATE reference_number
+            SET last_reference_no = ${newLastRefNo}
+            WHERE branch_code = ${person.branch_code} AND foundation_type = 'Student';`
+        );
+
+        if (resUpdate is sql:ExecutionResult) {
+
+            int? insert_count = resUpdate.affectedRowCount;
+            if !(insert_count is int) {
+                return error("Unable to update Reference Number");
+            }
+        }
+        else {
+            return error("Error while updating data", resUpdate);
+        }
+
+    if (res is sql:ExecutionResult) {
+
+        int|string? insert_id = res.lastInsertId;
+        if (!(insert_id is int)) {
+            return error("Unable to insert application");
+        }
+
+        return new ((), insert_id);
+    }
+
+    io:println(res.toString());
+
+    return error("Error while inserting data", res);
+
+}
+
 
     remote function add_student_applicant_consent(ApplicantConsent applicantConsent) returns ApplicantConsentData|error? {
 
@@ -706,6 +749,10 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         sql:ExecutionResult res = check db_client->execute(
             `INSERT INTO applicant_consent (
+                organization_id,
+                avinya_type_id,
+                person_id,
+                application_id,
                 name,
                 date_of_birth,
                 done_ol,
@@ -716,6 +763,10 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 information_correct_consent,
                 agree_terms_consent
             ) VALUES (
+                ${applicantConsent.organization_id},
+                ${applicantConsent.avinya_type_id},
+                ${applicantConsent.person_id},
+                ${applicantConsent.application_id},
                 ${applicantConsent.name},
                 ${applicantConsent.date_of_birth},
                 ${applicantConsent.done_ol},
@@ -1561,7 +1612,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 attendance_records = db_client->query(
                     `SELECT * 
                     FROM activity_participant_attendance
-                    WHERE person_id in (SELECT id FROM person WHERE organization_id = ${organization_id}) AND 
+                    WHERE person_id in (SELECT id FROM person WHERE organization_id = ${organization_id} AND avinya_type_id=37) AND 
                     activity_instance_id in (SELECT id FROM activity_instance WHERE activity_id = ${activity_id}) 
                     ORDER BY created DESC
                     LIMIT ${result_limit};`
@@ -1574,7 +1625,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                     attendance_records = db_client->query(
                         `SELECT *
                         FROM activity_participant_attendance
-                        WHERE person_id IN (SELECT id FROM person WHERE organization_id = ${organization_id})
+                        WHERE person_id IN (SELECT id FROM person WHERE organization_id = ${organization_id} AND avinya_type_id=37)
                         AND activity_instance_id IN (SELECT id FROM activity_instance WHERE activity_id = ${activity_id})
                         AND DATE(sign_in_time) BETWEEN ${from_date} AND ${to_date}
                         ORDER BY created DESC;`
@@ -1585,7 +1636,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                         attendance_records = db_client->query(
                             `SELECT *
                             FROM activity_participant_attendance
-                            WHERE person_id in (SELECT id FROM person WHERE 
+                            WHERE person_id in (SELECT id FROM person WHERE avinya_type_id=37 AND
                             organization_id in (SELECT id FROM organization WHERE id in (SELECT child_org_id FROM parent_child_organization WHERE parent_org_id IN (SELECT child_org_id from parent_child_organization where parent_org_id = ${parent_organization_id})) AND avinya_type = 87))
                             AND activity_instance_id in (SELECT id FROM activity_instance WHERE activity_id = ${activity_id}) 
                             AND DATE(sign_in_time) BETWEEN ${from_date} AND ${to_date}
@@ -1598,7 +1649,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                     attendance_records = db_client->query(
                         `SELECT * 
                         FROM activity_participant_attendance
-                        WHERE person_id in (SELECT id FROM person WHERE organization_id = ${organization_id}) AND 
+                        WHERE person_id in (SELECT id FROM person WHERE organization_id = ${organization_id} AND avinya_type_id=37) AND 
                         activity_instance_id in (SELECT id FROM activity_instance WHERE activity_id = ${activity_id}) 
                         ORDER BY created DESC;`
                     );
@@ -3114,4 +3165,18 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
 
 
+}
+
+  function padStartWithZeros(string str, int len) returns string {
+    int strLen = str.length();
+    if (strLen >= len) {
+        return str;
+    }
+    int numZeros = len - strLen;
+    string paddedStr = "";
+    while (numZeros > 0) {
+        paddedStr = paddedStr + "0";
+        numZeros = numZeros - 1;
+    }
+    return paddedStr + str;
 }
