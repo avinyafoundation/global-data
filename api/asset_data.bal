@@ -78,6 +78,16 @@ public isolated service class AssetData{
         return new AvinyaTypeData(id);
     }
 
+
+     //2023-06-23 fixed the issue from lahiru
+    isolated resource function get avinya_type_id() returns int?|error? {
+       
+        lock {
+           return self.asset.avinya_type_id;
+        }
+       
+    }
+
     isolated resource function get created() returns string?|error {
         lock {
             return self.asset.created;
