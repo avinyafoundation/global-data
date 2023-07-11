@@ -64,6 +64,16 @@ public type AvinyaType record {|
     int? level;
 |};
 
+public type Reference record {|
+    readonly string? record_type = "reference";
+    int id?;
+    int last_reference_no;
+    int batch_no;
+    string? branch_code;
+    string foundation_type;
+    string acedemic_year;
+|};
+
 public type Organization record {|
     readonly string? record_type = "organization";
     int id?;
@@ -112,9 +122,12 @@ public type Person record {|
     string? digital_id;
     int? avinya_phone;
     string? bank_name;
+    string? bank_branch;
     string? bank_account_number;
     string? bank_account_name;
     int? academy_org_id;
+    string? academy_org_name;
+    string? branch_code;
 |};
 
 type ParentChildStudent record {|
@@ -506,6 +519,7 @@ public type ResourceAllocation record {|
     string? end_date;
     string? created;
     string? updated;
+    ResourceProperty[] resource_properties?;
 |};
 
 public type Inventory record {|

@@ -2,6 +2,7 @@ import ballerina/graphql;
 import ballerina/sql;
 import ballerina/log;
 import ballerina/io;
+import ballerina/time;
 
 
 // @display {
@@ -100,6 +101,59 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
     isolated resource function get organization(string? name, int? id) returns OrganizationData|error? {
         return new (name, id);
+    }
+
+    isolated resource function get organizations_by_avinya_type(int? avinya_type) returns OrganizationData[]|error? {
+       
+        stream<Organization, error?> org_list;
+        lock {
+            org_list = db_client->query(
+                 `SELECT *
+	             FROM organization
+	             WHERE avinya_type = ${avinya_type}
+                `
+            );
+        }
+
+        OrganizationData[] organizationListDatas = [];
+
+        check from Organization organization in org_list
+            do {
+                OrganizationData|error organizationData = new OrganizationData((),(), organization);
+                if !(organizationData is error) {
+                    organizationListDatas.push(organizationData);
+                }
+            };
+
+        check org_list.close();
+        return organizationListDatas;
+    }
+
+    isolated resource function get student_list_by_parent(int? id) returns PersonData[]|error? {
+        stream<Person, error?> studentList;
+        lock {
+            studentList = db_client->query(
+                `SELECT * FROM person WHERE avinya_type_id=37 AND organization_id in
+                (SELECT child_org_id FROM parent_child_organization WHERE parent_org_id IN
+                (SELECT organization_id FROM organization_metadata WHERE organization_id IN
+                (SELECT id FROM organization WHERE id in (SELECT child_org_id FROM parent_child_organization WHERE parent_org_id = 2 ) AND avinya_type = 86)
+                AND organization_id IN (SELECT organization_id FROM organization_metadata WHERE key_name = 'start_date' AND CURRENT_DATE() >= value)
+                AND organization_id IN (SELECT organization_id FROM organization_metadata WHERE key_name = 'end_date' AND CURRENT_DATE() <= value)));`
+            );
+        }
+
+        PersonData[] studentListDatas = [];
+
+        check from Person student in studentList
+            do {
+                PersonData|error studentData = new PersonData((),(), student);
+                if !(studentData is error) {
+                    studentListDatas.push(studentData);
+                }
+            };
+
+        check studentList.close();
+        return studentListDatas;
     }
 
     isolated resource function get person(string? name, int? id) returns PersonData|error? {
@@ -573,68 +627,111 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
     remote function add_student_applicant(Person person) returns PersonData|error? {
 
-        AvinyaType avinya_type_raw = check db_client->queryRow(
-            `SELECT *
-            FROM avinya_type
-            WHERE global_type = "applicant" AND  foundation_type = "student";`
-        );
+    AvinyaType avinya_type_raw = check db_client->queryRow(
+        `SELECT *
+        FROM avinya_type
+        WHERE global_type = "applicant" AND  foundation_type = "student";`
+    );
 
-        Person|error? applicantRaw = db_client->queryRow(
-            `SELECT *
-            FROM person
-            WHERE (email = ${person.email}  OR
-            phone = ${person.phone} OR 
-            jwt_sub_id = ${person.jwt_sub_id}) AND 
-            avinya_type_id = ${avinya_type_raw.id};`
-        );
+    Person|error? applicantRaw = db_client->queryRow(
+        `SELECT *
+        FROM person
+        WHERE (email = ${person.email}  OR
+        phone = ${person.phone} OR 
+        jwt_sub_id = ${person.jwt_sub_id}) AND 
+        avinya_type_id = ${avinya_type_raw.id};`
+    );
 
-        if (applicantRaw is Person) {
-            return error("Applicant already exists. The phone, email or the social login account you are using is already used by another applicant");
-        }
+    Reference referenceRaw = check db_client->queryRow(
+        `SELECT *
+        FROM reference_number
+        WHERE branch_code = ${person.branch_code} AND foundation_type = 'Student';`
+    );
 
-        sql:ExecutionResult|error res = db_client->execute(
-            `INSERT INTO person (
-                preferred_name,
-                full_name,
-                sex,
-                organization_id,
-                phone,
-                email,
-                avinya_type_id,
-                permanent_address_id,
-                mailing_address_id,
-                jwt_sub_id,
-                jwt_email,
-                street_address
-            ) VALUES (
-                ${person.preferred_name},
-                ${person.full_name},
-                ${person.sex},
-                ${person.organization_id},
-                ${person.phone},
-                ${person.email},
-                ${avinya_type_raw.id},
-                ${person.permanent_address_id},
-                ${person.mailing_address_id},
-                ${person.jwt_sub_id},
-                ${person.jwt_email}, 
-                ${person.street_address}
-            );`
-        );
-
-        if (res is sql:ExecutionResult) {
-
-            int|string? insert_id = res.lastInsertId;
-            if !(insert_id is int) {
-                return error("Unable to insert application");
-            }
-
-            return new ((), insert_id);
-        }
-
-        return error("Error while inserting data", res);
-
+    if (applicantRaw is Person) {
+        return error("Applicant already exists. The phone, email, or the social login account you are using is already used by another applicant");
     }
+
+//     time:Utc currentTime = time:utcNow();
+
+// string date = time:utcToString(currentTime);
+
+//     string[] timeArray = regex:split(date, "-");
+//     string year = timeArray[0].substring(2);
+
+    // Generate the dynamic number with leading zeros
+    int newLastRefNo = referenceRaw.last_reference_no + 1;
+    string dynamicNumberString = padStartWithZeros(newLastRefNo.toString(), 3);
+    string newBatchNo = padStartWithZeros(referenceRaw.batch_no.toString(), 2);
+
+    string branch_code = person.branch_code.toString();
+
+    string id_no = string `AF-${branch_code}-${referenceRaw.acedemic_year}-ST${newBatchNo}-${dynamicNumberString}`;
+
+io:println(id_no);
+
+    sql:ExecutionResult|error res = db_client->execute(
+        `INSERT INTO person (
+            preferred_name,
+            full_name,
+            sex,
+            organization_id,
+            phone,
+            email,
+            avinya_type_id,
+            jwt_sub_id,
+            jwt_email,
+            street_address,
+            id_no
+        ) VALUES (
+            ${person.preferred_name},
+            ${person.full_name},
+            ${person.sex},
+            ${person.organization_id},
+            ${person.phone},
+            ${person.email},
+            ${person.avinya_type_id},
+            ${person.jwt_sub_id},
+            ${person.jwt_email}, 
+            ${person.street_address},
+            ${id_no}
+        );`
+    );
+
+    // update last_reference_no in reference_number
+        sql:ExecutionResult|error? resUpdate = db_client->execute(
+            `UPDATE reference_number
+            SET last_reference_no = ${newLastRefNo}
+            WHERE branch_code = ${person.branch_code} AND foundation_type = 'Student';`
+        );
+
+        if (resUpdate is sql:ExecutionResult) {
+
+            int? insert_count = resUpdate.affectedRowCount;
+            if !(insert_count is int) {
+                return error("Unable to update Reference Number");
+            }
+        }
+        else {
+            return error("Error while updating data", resUpdate);
+        }
+
+    if (res is sql:ExecutionResult) {
+
+        int|string? insert_id = res.lastInsertId;
+        if (!(insert_id is int)) {
+            return error("Unable to insert application");
+        }
+
+        return new ((), insert_id);
+    }
+
+    io:println(res.toString());
+
+    return error("Error while inserting data", res);
+
+}
+
 
     remote function add_student_applicant_consent(ApplicantConsent applicantConsent) returns ApplicantConsentData|error? {
 
@@ -652,6 +749,10 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         sql:ExecutionResult res = check db_client->execute(
             `INSERT INTO applicant_consent (
+                organization_id,
+                avinya_type_id,
+                person_id,
+                application_id,
                 name,
                 date_of_birth,
                 done_ol,
@@ -662,6 +763,10 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 information_correct_consent,
                 agree_terms_consent
             ) VALUES (
+                ${applicantConsent.organization_id},
+                ${applicantConsent.avinya_type_id},
+                ${applicantConsent.person_id},
+                ${applicantConsent.application_id},
                 ${applicantConsent.name},
                 ${applicantConsent.date_of_birth},
                 ${applicantConsent.done_ol},
@@ -1468,7 +1573,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                     FROM activity_participant_attendance
                     WHERE person_id = ${person_id} AND 
                     activity_instance_id in (SELECT id FROM activity_instance WHERE activity_id = ${activity_id}) 
-                    ORDER BY created DESC
+                    ORDER BY sign_in_time DESC
                     LIMIT ${result_limit};`
                 );
             }
@@ -1479,7 +1584,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                     FROM activity_participant_attendance
                     WHERE person_id = ${person_id} AND 
                     activity_instance_id in (SELECT id FROM activity_instance WHERE activity_id = ${activity_id})
-                    ORDER BY created DESC;`
+                    ORDER BY sign_in_time DESC;`
                 );
             }
         }
@@ -1497,31 +1602,65 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return attendnaceDatas;
     }
 
-    isolated resource function get class_attendance_report(int? organization_id, int? activity_id, int? result_limit = -1) returns ActivityParticipantAttendanceData[]|error? {
+    isolated resource function get class_attendance_report(int? organization_id, int? parent_organization_id, int? activity_id, int? result_limit = -1, string? from_date = null, string? to_date = null) returns ActivityParticipantAttendanceData[]|error? {
         stream<ActivityParticipantAttendance, error?> attendance_records;
+
+        time:Utc startTime = time:utcNow();
 
         if (result_limit > 0) {
             lock {
                 attendance_records = db_client->query(
                     `SELECT * 
                     FROM activity_participant_attendance
-                    WHERE person_id in (SELECT id FROM person WHERE organization_id = ${organization_id}) AND 
+                    WHERE person_id in (SELECT id FROM person WHERE organization_id = ${organization_id} AND avinya_type_id=37) AND 
                     activity_instance_id in (SELECT id FROM activity_instance WHERE activity_id = ${activity_id}) 
                     ORDER BY created DESC
                     LIMIT ${result_limit};`
                 );
             }
         } else {
-            lock {
-                attendance_records = db_client->query(
-                    `SELECT * 
-                    FROM activity_participant_attendance
-                    WHERE person_id in (SELECT id FROM person WHERE organization_id = ${organization_id}) AND 
-                    activity_instance_id in (SELECT id FROM activity_instance WHERE activity_id = ${activity_id})
-                    ORDER BY created DESC;`
-                );
+            if(from_date != null && to_date != null){
+                if(organization_id != null){
+                    lock {
+                    attendance_records = db_client->query(
+                        `SELECT *
+                        FROM activity_participant_attendance
+                        WHERE person_id IN (SELECT id FROM person WHERE organization_id = ${organization_id} AND avinya_type_id=37)
+                        AND activity_instance_id IN (SELECT id FROM activity_instance WHERE activity_id = ${activity_id})
+                        AND DATE(sign_in_time) BETWEEN ${from_date} AND ${to_date}
+                        ORDER BY created DESC;`
+                    );
+                }
+                }else{
+                    lock {
+                        attendance_records = db_client->query(
+                            `SELECT *
+                            FROM activity_participant_attendance
+                            WHERE person_id in (SELECT id FROM person WHERE avinya_type_id=37 AND
+                            organization_id in (SELECT id FROM organization WHERE id in (SELECT child_org_id FROM parent_child_organization WHERE parent_org_id IN (SELECT child_org_id from parent_child_organization where parent_org_id = ${parent_organization_id})) AND avinya_type = 87))
+                            AND activity_instance_id in (SELECT id FROM activity_instance WHERE activity_id = ${activity_id}) 
+                            AND DATE(sign_in_time) BETWEEN ${from_date} AND ${to_date}
+                            ORDER BY DATE(sign_in_time),created DESC;`
+                        );
+                    }
+                }  
+            } else {
+                lock {
+                    attendance_records = db_client->query(
+                        `SELECT * 
+                        FROM activity_participant_attendance
+                        WHERE person_id in (SELECT id FROM person WHERE organization_id = ${organization_id} AND avinya_type_id=37) AND 
+                        activity_instance_id in (SELECT id FROM activity_instance WHERE activity_id = ${activity_id}) 
+                        ORDER BY created DESC;`
+                    );
+                }
             }
         }
+
+        time:Utc endTime = time:utcNow();
+        time:Seconds seconds = time:utcDiffSeconds(endTime, startTime);
+
+        log:printInfo("Time taken to query execution in class_attendance_report in seconds = " + seconds.toString()); 
 
         ActivityParticipantAttendanceData[] attendnaceDatas = [];
 
@@ -2992,4 +3131,52 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
             return error("Unable to update inventory Data");
         }
     }
+
+    resource function get resource_allocations_report(int? organization_id,int? avinya_type_id) returns ResourceAllocationData[]|error {
+        stream<ResourceAllocation, error?> resource_allocations;
+        lock {
+            resource_allocations = db_client->query(
+                `SELECT *
+	             FROM resource_allocation
+	             WHERE asset_id in (select id from asset where avinya_type_id = ${avinya_type_id})
+                 AND ( organization_id 
+                 in (select child_org_id from parent_child_organization where parent_org_id 
+                 in (select child_org_id from parent_child_organization where parent_org_id = ${organization_id}))
+                 OR organization_id = ${organization_id})
+                `
+            );
+        }
+
+        ResourceAllocationData[] resourceAllocationDatas = [];
+
+        check from ResourceAllocation resourceAllocation in resource_allocations
+            do {
+                ResourceAllocationData|error resourceAllocationData = new ResourceAllocationData(0, 0, resourceAllocation);
+                if !(resourceAllocationData is error) {
+                    resourceAllocationDatas.push(resourceAllocationData);
+                }
+            };
+
+        check resource_allocations.close();
+        return resourceAllocationDatas;
+    }
+
+
+
+
+
+}
+
+  function padStartWithZeros(string str, int len) returns string {
+    int strLen = str.length();
+    if (strLen >= len) {
+        return str;
+    }
+    int numZeros = len - strLen;
+    string paddedStr = "";
+    while (numZeros > 0) {
+        paddedStr = paddedStr + "0";
+        numZeros = numZeros - 1;
+    }
+    return paddedStr + str;
 }

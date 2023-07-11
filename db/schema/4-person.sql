@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS person (
     digital_id VARCHAR(254) DEFAULT NULL,
     avinya_phone BIGINT DEFAULT 0,
     bank_name VARCHAR(254) DEFAULT NULL,
+    bank_branch VARCHAR(254) DEFAULT NULL,
     bank_account_number VARCHAR(254) DEFAULT NULL,
     bank_account_name VARCHAR(254) DEFAULT NULL,
     academy_org_id INT DEFAULT NULL,
