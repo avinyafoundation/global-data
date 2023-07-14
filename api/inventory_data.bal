@@ -22,6 +22,29 @@ public isolated service class InventoryData{
         }
     }
 
+    //2023-06-23 fixed the issue from lahiru
+    isolated resource function get avinya_type() returns AvinyaTypeData|error? {
+        int id = 0;
+        lock {
+            id = self.inventory.avinya_type_id ?: 0;
+            if( id == 0) {
+                return null; // no point in querying if address id is null
+            } 
+        }
+        return new AvinyaTypeData(id);
+    }
+
+
+     //2023-06-23 fixed the issue from lahiru
+    isolated resource function get avinya_type_id() returns int?|error? {
+       
+        lock {
+           return self.inventory.avinya_type_id;
+        }
+       
+    }
+
+
     isolated resource function get asset() returns AssetData|error? {
         int id = 0;
         lock {
