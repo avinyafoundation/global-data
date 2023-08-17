@@ -208,7 +208,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         check from Activity pctiActivity in pctiActivities
             do {
-                ActivityData|error pctiActivityData = new ActivityData((),(), pctiActivity);
+                ActivityData|error pctiActivityData = new ActivityData((),(),(), pctiActivity);
                 if !(pctiActivityData is error) {
                     pctiActivityDatas.push(pctiActivityData);
                 }
@@ -3161,11 +3161,110 @@ io:println(id_no);
         return resourceAllocationDatas;
     }
 
+    remote function add_duty_for_participant(DutyParticipant dutyparticipant) returns DutyParticipantData|error? {
+
+        DutyParticipant|error? dutyParticipantRaw = db_client->queryRow(
+            `SELECT *
+            FROM duty_participant
+            WHERE person_id = ${dutyparticipant.person_id};`
+        );
+
+        if (dutyParticipantRaw is  DutyParticipant) {
+            return error("already person assigned for duty");
+        }
 
 
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO duty_participant (
+                activity_id,
+                person_id,
+                role,
+                start_date,
+                end_date
+            ) VALUES (
+                ${dutyparticipant.activity_id},
+                ${dutyparticipant.person_id},
+                ${dutyparticipant.role},
+                ${dutyparticipant.start_date},
+                ${dutyparticipant.end_date}
+            );`
+        );
+        io:println(res);
+        int|string? insert_id = res.lastInsertId;
+        if !(insert_id is int) {
+            return error("Unable to insert duty participant record");
+        }
+
+        return new (insert_id);
+    }
 
 
+    resource function get duty_participants(int? organization_id) returns DutyParticipantData[]|error{
+    
+      stream<DutyParticipant,error?> duty_participants;
+      lock {
+           duty_participants = db_client->query(
+            `SELECT * 
+            FROM duty_participant
+            WHERE person_id in (SELECT id FROM person WHERE organization_id = ${organization_id}) `
+           );
+      }
+
+      DutyParticipantData[]  dutyParticipantsDatas = [];
+
+      check from DutyParticipant dutyParticipant in duty_participants
+         do{
+           DutyParticipantData|error dutyParticipantData = new  DutyParticipantData(0,0,0,dutyParticipant);
+           if !(dutyParticipantData is error){
+             dutyParticipantsDatas.push(dutyParticipantData);
+           }
+         };
+      check duty_participants.close();  
+      return dutyParticipantsDatas;
+      }
+
+    isolated resource function get activities_by_avinya_type(int? avinya_type_id) returns ActivityData[]|error? {
+        
+        stream<Activity, error?> activitiesByAvinyaType;
+        
+        lock {
+
+            activitiesByAvinyaType = db_client->query(
+                ` SELECT *
+                FROM activity
+                WHERE avinya_type_id = ${avinya_type_id};`
+            );
+        }
+
+        ActivityData[] activityByAvinyaTypeDatas = [];
+
+        check from Activity activityByAvinyaType in  activitiesByAvinyaType
+            do {
+                ActivityData|error activityByAvinyaTypeData = new ActivityData((),(),(), activityByAvinyaType);
+                if !(activityByAvinyaTypeData is error) {
+                    activityByAvinyaTypeDatas.push(activityByAvinyaTypeData);
+                }
+            };
+
+        check activitiesByAvinyaType.close();
+        return activityByAvinyaTypeDatas;
+    }
+
+    remote function delete_duty_for_participant(int id) returns int?|error? {
+        sql:ExecutionResult res = check db_client->execute(
+            `DELETE FROM duty_participant WHERE id = ${id};`
+        );
+
+        int? delete_id = res.affectedRowCount;
+        if (delete_id <= 0) {
+            return error("Unable to delete duty for participant instance with id: " + id.toString());
+        }
+
+        return delete_id;
+    }
+    
 }
+    
 
   function padStartWithZeros(string str, int len) returns string {
     int strLen = str.length();

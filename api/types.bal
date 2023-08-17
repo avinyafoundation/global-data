@@ -536,3 +536,18 @@ public type Inventory record {|
     string? created;
     string? updated;
 |};
+
+public type DutyParticipant record{|
+    readonly string? record_type = "duty_participant";
+    int id?;
+    int? activity_id;
+    Activity? activity;
+    int? person_id;
+    Person? person;
+    string? role;
+    string? start_date;
+    string? end_date;
+    string? created;
+    string? updated;
+
+|};
