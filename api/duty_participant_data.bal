@@ -92,18 +92,6 @@ public isolated service class DutyParticipantData{
         }
    }
 
-   isolated resource function get start_date() returns string? {
-        lock {
-                return self.duty_participant.start_date;
-        }
-    }
-
-   isolated resource function get end_date() returns string? {
-        lock {
-                return self.duty_participant.end_date;
-        }
-   }
-
    isolated resource function get created() returns string? {
         lock {
                 return self.duty_participant.created;

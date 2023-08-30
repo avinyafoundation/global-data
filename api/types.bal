@@ -545,9 +545,16 @@ public type DutyParticipant record{|
     int? person_id;
     Person? person;
     string? role;
-    string? start_date;
-    string? end_date;
     string? created;
     string? updated;
 
 |};
+
+public type DutyRotationMetadata record{|
+    readonly string? record_type = "duty_rotation_metadata";
+    int id?;
+    string? start_date;
+    string? end_date;
+|};
+
+
