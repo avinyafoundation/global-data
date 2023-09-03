@@ -79,7 +79,7 @@ public isolated service class ApplicantConsentData {
         }
     }
 
-    isolated resource function get done_ol() returns boolean? {
+    isolated resource function get done_ol() returns string? {
         lock {
             return self.applicant_consent.done_ol;
         }
@@ -88,6 +88,24 @@ public isolated service class ApplicantConsentData {
     isolated resource function get ol_year() returns int? {
         lock {
             return self.applicant_consent.ol_year;
+        }
+    }
+
+    isolated resource function get done_al() returns string? {
+        lock {
+            return self.applicant_consent.done_ol;
+        }
+    }
+
+    isolated resource function get al_year() returns int? {
+        lock {
+            return self.applicant_consent.ol_year;
+        }
+    }
+
+    isolated resource function get al_stream() returns string? {
+        lock {
+            return self.applicant_consent.al_stream;
         }
     }
 

@@ -674,6 +674,7 @@ io:println(id_no);
         `INSERT INTO person (
             preferred_name,
             full_name,
+            date_of_birth,
             sex,
             organization_id,
             phone,
@@ -686,6 +687,7 @@ io:println(id_no);
         ) VALUES (
             ${person.preferred_name},
             ${person.full_name},
+            ${person.date_of_birth},
             ${person.sex},
             ${person.organization_id},
             ${person.phone},
@@ -757,6 +759,9 @@ io:println(id_no);
                 date_of_birth,
                 done_ol,
                 ol_year,
+                done_al,
+                al_year,
+                al_stream,
                 distance_to_school,
                 phone,
                 email,
@@ -771,6 +776,9 @@ io:println(id_no);
                 ${applicantConsent.date_of_birth},
                 ${applicantConsent.done_ol},
                 ${applicantConsent.ol_year},
+                ${applicantConsent.done_al},
+                ${applicantConsent.al_year},
+                ${applicantConsent.al_stream},
                 ${applicantConsent.distance_to_school},
                 ${applicantConsent.phone},
                 ${applicantConsent.email},
@@ -2527,6 +2535,30 @@ io:println(id_no);
 
         check consumables.close();
         return consumableDatas;
+    }
+
+    resource function get activeActivityInstance() returns ActivityInstanceData[]|error {
+        stream<ActivityInstance, error?> activityInstances;
+        lock {
+            activityInstances = db_client->query(
+                `SELECT *
+FROM activity_instance
+WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
+            );
+        }
+
+        ActivityInstanceData[] activityInstanceDatas = [];
+
+        check from ActivityInstance activity in activityInstances
+            do {
+                ActivityInstanceData|error activityInstanceData = new ActivityInstanceData(null, 0, activity);
+                if !(activityInstanceData is error) {
+                    activityInstanceDatas.push(activityInstanceData);
+                }
+            };
+
+        check activityInstances.close();
+        return activityInstanceDatas;
     }
 
     remote function add_consumable(Consumable consumable) returns ConsumableData|error? {
