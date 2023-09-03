@@ -95,7 +95,7 @@ public isolated service class OrganizationData {
             child_org_ids = db_client->query(
                 `SELECT *
                 FROM parent_child_organization
-                WHERE parent_org_id = ${self.organization.id}`
+                WHERE parent_org_id = ${self.organization.id} AND parent_org_id != 17`
             );
         }
 
