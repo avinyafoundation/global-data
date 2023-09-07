@@ -298,8 +298,11 @@ public type ApplicantConsent record {|
     int? application_id;
     string? name;
     string? date_of_birth;
-    boolean? done_ol;
+    string? done_ol;
     int? ol_year;
+    string? done_al;
+    int? al_year;
+    string? al_stream;
     int? distance_to_school;
     int? phone;
     string? email;
