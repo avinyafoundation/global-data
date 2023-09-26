@@ -553,11 +553,12 @@ public type DutyParticipant record{|
 
 |};
 
-public type DutyRotationMetadata record{|
+public type DutyRotationMetaDetails record{|
     readonly string? record_type = "duty_rotation_metadata";
     int id?;
     string? start_date;
     string? end_date;
+    int? organization_id;
 |};
 
 

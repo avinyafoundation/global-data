@@ -1,19 +1,33 @@
-public isolated service class DutyRotationData{
+public isolated service class DutyRotationMetaData{
 
-  private  DutyRotationMetadata duty_rotation_metadata;
+  private  DutyRotationMetaDetails duty_rotation_metadata;
 
-   isolated function init(int? id=0, DutyRotationMetadata? dutyRotationMetadata = null) returns error? {
+   isolated function init(int? id=0,int? organization_id=0,DutyRotationMetaDetails? dutyRotationMetadata = null) returns error? {
         
         if(dutyRotationMetadata != null) { 
             self.duty_rotation_metadata = dutyRotationMetadata.cloneReadOnly();
             return;
         }
 
-        DutyRotationMetadata duty_rotation_metadata_raw = check db_client -> queryRow(
+        DutyRotationMetaDetails duty_rotation_metadata_raw;
+        
+        if(id>0){
+
+        duty_rotation_metadata_raw = check db_client -> queryRow(
             `SELECT *
             FROM duty_rotation_metadata
             WHERE id = ${id};`
         );
+
+        }else{
+
+        duty_rotation_metadata_raw = check db_client -> queryRow(
+            `SELECT *
+            FROM duty_rotation_metadata
+            WHERE organization_id = ${organization_id};`
+        );
+        
+        }
 
         self.duty_rotation_metadata = duty_rotation_metadata_raw.cloneReadOnly();
     }
@@ -36,7 +50,11 @@ public isolated service class DutyRotationData{
         }
     }
 
-
+    isolated resource function get organization_id() returns int?{
+        lock {
+            return self.duty_rotation_metadata.organization_id;
+        }
+    }
 
 
 

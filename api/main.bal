@@ -420,6 +420,16 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
             if !(insert_id is int) {
                 return error("Unable to create activity instances for today");
             }
+
+            // duty participants rotation cycle code block[425 line to 431 line]
+            var updateResult = updateDutyParticipantsRotationCycle();
+
+            if(updateResult is error){
+                log:printError("Error updating Rotation Cycle of duty participants: ", updateResult);
+            }else{
+                log:printInfo("Duty participants Rotation Cycle updated successfully");
+           }
+            
         }
 
         // now move on to finding the activity instances for today for given activity id
@@ -3227,41 +3237,41 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
     }
 
 
-    // resource function get duty_participants(int? organization_id) returns DutyParticipantData[]|error{
+    resource function get duty_participants(int? organization_id) returns DutyParticipantData[]|error{
 
-    //    Organization child_organization_raw = check db_client->queryRow(
-    //         `SELECT c.*
-    //          FROM parent_child_organization pc
-    //          JOIN organization c ON pc.child_org_id = c.id
-    //          LEFT JOIN organization_metadata om_start ON c.id = om_start.organization_id
-    //          LEFT JOIN organization_metadata om_end ON c.id = om_end.organization_id
-    //          WHERE pc.parent_org_id = ${organization_id} AND (om_start.key_name = 'start_date' AND STR_TO_DATE(om_start.value, '%Y-%m-%d') <= CURDATE())
-    //          AND (om_end.key_name = 'end_date' AND (om_end.value IS NULL OR STR_TO_DATE(om_end.value, '%Y-%m-%d') >= CURDATE()));`
-    //     );
+       Organization child_organization_raw = check db_client->queryRow(
+            `SELECT c.*
+             FROM parent_child_organization pc
+             JOIN organization c ON pc.child_org_id = c.id
+             LEFT JOIN organization_metadata om_start ON c.id = om_start.organization_id
+             LEFT JOIN organization_metadata om_end ON c.id = om_end.organization_id
+             WHERE pc.parent_org_id = ${organization_id} AND (om_start.key_name = 'start_date' AND STR_TO_DATE(om_start.value, '%Y-%m-%d') <= CURDATE())
+             AND (om_end.key_name = 'end_date' AND (om_end.value IS NULL OR STR_TO_DATE(om_end.value, '%Y-%m-%d') >= CURDATE()));`
+        );
 
          
-    //   stream<DutyParticipant,error?> duty_participants;
-    //   lock {
-    //        duty_participants = db_client->query(
-    //         `SELECT * 
-	//          FROM  duty_participant
-	//          WHERE person_id IN (SELECT id FROM person 
-    //          WHERE organization_id IN (select child_org_id from parent_child_organization where parent_org_id = ${child_organization_raw.id}));`
-    //        );
-    //   }
+      stream<DutyParticipant,error?> duty_participants;
+      lock {
+           duty_participants = db_client->query(
+            `SELECT * 
+	         FROM  duty_participant
+	         WHERE person_id IN (SELECT id FROM person 
+             WHERE organization_id IN (select child_org_id from parent_child_organization where parent_org_id = ${child_organization_raw.id}));`
+           );
+      }
 
-    //   DutyParticipantData[]  dutyParticipantsDatas = [];
+      DutyParticipantData[]  dutyParticipantsDatas = [];
 
-    //   check from DutyParticipant dutyParticipant in duty_participants
-    //      do{
-    //        DutyParticipantData|error dutyParticipantData = new  DutyParticipantData(0,0,0,dutyParticipant);
-    //        if !(dutyParticipantData is error){
-    //          dutyParticipantsDatas.push(dutyParticipantData);
-    //        }
-    //      };
-    //   check duty_participants.close();  
-    //   return dutyParticipantsDatas;
-    //   }
+      check from DutyParticipant dutyParticipant in duty_participants
+         do{
+           DutyParticipantData|error dutyParticipantData = new  DutyParticipantData(0,0,0,dutyParticipant);
+           if !(dutyParticipantData is error){
+             dutyParticipantsDatas.push(dutyParticipantData);
+           }
+         };
+      check duty_participants.close();  
+      return dutyParticipantsDatas;
+    }
 
     isolated resource function get activities_by_avinya_type(int? avinya_type_id) returns ActivityData[]|error? {
         
@@ -3305,105 +3315,54 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
     }
 
 
-    remote function update_duty_rotation(DutyRotationMetadata duty_rotation) returns DutyRotationData|error? {
+    remote function update_duty_rotation_metadata(DutyRotationMetaDetails duty_rotation) returns DutyRotationMetaData|error? {
         int id = duty_rotation.id ?: 0;
         if (id == 0) {
-            return error("Unable to update Duty Rotation Data");
+            return error("Unable to update duty rotation raw");
         }
 
-        DutyRotationMetadata|error? duty_rotation_raw = db_client->queryRow(
+        DutyRotationMetaDetails|error? duty_rotation_raw = db_client->queryRow(
             `SELECT *
             FROM duty_rotation_metadata
-            WHERE id = ${duty_rotation.id} ;`
+            WHERE id = ${id} ;`
         );
 
-        if !(duty_rotation_raw is DutyRotationMetadata) {
+        if !(duty_rotation_raw is DutyRotationMetaDetails) {
             return error("Duty Rotation Data does not exist");
         }
+        io:println(duty_rotation.start_date);
+        io:println(duty_rotation.end_date);
 
         sql:ExecutionResult|error res = db_client->execute(
             `UPDATE duty_rotation_metadata SET
                 start_date = ${duty_rotation.start_date},
                 end_date = ${duty_rotation.end_date}
-            WHERE id = ${id};`
+             WHERE id= ${id} ;`
         );
+
 
         if (res is sql:ExecutionResult) {
             return new (id);
         } else {
-            return error("Unable to update duty rotation Data");
+            return error("unable to update duty rotation raw");
         }
     }
 
-     //below code block is duplicated one 
-    resource function get duty_participants(int? organization_id) returns DutyParticipantData[]|error{
+    isolated resource function get duty_rotation_metadata_by_organization(int? organization_id) returns DutyRotationMetaData|error? {
 
-       Organization child_organization_raw = check db_client->queryRow(
-            `SELECT c.*
-             FROM parent_child_organization pc
-             JOIN organization c ON pc.child_org_id = c.id
-             LEFT JOIN organization_metadata om_start ON c.id = om_start.organization_id
-             LEFT JOIN organization_metadata om_end ON c.id = om_end.organization_id
-             WHERE pc.parent_org_id = ${organization_id} AND (om_start.key_name = 'start_date' AND STR_TO_DATE(om_start.value, '%Y-%m-%d') <= CURDATE())
-             AND (om_end.key_name = 'end_date' AND (om_end.value IS NULL OR STR_TO_DATE(om_end.value, '%Y-%m-%d') >= CURDATE()));`
-        );
-
-         
-      stream<DutyParticipant,error?> duty_participants;
-      lock {
-           duty_participants = db_client->query(
-            `SELECT * 
-	         FROM  duty_participant
-	         WHERE person_id IN (SELECT id FROM person 
-             WHERE organization_id IN (select child_org_id from parent_child_organization where parent_org_id = ${child_organization_raw.id}));`
-           );
-      }
-
-      DutyParticipantData[]  dutyParticipantsDatas = [];
-      DutyParticipant[] dutyParticipantsArray = [];
-
-      check from DutyParticipant dutyParticipant in duty_participants
-         do{
-           dutyParticipantsArray.push(dutyParticipant);
-           DutyParticipantData|error dutyParticipantData = new  DutyParticipantData(0,0,0,dutyParticipant);
-           if !(dutyParticipantData is error){
-             dutyParticipantsDatas.push(dutyParticipantData);
-           }
-         };
-
-      lock{
-
-        DutyRotationMetadata|error? duty_rotation_raw = db_client->queryRow(
+        DutyRotationMetaDetails|error? duty_rotation_metadata_raw = check db_client->queryRow(
             `SELECT *
             FROM duty_rotation_metadata
-            WHERE CURDATE() > DATE(end_date);`
+            WHERE organization_id = ${organization_id};`
         );
 
-        boolean isEndDateGreaterThanCurrentDate = false;
-
-        if(duty_rotation_raw is DutyRotationMetadata){
-
-            isEndDateGreaterThanCurrentDate = true;
+        if(duty_rotation_metadata_raw is DutyRotationMetaDetails){
+            return new(0,0,duty_rotation_metadata_raw);
         }
-
-        if(isEndDateGreaterThanCurrentDate){
-          var updateResult = updateDutyParticipantsRotationCycle( dutyParticipantsArray);
-
-          if(updateResult is error){
-            log:printError("Error updating Rotation Cycle of duty participants: ", updateResult);
-          }else{
-            log:printInfo("Duty participants Rotation Cycle updated successfully");
-          }
-        }
-
-      }
-      check duty_participants.close();  
-      return dutyParticipantsDatas;
-     }
-
+        return error("Unable to find duty rotation  data by organization");
+    }
     
 }
-    
 
   function padStartWithZeros(string str, int len) returns string {
     int strLen = str.length();
@@ -3419,7 +3378,96 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
     return paddedStr + str;
 }
 
- function updateDutyParticipantsRotationCycle(DutyParticipant[] dutyParticipantsArray) returns error?{
+isolated function updateDutyParticipantsRotationCycle() returns error?{
+
+   stream<DutyRotationMetaDetails,error?> duty_rotation_raw;
+
+    lock{
+       
+       duty_rotation_raw =   db_client->query(
+                `SELECT *
+            FROM duty_rotation_metadata
+            WHERE CURDATE() > DATE(end_date);`
+            );
+    }
+
+    check from DutyRotationMetaDetails duty_rotation_meta_data in  duty_rotation_raw
+       do{ 
+
+        string start_date = <string>duty_rotation_meta_data.start_date;
+        string end_date  = <string>duty_rotation_meta_data.end_date;
+
+        // log:printInfo("=stringformat==");
+        // log:printInfo(start_date);
+        // log:printInfo(end_date);
+
+        time:Utc start_date_in_utc = check time:utcFromString(start_date);
+        time:Utc end_date_in_utc = check time:utcFromString(end_date);
+
+         // Parse the date strings into time:Time objects
+        // log:printInfo("=========utc format");
+        // log:printInfo(start_date_in_utc.toString());
+        // log:printInfo(end_date_in_utc.toString());
+
+        time:Seconds difference_in_seconds  = time:utcDiffSeconds(end_date_in_utc,start_date_in_utc);
+         
+        // calculate next ending date
+        time:Utc next_ending_date = time:utcAddSeconds(end_date_in_utc,difference_in_seconds);
+
+        string utcStringOfNextEndingDate = time:utcToString(next_ending_date);
+
+        log:printInfo(utcStringOfNextEndingDate);
+
+        sql:ExecutionResult res = check db_client->execute(
+                                `UPDATE duty_rotation_metadata SET
+                                start_date = ${end_date},
+                                end_date = ${utcStringOfNextEndingDate}               
+                                WHERE organization_id = ${duty_rotation_meta_data.organization_id};`
+                            );
+        //log:printInfo("=====================");
+        if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+                return error("Execution failed.unable to update duty rotation meta data raw");
+        }
+       
+       Organization child_organization_raw = check db_client->queryRow(
+            `SELECT c.*
+             FROM parent_child_organization pc
+             JOIN organization c ON pc.child_org_id = c.id
+             LEFT JOIN organization_metadata om_start ON c.id = om_start.organization_id
+             LEFT JOIN organization_metadata om_end ON c.id = om_end.organization_id
+             WHERE pc.parent_org_id = ${duty_rotation_meta_data.organization_id} AND (om_start.key_name = 'start_date' AND STR_TO_DATE(om_start.value, '%Y-%m-%d') <= CURDATE())
+             AND (om_end.key_name = 'end_date' AND (om_end.value IS NULL OR STR_TO_DATE(om_end.value, '%Y-%m-%d') >= CURDATE()));`
+        );
+
+        stream<DutyParticipant,error?> duty_participants;
+        lock {
+           duty_participants = db_client->query(
+            `SELECT * 
+	         FROM  duty_participant
+	         WHERE person_id IN (SELECT id FROM person 
+             WHERE organization_id IN (select child_org_id from parent_child_organization where parent_org_id = ${child_organization_raw.id}));`
+           );
+        }
+
+        DutyParticipant[] dutyParticipantsArray = [];
+        check from DutyParticipant dutyParticipant in duty_participants
+         do{
+           dutyParticipantsArray.push(dutyParticipant);
+         };
+
+        var updateResult = updateDutyParticipantsWorkRotation(dutyParticipantsArray);
+        
+          if(updateResult is error){
+            log:printInfo("updateresult");
+            log:printError("Error update Rotation Cycle of duty participants: ", updateResult);
+          }else{
+            log:printInfo("Duty participants Rotation Cycle updated successfully-2");
+          }
+
+    };
+}
+
+isolated function updateDutyParticipantsWorkRotation(DutyParticipant[] dutyParticipantsArray) returns error?{
 
     stream<Activity, error?> dynamicDutyActivities;
            int?[] dynamicDutyActivitiesArray = [];
@@ -3468,4 +3516,5 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
 
                    }
             }     
+
 }
