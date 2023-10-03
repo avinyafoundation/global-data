@@ -431,6 +431,8 @@ public type ActivityParticipantAttendance record {|
     string? created;
     string? updated;
     string? description;
+    string? preferred_name;
+    string? digital_id;
 |};
 
 public type ActivityEvaluationCriteria record {|
