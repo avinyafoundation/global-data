@@ -1691,7 +1691,9 @@ io:println(id_no);
         if (result_limit > 0) {
             lock {
                 attendance_records = db_client->query(
-                    `SELECT * 
+                    `SELECT apa.*,p.preferred_name,p.digital_id
+FROM activity_participant_attendance apa
+LEFT JOIN person p ON apa.person_id = p.id
                     FROM activity_participant_attendance
                     WHERE person_id in (SELECT id FROM person WHERE organization_id = ${organization_id} AND avinya_type_id=37) AND 
                     activity_instance_id in (SELECT id FROM activity_instance WHERE activity_id = ${activity_id}) 
@@ -1705,8 +1707,9 @@ io:println(id_no);
                 if(organization_id != null){
                     lock {
                     attendance_records = db_client->query(
-                        `SELECT *
-                        FROM activity_participant_attendance
+                        `SELECT apa.*,p.preferred_name,p.digital_id
+FROM activity_participant_attendance apa
+LEFT JOIN person p ON apa.person_id = p.id
                         WHERE person_id IN (SELECT id FROM person WHERE organization_id = ${organization_id} AND avinya_type_id=37)
                         AND activity_instance_id IN (SELECT id FROM activity_instance WHERE activity_id = ${activity_id})
                         AND DATE(sign_in_time) BETWEEN ${from_date} AND ${to_date}
@@ -1717,7 +1720,7 @@ io:println(id_no);
                 }else{
                     lock {
                         attendance_records = db_client->query(
-                            `SELECT apa.*,o.description
+                            `SELECT apa.*,o.description,p.preferred_name,p.digital_id
 FROM activity_participant_attendance apa
 LEFT JOIN person p ON apa.person_id = p.id
 LEFT JOIN organization o ON p.organization_id = o.id
@@ -1726,15 +1729,16 @@ organization_id in (SELECT id FROM organization WHERE id in (SELECT child_org_id
 AND apa.activity_instance_id in (SELECT id FROM activity_instance WHERE activity_id = ${activity_id}) 
 AND DATE(apa.sign_in_time) BETWEEN ${from_date} AND ${to_date}
 AND TIME_FORMAT(apa.sign_in_time, '%H:%i:%s') > '07:30:59'
-ORDER BY DATE(apa.sign_in_time),apa.created DESC;`
+ORDER BY DATE(apa.sign_in_time) DESC;`
                         );
                     }
                 }  
             } else {
                 lock {
                     attendance_records = db_client->query(
-                        `SELECT * 
-                        FROM activity_participant_attendance
+                        `SELECT apa.*,p.preferred_name,p.digital_id
+FROM activity_participant_attendance apa
+LEFT JOIN person p ON apa.person_id = p.id
                         WHERE person_id in (SELECT id FROM person WHERE organization_id = ${organization_id} AND avinya_type_id=37) AND 
                         activity_instance_id in (SELECT id FROM activity_instance WHERE activity_id = ${activity_id}) 
                         AND TIME_FORMAT(sign_in_time, '%H:%i:%s') > '07:30:59'
