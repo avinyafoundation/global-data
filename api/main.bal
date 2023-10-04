@@ -3361,6 +3361,137 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
         }
         return error("Unable to find duty rotation  data by organization");
     }
+
+
+    resource function get duty_participants_by_duty_activity_id(int? organization_id,int? duty_activity_id) returns DutyParticipantData[]|error{
+
+       Organization child_organization_raw = check db_client->queryRow(
+            `SELECT c.*
+             FROM parent_child_organization pc
+             JOIN organization c ON pc.child_org_id = c.id
+             LEFT JOIN organization_metadata om_start ON c.id = om_start.organization_id
+             LEFT JOIN organization_metadata om_end ON c.id = om_end.organization_id
+             WHERE pc.parent_org_id = ${organization_id} AND (om_start.key_name = 'start_date' AND STR_TO_DATE(om_start.value, '%Y-%m-%d') <= CURDATE())
+             AND (om_end.key_name = 'end_date' AND (om_end.value IS NULL OR STR_TO_DATE(om_end.value, '%Y-%m-%d') >= CURDATE()));`
+        );
+
+         
+      stream<DutyParticipant,error?> duty_participants;
+      lock {
+           duty_participants = db_client->query(
+            `SELECT * 
+	         FROM  duty_participant
+	         WHERE person_id IN (SELECT id FROM person 
+             WHERE organization_id IN (select child_org_id from parent_child_organization where parent_org_id = ${child_organization_raw.id}))
+             AND activity_id = ${duty_activity_id};`
+           );
+      }
+
+      DutyParticipantData[]  dutyParticipantsDatas = [];
+
+      check from DutyParticipant dutyParticipant in duty_participants
+         do{
+           DutyParticipantData|error dutyParticipantData = new  DutyParticipantData(0,0,0,dutyParticipant);
+           if !(dutyParticipantData is error){
+             dutyParticipantsDatas.push(dutyParticipantData);
+           }
+         };
+      check duty_participants.close();  
+      return dutyParticipantsDatas;
+    }
+
+
+    remote function add_duty_attendance(ActivityParticipantAttendance duty_attendance) returns ActivityParticipantAttendanceData|error? {
+        // only today's duty attendance can be added with this method 
+        ActivityParticipantAttendance|error todayDutyParticipantAttendance =  db_client->queryRow(
+            `SELECT *
+            FROM activity_participant_attendance
+            WHERE person_id = ${duty_attendance.person_id} and 
+            activity_instance_id = ${duty_attendance.activity_instance_id} and
+            DATE(sign_in_time) = CURDATE();`
+        );
+        if (todayDutyParticipantAttendance is ActivityParticipantAttendance) {
+            if (duty_attendance.sign_in_time != null) {
+                
+              return new (todayDutyParticipantAttendance.id);
+
+            }
+        }
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO activity_participant_attendance (
+                activity_instance_id,
+                person_id,
+                sign_in_time,
+                in_marked_by
+            ) VALUES (
+                ${duty_attendance.activity_instance_id},
+                ${duty_attendance.person_id},
+                ${duty_attendance.sign_in_time},
+                ${duty_attendance.in_marked_by}
+            );`
+        );
+
+        int|string? insert_id = res.lastInsertId;
+        if !(insert_id is int) {
+            return error("Unable to insert duty attendance");
+        }
+
+        return new (insert_id);
+    }
+
+    isolated resource function get duty_attendance_today(int? organization_id, int? activity_id) returns ActivityParticipantAttendanceData[]|error? {
+        
+         Organization child_organization_raw = check db_client->queryRow(
+            `SELECT c.*
+             FROM parent_child_organization pc
+             JOIN organization c ON pc.child_org_id = c.id
+             LEFT JOIN organization_metadata om_start ON c.id = om_start.organization_id
+             LEFT JOIN organization_metadata om_end ON c.id = om_end.organization_id
+             WHERE pc.parent_org_id = ${organization_id} AND (om_start.key_name = 'start_date' AND STR_TO_DATE(om_start.value, '%Y-%m-%d') <= CURDATE())
+             AND (om_end.key_name = 'end_date' AND (om_end.value IS NULL OR STR_TO_DATE(om_end.value, '%Y-%m-%d') >= CURDATE()));`
+        );
+             
+        stream<ActivityParticipantAttendance, error?> duty_attendance_records;
+        
+        lock {
+            duty_attendance_records = db_client->query(
+                `SELECT * 
+                FROM activity_participant_attendance
+                WHERE person_id IN (SELECT id FROM person 
+                WHERE organization_id IN (select child_org_id from parent_child_organization where parent_org_id = ${child_organization_raw.id}))                 
+                AND 
+                activity_instance_id IN (SELECT id FROM activity_instance WHERE activity_id = ${activity_id} AND start_time >= CURDATE() AND end_time <= CURDATE() + INTERVAL 1 DAY);`
+            );
+        }
+
+        ActivityParticipantAttendanceData[] dutyAttendanceDatas = [];
+
+        check from ActivityParticipantAttendance duty_attendance_record in duty_attendance_records
+            do {
+                ActivityParticipantAttendanceData|error dutyParticipantAttendanceData = new ActivityParticipantAttendanceData(0, duty_attendance_record);
+                if !(dutyParticipantAttendanceData is error) {
+                    dutyAttendanceDatas.push(dutyParticipantAttendanceData);
+                }
+            };
+        check duty_attendance_records.close();
+        return dutyAttendanceDatas;
+    }
+
+
+    isolated resource function get duty_participant(int? person_id) returns DutyParticipantData|error? {
+        
+        DutyParticipant|error? dutyParticipantRaw = db_client->queryRow(
+            `SELECT *
+            FROM duty_participant
+            WHERE person_id = ${person_id};`
+        );
+
+        if !(dutyParticipantRaw is  DutyParticipant) {
+            return error("duty participant data does not exist");
+        }     
+        
+        return new DutyParticipantData(0,0,person_id);
+    }
     
 }
 
