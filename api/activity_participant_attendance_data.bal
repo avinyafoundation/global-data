@@ -7,7 +7,10 @@ public isolated service class ActivityParticipantAttendanceData {
         in_marked_by: "system@avinya.edu.lk",
         out_marked_by: "'system@avinya.edu.lk'",
         created: "",
-        updated: ""
+        updated: "",
+        description: "",
+        preferred_name: "",
+        digital_id: ""
      };
 
     isolated function init(int? activity_participant_attendance_id = 0, ActivityParticipantAttendance? activity_participant_attendance = null) returns error? {
@@ -65,6 +68,24 @@ public isolated service class ActivityParticipantAttendanceData {
     isolated resource function get sign_in_time() returns string? {
         lock {
                 return self.activity_participant_attendance.sign_in_time;
+        }
+    }
+
+    isolated resource function get description() returns string? {
+        lock {
+                return self.activity_participant_attendance.description;
+        }
+    }
+
+     isolated resource function get preferred_name() returns string? {
+        lock {
+                return self.activity_participant_attendance.preferred_name;
+        }
+    }
+
+     isolated resource function get digital_id() returns string? {
+        lock {
+                return self.activity_participant_attendance.digital_id;
         }
     }
 
