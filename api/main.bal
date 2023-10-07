@@ -3401,7 +3401,8 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
     remote function update_duty_rotation_metadata(DutyRotationMetaDetails duty_rotation) returns DutyRotationMetaData|error? {
         int id = duty_rotation.id ?: 0;
         if (id == 0) {
-            return error("Unable to update duty rotation raw");
+            //return error("Unable to update duty rotation raw");
+             log:printError("Unable to update duty rotation raw");
         }
 
         DutyRotationMetaDetails|error? duty_rotation_raw = db_client->queryRow(
@@ -3411,7 +3412,25 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
         );
 
         if !(duty_rotation_raw is DutyRotationMetaDetails) {
-            return error("Duty Rotation Data does not exist");
+            
+            sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO duty_rotation_metadata (
+                start_date,
+                end_date,
+                organization_id
+            ) VALUES (
+                ${duty_rotation.start_date},
+                ${duty_rotation.end_date},
+                ${duty_rotation.organization_id}
+             );`
+           );
+           
+            io:println(res);
+            int|string? insert_id = res.lastInsertId;
+            if !(insert_id is int) {
+                return error("Unable to insert duty rotation metadata record");
+            }
+           return new(insert_id);
         }
         io:println(duty_rotation.start_date);
         io:println(duty_rotation.end_date);
