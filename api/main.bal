@@ -1668,7 +1668,7 @@ io:println(id_no);
         time:Utc endTime = time:utcNow();
         time:Seconds seconds = time:utcDiffSeconds(endTime, startTime);
 
-        log:printInfo("Time taken to query execution in class_attendance_report in seconds = " + seconds.toString()); 
+        log:printInfo("Time taken to query execution in class_attendance_report in seconds = " + seconds.toString());
 
         ActivityParticipantAttendanceData[] attendnaceDatas = [];
 
@@ -1677,14 +1677,16 @@ io:println(id_no);
                 ActivityParticipantAttendanceData|error activityParticipantAttendanceData = new ActivityParticipantAttendanceData(0, attendance_record);
                 if !(activityParticipantAttendanceData is error) {
                     attendnaceDatas.push(activityParticipantAttendanceData);
+                }else{
+                    log:printInfo("Error in class_attendance_report = " + activityParticipantAttendanceData.toString());
                 }
             };
         check attendance_records.close();
         return attendnaceDatas;
     }
 
-    isolated resource function get late_attendance_report(int? organization_id, int? parent_organization_id, int? activity_id, int? result_limit = -1, string? from_date = null, string? to_date = null) returns ActivityParticipantAttendanceData[]|error? {
-        stream<ActivityParticipantAttendance, error?> attendance_records;
+    isolated resource function get late_attendance_report(int? organization_id, int? parent_organization_id, int? activity_id, int? result_limit = -1, string? from_date = null, string? to_date = null) returns ActivityParticipantAttendanceDataForLateAttendance[]|error? {
+        stream<ActivityParticipantAttendanceForLateAttendance, error?> attendance_records;
 
         time:Utc startTime = time:utcNow();
 
@@ -1753,11 +1755,11 @@ LEFT JOIN person p ON apa.person_id = p.id
 
         log:printInfo("Time taken to query execution in late_attendance_report in seconds = " + seconds.toString()); 
 
-        ActivityParticipantAttendanceData[] attendnaceDatas = [];
+        ActivityParticipantAttendanceDataForLateAttendance[] attendnaceDatas = [];
 
-        check from ActivityParticipantAttendance attendance_record in attendance_records
+        check from ActivityParticipantAttendanceForLateAttendance attendance_record in attendance_records
             do {
-                ActivityParticipantAttendanceData|error activityParticipantAttendanceData = new ActivityParticipantAttendanceData(0, attendance_record);
+                ActivityParticipantAttendanceDataForLateAttendance|error activityParticipantAttendanceData = new ActivityParticipantAttendanceDataForLateAttendance(0, attendance_record);
                 if !(activityParticipantAttendanceData is error) {
                     attendnaceDatas.push(activityParticipantAttendanceData);
                 }
