@@ -555,3 +555,26 @@ public type Inventory record {|
     string? created;
     string? updated;
 |};
+
+public type DutyParticipant record{|
+    readonly string? record_type = "duty_participant";
+    int id?;
+    int? activity_id;
+    Activity? activity;
+    int? person_id;
+    Person? person;
+    string? role;
+    string? created;
+    string? updated;
+
+|};
+
+public type DutyRotationMetaDetails record{|
+    readonly string? record_type = "duty_rotation_metadata";
+    int id?;
+    string? start_date;
+    string? end_date;
+    int? organization_id;
+|};
+
+
