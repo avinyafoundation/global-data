@@ -430,6 +430,19 @@ public type ActivityParticipantAttendance record {|
     string? out_marked_by;
     string? created;
     string? updated;
+|};
+
+public type ActivityParticipantAttendanceForLateAttendance record {|
+    readonly string? record_type = "activity_participant_attendance";
+    int id?;
+    int? person_id;
+    int? activity_instance_id;
+    string? sign_in_time;
+    string? sign_out_time;
+    string? in_marked_by;
+    string? out_marked_by;
+    string? created;
+    string? updated;
     string? description;
     string? preferred_name;
     string? digital_id;

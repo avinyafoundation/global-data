@@ -1,5 +1,5 @@
-public isolated service class ActivityParticipantAttendanceData {
-    private ActivityParticipantAttendance activity_participant_attendance = {
+public isolated service class ActivityParticipantAttendanceDataForLateAttendance {
+    private ActivityParticipantAttendanceForLateAttendance activity_participant_attendance = {
         activity_instance_id: -1,
         person_id: -1,
         sign_in_time: "" ,
@@ -7,10 +7,13 @@ public isolated service class ActivityParticipantAttendanceData {
         in_marked_by: "system@avinya.edu.lk",
         out_marked_by: "'system@avinya.edu.lk'",
         created: "",
-        updated: ""
+        updated: "",
+        description: "",
+        preferred_name: "",
+        digital_id: ""
      };
 
-    isolated function init(int? activity_participant_attendance_id = 0, ActivityParticipantAttendance? activity_participant_attendance = null) returns error? {
+    isolated function init(int? activity_participant_attendance_id = 0, ActivityParticipantAttendanceForLateAttendance? activity_participant_attendance = null) returns error? {
         if(activity_participant_attendance != null) { // if activity_participant_attendance is provided, then use that and do not load from DB
             self.activity_participant_attendance = activity_participant_attendance.cloneReadOnly();
             return;
@@ -18,7 +21,7 @@ public isolated service class ActivityParticipantAttendanceData {
 
         int _activity_participant_id = activity_participant_attendance_id ?: 0;
 
-        ActivityParticipantAttendance activity_participant_raw;
+        ActivityParticipantAttendanceForLateAttendance activity_participant_raw;
         if(_activity_participant_id > 0) { // activity_participant_attendance_id provided, give precedance to that
             activity_participant_raw = check db_client -> queryRow(
             `SELECT *
@@ -65,6 +68,24 @@ public isolated service class ActivityParticipantAttendanceData {
     isolated resource function get sign_in_time() returns string? {
         lock {
                 return self.activity_participant_attendance.sign_in_time;
+        }
+    }
+
+    isolated resource function get description() returns string? {
+        lock {
+                return self.activity_participant_attendance.description;
+        }
+    }
+
+     isolated resource function get preferred_name() returns string? {
+        lock {
+                return self.activity_participant_attendance.preferred_name;
+        }
+    }
+
+     isolated resource function get digital_id() returns string? {
+        lock {
+                return self.activity_participant_attendance.digital_id;
         }
     }
 
