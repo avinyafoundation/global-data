@@ -1,7 +1,7 @@
 public isolated service class ActivityData {
     private Activity activity;
 
-    isolated function init(string? name = null, int? activity_id = 0, Activity? activity = null) returns error? {
+    isolated function init(string? name = null, int? activity_id = 0,int? avinya_type_id = 0,Activity? activity = null) returns error? {
         if(activity != null) { // if activity is provided, then use that and do not load from DB
             self.activity = activity.cloneReadOnly();
             return;
@@ -17,7 +17,13 @@ public isolated service class ActivityData {
             FROM activity
             WHERE
                 id = ${id};`);
-        } else 
+        }else if(avinya_type_id > 0){
+            activity_raw = check db_client -> queryRow(
+            `SELECT *
+            FROM activity
+            WHERE
+                avinya_type_id = ${avinya_type_id};`);           
+        }else 
         {
             activity_raw = check db_client -> queryRow(
             `SELECT *
