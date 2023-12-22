@@ -3520,18 +3520,34 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
               return new (todayDutyParticipantAttendance.id);
 
             }
+            else if (duty_attendance.sign_out_time != null) {
+                todayDutyParticipantAttendance =  db_client->queryRow(
+                    `SELECT *
+                    FROM activity_participant_attendance
+                    WHERE person_id = ${duty_attendance.person_id} and 
+                    activity_instance_id = ${duty_attendance.activity_instance_id} and
+                    DATE(sign_out_time) = CURDATE();`
+                );
+                if(todayDutyParticipantAttendance is ActivityParticipantAttendance ) {
+                    return new (todayDutyParticipantAttendance.id);
+                }
+            }
         }
         sql:ExecutionResult res = check db_client->execute(
             `INSERT INTO activity_participant_attendance (
                 activity_instance_id,
                 person_id,
                 sign_in_time,
-                in_marked_by
+                sign_out_time,
+                in_marked_by,
+                out_marked_by
             ) VALUES (
                 ${duty_attendance.activity_instance_id},
                 ${duty_attendance.person_id},
                 ${duty_attendance.sign_in_time},
-                ${duty_attendance.in_marked_by}
+                ${duty_attendance.sign_out_time},
+                ${duty_attendance.in_marked_by},
+                ${duty_attendance.out_marked_by}
             );`
         );
 
@@ -3596,7 +3612,55 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
         
         return new DutyParticipantData(0,0,person_id);
     }
-    
+
+    remote function add_duty_evaluation(Evaluation duty_evaluation) returns EvaluationData|error? {
+
+        Evaluation|error todayDutyEvaluation =  db_client->queryRow(
+            `SELECT *
+            FROM evaluation
+            WHERE evaluatee_id = ${duty_evaluation.evaluatee_id} and 
+            activity_instance_id = ${duty_evaluation.activity_instance_id} and
+            DATE(created) = CURDATE();`
+        );
+
+        if(todayDutyEvaluation is Evaluation){
+            if(duty_evaluation.evaluatee_id != null){
+
+              return new(todayDutyEvaluation.id);
+
+            }
+        }
+        
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO evaluation (
+                evaluatee_id,
+                evaluator_id,
+                evaluation_criteria_id,
+                activity_instance_id,
+                response,
+                notes,
+                grade
+            ) VALUES (
+                ${duty_evaluation.evaluatee_id},
+                ${duty_evaluation.evaluator_id},
+                ${duty_evaluation.evaluation_criteria_id},
+                ${duty_evaluation.activity_instance_id},
+                ${duty_evaluation.response},
+                ${duty_evaluation.notes},
+                ${duty_evaluation.grade}
+            );`
+        );
+
+
+        int|string? insert_id = res.lastInsertId;
+
+        if !(insert_id is int) {
+            return error("Unable to insert evaluation");
+        } 
+
+        return new(insert_id);
+    }
+
 }
 
   function padStartWithZeros(string str, int len) returns string {
@@ -3632,30 +3696,28 @@ isolated function updateDutyParticipantsRotationCycle() returns error?{
         string start_date = <string>duty_rotation_meta_data.start_date;
         string end_date  = <string>duty_rotation_meta_data.end_date;
 
-        // log:printInfo("=stringformat==");
-        // log:printInfo(start_date);
-        // log:printInfo(end_date);
 
         time:Utc start_date_in_utc = check time:utcFromString(start_date);
         time:Utc end_date_in_utc = check time:utcFromString(end_date);
 
-         // Parse the date strings into time:Time objects
-        // log:printInfo("=========utc format");
-        // log:printInfo(start_date_in_utc.toString());
-        // log:printInfo(end_date_in_utc.toString());
 
         time:Seconds difference_in_seconds  = time:utcDiffSeconds(end_date_in_utc,start_date_in_utc);
-         
-        // calculate next ending date
-        time:Utc next_ending_date = time:utcAddSeconds(end_date_in_utc,difference_in_seconds);
 
+
+        // calculate starting date
+        time:Utc next_starting_date = time:utcAddSeconds(end_date_in_utc,259200); // 3 days = 259200 seconds
+
+        // calculate  ending date
+        time:Utc next_ending_date = time:utcAddSeconds(next_starting_date,difference_in_seconds);
+
+       
+        string utcStringOfNextStartingDate = time:utcToString(next_starting_date);
         string utcStringOfNextEndingDate = time:utcToString(next_ending_date);
 
-        log:printInfo(utcStringOfNextEndingDate);
 
         sql:ExecutionResult res = check db_client->execute(
                                 `UPDATE duty_rotation_metadata SET
-                                start_date = ${end_date},
+                                start_date = ${utcStringOfNextStartingDate},
                                 end_date = ${utcStringOfNextEndingDate}               
                                 WHERE organization_id = ${duty_rotation_meta_data.organization_id};`
                             );
@@ -3693,14 +3755,15 @@ isolated function updateDutyParticipantsRotationCycle() returns error?{
         var updateResult = updateDutyParticipantsWorkRotation(dutyParticipantsArray);
         
           if(updateResult is error){
-            log:printInfo("updateresult");
             log:printError("Error update Rotation Cycle of duty participants: ", updateResult);
           }else{
-            log:printInfo("Duty participants Rotation Cycle updated successfully-2");
+            log:printInfo("Duty participants Rotation Cycle updated successfully");
           }
 
     };
 }
+
+
 
 isolated function updateDutyParticipantsWorkRotation(DutyParticipant[] dutyParticipantsArray) returns error?{
 
@@ -3722,16 +3785,17 @@ isolated function updateDutyParticipantsWorkRotation(DutyParticipant[] dutyParti
               };
                  
            foreach DutyParticipant activityObject in dutyParticipantsArray{
-                    io:println("activity object id:",activityObject.activity_id);
-                    io:println("activity ids:",dynamicDutyActivitiesArray);
+
+              if(activityObject.role == "member"){
+
                      int? currentIndex = dynamicDutyActivitiesArray.indexOf(activityObject.activity_id);
                      int? nextIndex = (currentIndex + 1) % dynamicDutyActivitiesArray.length();
         
                  if(currentIndex != null && nextIndex !=null){
 
-                     io:println("before updating id:",activityObject);
+                     
                      activityObject.activity_id = dynamicDutyActivitiesArray[nextIndex];
-                     io:println("after updating id:",activityObject);
+                     
 
 
                        int id = activityObject.id ?: 0;
@@ -3750,6 +3814,7 @@ isolated function updateDutyParticipantsWorkRotation(DutyParticipant[] dutyParti
                         }
 
                    }
+                }
             }     
 
 }
