@@ -448,6 +448,15 @@ public type ActivityParticipantAttendanceForLateAttendance record {|
     string? digital_id;
 |};
 
+public type ActivityParticipantAttendanceMissedBySecurity record {|
+    readonly string? record_type = "activity_participant_attendance_missed_by_security";
+    string? sign_in_time;
+    string? digital_id;
+    string? description;
+|};
+
+
+
 public type ActivityEvaluationCriteria record {|
     readonly string? record_type = "activity_evaluation_criteria";
     int? activity_id;

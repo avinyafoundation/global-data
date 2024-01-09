@@ -3661,6 +3661,97 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
         return new(insert_id);
     }
 
+    isolated resource function get attendance_missed_by_security(int? organization_id, int? parent_organization_id, string? from_date = null, string? to_date = null) returns ActivityParticipantAttendanceMissedBySecurityData[]|error? {
+        
+      stream<ActivityParticipantAttendanceMissedBySecurity, error?> attendance_missed_by_security_records;
+
+      if(from_date != null && to_date != null) {
+
+        if(organization_id !=null){
+
+          lock{
+            attendance_missed_by_security_records = db_client->query(
+                `SELECT DATE(a.sign_in_time) AS sign_in_time,p.digital_id,o.description
+                    FROM person p
+                    JOIN activity_participant_attendance a ON p.id = a.person_id
+                    JOIN activity_instance ai ON a.activity_instance_id = ai.id
+                    JOIN organization o ON o.id = p.organization_id
+                    WHERE p.avinya_type_id = 37
+                        AND o.avinya_type!=95
+                        AND ai.activity_id = 1
+                        AND a.sign_in_time IS NOT NULL
+                        AND NOT EXISTS (
+                            SELECT 1
+                            FROM activity_participant_attendance a2
+                            JOIN activity_instance ai2 ON a2.activity_instance_id = ai2.id
+                            WHERE a2.person_id = p.id
+                                AND DATE(a2.sign_in_time) = DATE(a.sign_in_time)
+                                AND ai2.activity_id = 4
+                        )
+                        AND o.id = ${organization_id}
+                        AND DATE(a.sign_in_time) BETWEEN ${from_date} AND ${to_date}
+                    GROUP BY p.digital_id, sign_in_time, ai.id, p.organization_id
+                    ORDER BY ai.id DESC;`
+                );
+            } 
+        }else{
+
+            lock{
+
+               attendance_missed_by_security_records = db_client->query(
+                `SELECT DATE(a.sign_in_time) AS sign_in_time,p.digital_id,o.description
+                    FROM person p
+                    JOIN activity_participant_attendance a ON p.id = a.person_id
+                    JOIN activity_instance ai ON a.activity_instance_id = ai.id
+                    JOIN organization o ON o.id = p.organization_id
+                    WHERE p.avinya_type_id = 37
+                        AND o.avinya_type!=95
+                        AND ai.activity_id = 1
+                        AND a.sign_in_time IS NOT NULL
+                        AND NOT EXISTS (
+                            SELECT 1
+                            FROM activity_participant_attendance a2
+                            JOIN activity_instance ai2 ON a2.activity_instance_id = ai2.id
+                            WHERE a2.person_id = p.id
+                                AND DATE(a2.sign_in_time) = DATE(a.sign_in_time)
+                                AND ai2.activity_id = 4
+                        )
+                        AND p.organization_id IN (
+                                        SELECT id
+                                        FROM organization
+                                        WHERE id IN (
+                                            SELECT child_org_id
+                                            FROM parent_child_organization
+                                            WHERE parent_org_id IN (
+                                                SELECT child_org_id
+                                                FROM parent_child_organization
+                                                WHERE parent_org_id = ${parent_organization_id}
+                                            )
+                                        ))
+                        AND DATE(a.sign_in_time) BETWEEN ${from_date} AND ${to_date}
+                    GROUP BY p.digital_id, sign_in_time, ai.id, p.organization_id
+                    ORDER BY ai.id DESC;`
+                );
+            } 
+
+        }
+
+        ActivityParticipantAttendanceMissedBySecurityData[] attendanceMissedBySecurityDatas = [];
+
+        check from ActivityParticipantAttendanceMissedBySecurity attendance_missed_by_security_record in  attendance_missed_by_security_records
+            do {
+                ActivityParticipantAttendanceMissedBySecurityData|error attendanceMissedBySecurityData = new ActivityParticipantAttendanceMissedBySecurityData(attendance_missed_by_security_record);
+                if !(attendanceMissedBySecurityData is error) {
+                    attendanceMissedBySecurityDatas.push(attendanceMissedBySecurityData);
+                }
+            };
+        check  attendance_missed_by_security_records.close();
+        return attendanceMissedBySecurityDatas;
+
+      }else{
+        return error("Provide non-null values for both 'From Date' and 'To Date'.");
+      }
+    }
 }
 
   function padStartWithZeros(string str, int len) returns string {
