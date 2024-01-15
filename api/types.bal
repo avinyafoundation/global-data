@@ -455,7 +455,14 @@ public type ActivityParticipantAttendanceMissedBySecurity record {|
     string? description;
 |};
 
-
+public type DailyActivityParticipantAttendanceByParentOrg record {|
+    readonly string? record_type = "daily_activity_participant_attendance_by_parent_org";
+    string? description;
+    int? present_count;
+    string? svg_src;
+    string? color;
+    int? total_student_count;
+|};
 
 public type ActivityEvaluationCriteria record {|
     readonly string? record_type = "activity_evaluation_criteria";

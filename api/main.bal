@@ -3752,6 +3752,118 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
         return error("Provide non-null values for both 'From Date' and 'To Date'.");
       }
     }
+
+    isolated resource function get daily_students_attendance_by_parent_org(int? parent_organization_id) returns DailyActivityParticipantAttendanceByParentOrgData[]|error? {
+        
+      stream<DailyActivityParticipantAttendanceByParentOrg, error?> daily_activity_participant_attendance_by_parent_org_records;
+
+
+        if(parent_organization_id !=null){
+
+          lock{
+            daily_activity_participant_attendance_by_parent_org_records = db_client->query(
+                `SELECT 
+                    COUNT(pa.person_id) AS present_count, 
+                    o.description, 
+                    (
+                        SELECT COUNT(p_total.id) 
+                        FROM person p_total
+                        WHERE p_total.organization_id = o.id
+                        AND p_total.avinya_type_id = 37
+                    ) AS total_student_count
+                FROM 
+                    activity_participant_attendance pa
+                JOIN 
+                    person p ON pa.person_id = p.id
+                LEFT JOIN 
+                    organization o ON o.id = p.organization_id
+                WHERE 
+                    pa.sign_in_time IS NOT NULL
+                    AND pa.activity_instance_id IN (
+                        SELECT id
+                        FROM activity_instance
+                        WHERE activity_id = 4
+                        ORDER BY id DESC
+                    )
+                    AND p.avinya_type_id = 37
+                    AND DATE(pa.sign_in_time) = CURRENT_DATE()
+                    AND p.organization_id IN (
+                        SELECT id
+                        FROM organization
+                        WHERE id IN (
+                            SELECT child_org_id
+                            FROM parent_child_organization
+                            WHERE parent_org_id IN (
+                                SELECT child_org_id
+                                FROM parent_child_organization
+                                WHERE parent_org_id = ${parent_organization_id}
+                            )
+                        )
+                    )
+                GROUP BY 
+                    p.organization_id, o.description, o.id;`
+                );
+            } 
+        
+        int parentOrg = (parent_organization_id == 2) ? parent_organization_id : 0;  //this is add for bandaragama academy
+
+
+        DailyActivityParticipantAttendanceByParentOrgData[] dailyActivityParticipantAttendanceByParentOrgDatas = [];
+
+        check from DailyActivityParticipantAttendanceByParentOrg daily_activity_participant_attendance_by_parent_org_record in  daily_activity_participant_attendance_by_parent_org_records
+
+         do {
+            
+            if(parentOrg == 2){ // This code block is intended for the Bandaragama Academy.if other academy  add another if code block.
+                                // This code block assigns the SVG source and color values for the six classes at the Bandaragama Academy.
+                
+                string value = daily_activity_participant_attendance_by_parent_org_record.description ?: "";
+
+                if(value == "Dolphins"){
+
+                    daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/Dolphins/icons8-attendance-48.png";
+                    daily_activity_participant_attendance_by_parent_org_record.color = "#FFA113";
+                  }
+                if(value == "Bears"){
+
+                    daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/Bears/icons8-attendance-48.png";
+                    daily_activity_participant_attendance_by_parent_org_record.color = "#FFA113";
+                  }
+                if(value == "Bees"){
+
+                    daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/Bees/icons8-attendance-48.png";
+                    daily_activity_participant_attendance_by_parent_org_record.color = "#FFA113";
+                  }
+                if(value == "Eagles"){
+
+                    daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/Eagles/icons8-attendance-48.png";
+                    daily_activity_participant_attendance_by_parent_org_record.color = "#FFA113";
+                  }
+                if(value == "Leopards"){
+
+                    daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/Leopards/icons8-attendance-48.png";
+                    daily_activity_participant_attendance_by_parent_org_record.color = "#FFA113";
+                  }
+                if(value == "Elephants"){
+
+                    daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/Elephants/icons8-attendance-48.png";
+                    daily_activity_participant_attendance_by_parent_org_record.color = "#FFA113";
+                  }          
+                
+            }
+
+                DailyActivityParticipantAttendanceByParentOrgData|error dailyActivityParticipantAttendanceByParentOrgData = new DailyActivityParticipantAttendanceByParentOrgData(daily_activity_participant_attendance_by_parent_org_record);
+                if !(dailyActivityParticipantAttendanceByParentOrgData is error) {
+                    dailyActivityParticipantAttendanceByParentOrgDatas.push(dailyActivityParticipantAttendanceByParentOrgData);
+                }
+            };
+        check  daily_activity_participant_attendance_by_parent_org_records.close();
+        return dailyActivityParticipantAttendanceByParentOrgDatas;
+
+      }else{
+        return error("Provide non-null value for parent organization id.");
+      }
+    }
 }
 
   function padStartWithZeros(string str, int len) returns string {
