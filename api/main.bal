@@ -3520,18 +3520,34 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
               return new (todayDutyParticipantAttendance.id);
 
             }
+            else if (duty_attendance.sign_out_time != null) {
+                todayDutyParticipantAttendance =  db_client->queryRow(
+                    `SELECT *
+                    FROM activity_participant_attendance
+                    WHERE person_id = ${duty_attendance.person_id} and 
+                    activity_instance_id = ${duty_attendance.activity_instance_id} and
+                    DATE(sign_out_time) = CURDATE();`
+                );
+                if(todayDutyParticipantAttendance is ActivityParticipantAttendance ) {
+                    return new (todayDutyParticipantAttendance.id);
+                }
+            }
         }
         sql:ExecutionResult res = check db_client->execute(
             `INSERT INTO activity_participant_attendance (
                 activity_instance_id,
                 person_id,
                 sign_in_time,
-                in_marked_by
+                sign_out_time,
+                in_marked_by,
+                out_marked_by
             ) VALUES (
                 ${duty_attendance.activity_instance_id},
                 ${duty_attendance.person_id},
                 ${duty_attendance.sign_in_time},
-                ${duty_attendance.in_marked_by}
+                ${duty_attendance.sign_out_time},
+                ${duty_attendance.in_marked_by},
+                ${duty_attendance.out_marked_by}
             );`
         );
 
@@ -3596,7 +3612,258 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
         
         return new DutyParticipantData(0,0,person_id);
     }
-    
+
+    remote function add_duty_evaluation(Evaluation duty_evaluation) returns EvaluationData|error? {
+
+        Evaluation|error todayDutyEvaluation =  db_client->queryRow(
+            `SELECT *
+            FROM evaluation
+            WHERE evaluatee_id = ${duty_evaluation.evaluatee_id} and 
+            activity_instance_id = ${duty_evaluation.activity_instance_id} and
+            DATE(created) = CURDATE();`
+        );
+
+        if(todayDutyEvaluation is Evaluation){
+            if(duty_evaluation.evaluatee_id != null){
+
+              return new(todayDutyEvaluation.id);
+
+            }
+        }
+        
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO evaluation (
+                evaluatee_id,
+                evaluator_id,
+                evaluation_criteria_id,
+                activity_instance_id,
+                response,
+                notes,
+                grade
+            ) VALUES (
+                ${duty_evaluation.evaluatee_id},
+                ${duty_evaluation.evaluator_id},
+                ${duty_evaluation.evaluation_criteria_id},
+                ${duty_evaluation.activity_instance_id},
+                ${duty_evaluation.response},
+                ${duty_evaluation.notes},
+                ${duty_evaluation.grade}
+            );`
+        );
+
+
+        int|string? insert_id = res.lastInsertId;
+
+        if !(insert_id is int) {
+            return error("Unable to insert evaluation");
+        } 
+
+        return new(insert_id);
+    }
+
+    isolated resource function get attendance_missed_by_security(int? organization_id, int? parent_organization_id, string? from_date = null, string? to_date = null) returns ActivityParticipantAttendanceMissedBySecurityData[]|error? {
+        
+      stream<ActivityParticipantAttendanceMissedBySecurity, error?> attendance_missed_by_security_records;
+
+      if(from_date != null && to_date != null) {
+
+        if(organization_id !=null){
+
+          lock{
+            attendance_missed_by_security_records = db_client->query(
+                `SELECT DATE(a.sign_in_time) AS sign_in_time,p.digital_id,o.description
+                    FROM person p
+                    JOIN activity_participant_attendance a ON p.id = a.person_id
+                    JOIN activity_instance ai ON a.activity_instance_id = ai.id
+                    JOIN organization o ON o.id = p.organization_id
+                    WHERE p.avinya_type_id = 37
+                        AND o.avinya_type!=95
+                        AND ai.activity_id = 1
+                        AND a.sign_in_time IS NOT NULL
+                        AND NOT EXISTS (
+                            SELECT 1
+                            FROM activity_participant_attendance a2
+                            JOIN activity_instance ai2 ON a2.activity_instance_id = ai2.id
+                            WHERE a2.person_id = p.id
+                                AND DATE(a2.sign_in_time) = DATE(a.sign_in_time)
+                                AND ai2.activity_id = 4
+                        )
+                        AND o.id = ${organization_id}
+                        AND DATE(a.sign_in_time) BETWEEN ${from_date} AND ${to_date}
+                    GROUP BY p.digital_id, sign_in_time, ai.id, p.organization_id
+                    ORDER BY ai.id DESC;`
+                );
+            } 
+        }else{
+
+            lock{
+
+               attendance_missed_by_security_records = db_client->query(
+                `SELECT DATE(a.sign_in_time) AS sign_in_time,p.digital_id,o.description
+                    FROM person p
+                    JOIN activity_participant_attendance a ON p.id = a.person_id
+                    JOIN activity_instance ai ON a.activity_instance_id = ai.id
+                    JOIN organization o ON o.id = p.organization_id
+                    WHERE p.avinya_type_id = 37
+                        AND o.avinya_type!=95
+                        AND ai.activity_id = 1
+                        AND a.sign_in_time IS NOT NULL
+                        AND NOT EXISTS (
+                            SELECT 1
+                            FROM activity_participant_attendance a2
+                            JOIN activity_instance ai2 ON a2.activity_instance_id = ai2.id
+                            WHERE a2.person_id = p.id
+                                AND DATE(a2.sign_in_time) = DATE(a.sign_in_time)
+                                AND ai2.activity_id = 4
+                        )
+                        AND p.organization_id IN (
+                                        SELECT id
+                                        FROM organization
+                                        WHERE id IN (
+                                            SELECT child_org_id
+                                            FROM parent_child_organization
+                                            WHERE parent_org_id IN (
+                                                SELECT child_org_id
+                                                FROM parent_child_organization
+                                                WHERE parent_org_id = ${parent_organization_id}
+                                            )
+                                        ))
+                        AND DATE(a.sign_in_time) BETWEEN ${from_date} AND ${to_date}
+                    GROUP BY p.digital_id, sign_in_time, ai.id, p.organization_id
+                    ORDER BY ai.id DESC;`
+                );
+            } 
+
+        }
+
+        ActivityParticipantAttendanceMissedBySecurityData[] attendanceMissedBySecurityDatas = [];
+
+        check from ActivityParticipantAttendanceMissedBySecurity attendance_missed_by_security_record in  attendance_missed_by_security_records
+            do {
+                ActivityParticipantAttendanceMissedBySecurityData|error attendanceMissedBySecurityData = new ActivityParticipantAttendanceMissedBySecurityData(attendance_missed_by_security_record);
+                if !(attendanceMissedBySecurityData is error) {
+                    attendanceMissedBySecurityDatas.push(attendanceMissedBySecurityData);
+                }
+            };
+        check  attendance_missed_by_security_records.close();
+        return attendanceMissedBySecurityDatas;
+
+      }else{
+        return error("Provide non-null values for both 'From Date' and 'To Date'.");
+      }
+    }
+
+    isolated resource function get daily_students_attendance_by_parent_org(int? parent_organization_id) returns DailyActivityParticipantAttendanceByParentOrgData[]|error? {
+        
+      stream<DailyActivityParticipantAttendanceByParentOrg, error?> daily_activity_participant_attendance_by_parent_org_records;
+
+
+        if(parent_organization_id !=null){
+
+          lock{
+            daily_activity_participant_attendance_by_parent_org_records = db_client->query(
+                `SELECT 
+                    COUNT(pa.person_id) AS present_count, 
+                    o.description, 
+                    (
+                        SELECT COUNT(p_total.id) 
+                        FROM person p_total
+                        WHERE p_total.organization_id = o.id
+                        AND p_total.avinya_type_id = 37
+                    ) AS total_student_count
+                FROM 
+                    activity_participant_attendance pa
+                JOIN 
+                    person p ON pa.person_id = p.id
+                LEFT JOIN 
+                    organization o ON o.id = p.organization_id
+                WHERE 
+                    pa.sign_in_time IS NOT NULL
+                    AND pa.activity_instance_id IN (
+                        SELECT id
+                        FROM activity_instance
+                        WHERE activity_id = 4
+                        ORDER BY id DESC
+                    )
+                    AND p.avinya_type_id = 37
+                    AND DATE(pa.sign_in_time) = CURRENT_DATE()
+                    AND p.organization_id IN (
+                        SELECT id
+                        FROM organization
+                        WHERE id IN (
+                            SELECT child_org_id
+                            FROM parent_child_organization
+                            WHERE parent_org_id IN (
+                                SELECT child_org_id
+                                FROM parent_child_organization
+                                WHERE parent_org_id = ${parent_organization_id}
+                            )
+                        )
+                    )
+                GROUP BY 
+                    p.organization_id, o.description, o.id;`
+                );
+            } 
+        
+        int parentOrg = (parent_organization_id == 2) ? parent_organization_id : 0;  //this is add for bandaragama academy
+
+
+        DailyActivityParticipantAttendanceByParentOrgData[] dailyActivityParticipantAttendanceByParentOrgDatas = [];
+
+        check from DailyActivityParticipantAttendanceByParentOrg daily_activity_participant_attendance_by_parent_org_record in  daily_activity_participant_attendance_by_parent_org_records
+
+         do {
+            
+            if(parentOrg == 2){ // This code block is intended for the Bandaragama Academy.if other academy  add another if code block.
+                                // This code block assigns the SVG source and color values for the six classes at the Bandaragama Academy.
+                
+                string value = daily_activity_participant_attendance_by_parent_org_record.description ?: "";
+
+                if(value == "Dolphins"){
+
+                    daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/Dolphins/icons8-attendance-48.png";
+                    daily_activity_participant_attendance_by_parent_org_record.color = "#FFA113";
+                  }
+                if(value == "Bears"){
+
+                    daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/Bears/icons8-attendance-48.png";
+                    daily_activity_participant_attendance_by_parent_org_record.color = "#FFA113";
+                  }
+                if(value == "Bees"){
+
+                    daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/Bees/icons8-attendance-48.png";
+                    daily_activity_participant_attendance_by_parent_org_record.color = "#FFA113";
+                  }
+                if(value == "Eagles"){
+
+                    daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/Eagles/icons8-attendance-48.png";
+                    daily_activity_participant_attendance_by_parent_org_record.color = "#FFA113";
+                  }
+                if(value == "Leopards"){
+
+                    daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/Leopards/icons8-attendance-48.png";
+                    daily_activity_participant_attendance_by_parent_org_record.color = "#FFA113";
+                  }
+                if(value == "Elephants"){
+
+                    daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/Elephants/icons8-attendance-48.png";
+                    daily_activity_participant_attendance_by_parent_org_record.color = "#FFA113";
+                  }          
+                
+            }
+
+                DailyActivityParticipantAttendanceByParentOrgData|error dailyActivityParticipantAttendanceByParentOrgData = new DailyActivityParticipantAttendanceByParentOrgData(daily_activity_participant_attendance_by_parent_org_record);
+                if !(dailyActivityParticipantAttendanceByParentOrgData is error) {
+                    dailyActivityParticipantAttendanceByParentOrgDatas.push(dailyActivityParticipantAttendanceByParentOrgData);
+                }
+            };
+        check  daily_activity_participant_attendance_by_parent_org_records.close();
+        return dailyActivityParticipantAttendanceByParentOrgDatas;
+
+      }else{
+        return error("Provide non-null value for parent organization id.");
+      }
+    }
 }
 
   function padStartWithZeros(string str, int len) returns string {
@@ -3632,30 +3899,28 @@ isolated function updateDutyParticipantsRotationCycle() returns error?{
         string start_date = <string>duty_rotation_meta_data.start_date;
         string end_date  = <string>duty_rotation_meta_data.end_date;
 
-        // log:printInfo("=stringformat==");
-        // log:printInfo(start_date);
-        // log:printInfo(end_date);
 
         time:Utc start_date_in_utc = check time:utcFromString(start_date);
         time:Utc end_date_in_utc = check time:utcFromString(end_date);
 
-         // Parse the date strings into time:Time objects
-        // log:printInfo("=========utc format");
-        // log:printInfo(start_date_in_utc.toString());
-        // log:printInfo(end_date_in_utc.toString());
 
         time:Seconds difference_in_seconds  = time:utcDiffSeconds(end_date_in_utc,start_date_in_utc);
-         
-        // calculate next ending date
-        time:Utc next_ending_date = time:utcAddSeconds(end_date_in_utc,difference_in_seconds);
 
+
+        // calculate starting date
+        time:Utc next_starting_date = time:utcAddSeconds(end_date_in_utc,259200); // 3 days = 259200 seconds
+
+        // calculate  ending date
+        time:Utc next_ending_date = time:utcAddSeconds(next_starting_date,difference_in_seconds);
+
+       
+        string utcStringOfNextStartingDate = time:utcToString(next_starting_date);
         string utcStringOfNextEndingDate = time:utcToString(next_ending_date);
 
-        log:printInfo(utcStringOfNextEndingDate);
 
         sql:ExecutionResult res = check db_client->execute(
                                 `UPDATE duty_rotation_metadata SET
-                                start_date = ${end_date},
+                                start_date = ${utcStringOfNextStartingDate},
                                 end_date = ${utcStringOfNextEndingDate}               
                                 WHERE organization_id = ${duty_rotation_meta_data.organization_id};`
                             );
@@ -3693,14 +3958,15 @@ isolated function updateDutyParticipantsRotationCycle() returns error?{
         var updateResult = updateDutyParticipantsWorkRotation(dutyParticipantsArray);
         
           if(updateResult is error){
-            log:printInfo("updateresult");
             log:printError("Error update Rotation Cycle of duty participants: ", updateResult);
           }else{
-            log:printInfo("Duty participants Rotation Cycle updated successfully-2");
+            log:printInfo("Duty participants Rotation Cycle updated successfully");
           }
 
     };
 }
+
+
 
 isolated function updateDutyParticipantsWorkRotation(DutyParticipant[] dutyParticipantsArray) returns error?{
 
@@ -3722,16 +3988,17 @@ isolated function updateDutyParticipantsWorkRotation(DutyParticipant[] dutyParti
               };
                  
            foreach DutyParticipant activityObject in dutyParticipantsArray{
-                    io:println("activity object id:",activityObject.activity_id);
-                    io:println("activity ids:",dynamicDutyActivitiesArray);
+
+              if(activityObject.role == "member"){
+
                      int? currentIndex = dynamicDutyActivitiesArray.indexOf(activityObject.activity_id);
                      int? nextIndex = (currentIndex + 1) % dynamicDutyActivitiesArray.length();
         
                  if(currentIndex != null && nextIndex !=null){
 
-                     io:println("before updating id:",activityObject);
+                     
                      activityObject.activity_id = dynamicDutyActivitiesArray[nextIndex];
-                     io:println("after updating id:",activityObject);
+                     
 
 
                        int id = activityObject.id ?: 0;
@@ -3750,6 +4017,7 @@ isolated function updateDutyParticipantsWorkRotation(DutyParticipant[] dutyParti
                         }
 
                    }
+                }
             }     
 
 }
