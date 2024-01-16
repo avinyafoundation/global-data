@@ -474,6 +474,22 @@ public type ActivityParticipantAttendanceForLateAttendance record {|
     string? digital_id;
 |};
 
+public type ActivityParticipantAttendanceMissedBySecurity record {|
+    readonly string? record_type = "activity_participant_attendance_missed_by_security";
+    string? sign_in_time;
+    string? digital_id;
+    string? description;
+|};
+
+public type DailyActivityParticipantAttendanceByParentOrg record {|
+    readonly string? record_type = "daily_activity_participant_attendance_by_parent_org";
+    string? description;
+    int? present_count;
+    string? svg_src;
+    string? color;
+    int? total_student_count;
+|};
+
 public type ActivityEvaluationCriteria record {|
     readonly string? record_type = "activity_evaluation_criteria";
     int? activity_id;
