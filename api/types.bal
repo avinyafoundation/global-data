@@ -432,6 +432,32 @@ public type ActivityParticipantAttendance record {|
     string? updated;
 |};
 
+public type AttendanceDashboardData record {|
+    readonly string? record_type = "attendance_dashboard_data";
+    string? title;
+    int? numOfFiles;
+    string? svgSrc;
+    string? color;
+    decimal? percentage;
+|};
+
+public type AttendanceDashboardDataForQuery record {|
+    readonly string? record_type = "attendance_dashboard_data_for_query";
+    int? present_count;
+    int? absent_count;
+    int? late_attendance;
+    int? present_count_duty;
+    int? absent_count_duty;
+    int? late_attendance_duty;
+    float? total_students;
+|};
+
+public type AttendanceDashboardDataMain record {|
+    readonly string? record_type = "attendance_dashboard_data_main";
+    AttendanceDashboardData? attendance_dashboard_data;
+|};
+
+
 public type ActivityParticipantAttendanceForLateAttendance record {|
     readonly string? record_type = "activity_participant_attendance";
     int id?;
