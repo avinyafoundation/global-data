@@ -464,6 +464,13 @@ public type DailyActivityParticipantAttendanceByParentOrg record {|
     int? total_student_count;
 |};
 
+public type TotalActivityParticipantAttendanceCountByDate record {|
+    readonly string? record_type = "total_activity_participant_attendance_count_by_date";
+    string? attendance_date;
+    int? daily_total;
+|};
+
+
 public type ActivityEvaluationCriteria record {|
     readonly string? record_type = "activity_evaluation_criteria";
     int? activity_id;
