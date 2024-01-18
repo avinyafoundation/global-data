@@ -4,6 +4,7 @@ import ballerina/log;
 import ballerina/io;
 import ballerina/time;
 
+
 // @display {
 //     label: "Global Data API",
 //     id: "global-data"
@@ -103,11 +104,11 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
     }
 
     isolated resource function get organizations_by_avinya_type(int? avinya_type) returns OrganizationData[]|error? {
-
+       
         stream<Organization, error?> org_list;
         lock {
             org_list = db_client->query(
-                `SELECT *
+                 `SELECT *
 	             FROM organization
 	             WHERE avinya_type = ${avinya_type}
                 `
@@ -118,7 +119,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         check from Organization organization in org_list
             do {
-                OrganizationData|error organizationData = new OrganizationData((), (), organization);
+                OrganizationData|error organizationData = new OrganizationData((),(), organization);
                 if !(organizationData is error) {
                     organizationListDatas.push(organizationData);
                 }
@@ -145,7 +146,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         check from Person student in studentList
             do {
-                PersonData|error studentData = new PersonData((), (), student);
+                PersonData|error studentData = new PersonData((),(), student);
                 if !(studentData is error) {
                     studentListDatas.push(studentData);
                 }
@@ -167,12 +168,13 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
             WHERE digital_id = ${id};`
         );
 
-        if (personJwtId is Person) {
-            return new ((), 0, personJwtId);
+        if(personJwtId is Person){
+            return new((),0,personJwtId);
         }
         return error("Unable to find person by digital id");
     }
-
+        
+    
     isolated resource function get prospect(string? email, int? phone) returns ProspectData|error? {
         return new (email, phone);
     }
@@ -206,7 +208,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         check from Activity pctiActivity in pctiActivities
             do {
-                ActivityData|error pctiActivityData = new ActivityData((), (), (), pctiActivity);
+                ActivityData|error pctiActivityData = new ActivityData((),(),(), pctiActivity);
                 if !(pctiActivityData is error) {
                     pctiActivityDatas.push(pctiActivityData);
                 }
@@ -215,7 +217,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         check pctiActivities.close();
         return pctiActivityDatas;
     }
-
+    
     // will return notes of a PCTI instance
     isolated resource function get pcti_instance_notes(int pcti_instance_id) returns EvaluationData[]|error? {
         stream<Evaluation, error?> pctiNotes;
@@ -387,14 +389,14 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
     isolated resource function get activity_instances_today(int activity_id) returns ActivityInstanceData[]|error? {
         // first check if activity instances for today are already created
-        ActivityInstance|error todayActitivutyInstance = db_client->queryRow(
+        ActivityInstance|error todayActitivutyInstance =  db_client->queryRow(
             `SELECT *
             FROM activity_instance
             WHERE DATE(start_time) = CURDATE();`
         );
-
+        
         // if not, create them
-        if !(todayActitivutyInstance is ActivityInstance) {
+        if!(todayActitivutyInstance is ActivityInstance) {
             log:printError("No activity instance today");
             log:printInfo("Creating activity instances for today");
 
@@ -422,12 +424,12 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
             // duty participants rotation cycle code block[425 line to 431 line]
             var updateResult = updateDutyParticipantsRotationCycle();
 
-            if (updateResult is error) {
+            if(updateResult is error){
                 log:printError("Error updating Rotation Cycle of duty participants: ", updateResult);
-            } else {
+            }else{
                 log:printInfo("Duty participants Rotation Cycle updated successfully");
-            }
-
+           }
+            
         }
 
         // now move on to finding the activity instances for today for given activity id
@@ -459,6 +461,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         return pctiActivityInstancesTodayData;
     }
+
 
     isolated resource function get activity_instances_future(int activity_id) returns ActivityInstanceData[]|error? {
         stream<ActivityInstance, error?> activityInstancesFuture;
@@ -518,7 +521,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return availableTeachersData;
     }
 
-    isolated resource function get project_tasks(int activity_id) returns ActivityData[]|error? {
+    isolated resource function get project_tasks(int activity_id) returns ActivityData[]|error?{
         stream<Activity, error?> projectTasks;
         lock {
             projectTasks = db_client->query(
@@ -544,6 +547,8 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         check projectTasks.close();
         return projectTasksData;
     }
+
+
 
     isolated resource function get student_applicant(string? jwt_sub_id) returns PersonData|error? {
         AvinyaType avinya_type_raw = check db_client->queryRow(
@@ -632,13 +637,13 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
     remote function add_student_applicant(Person person) returns PersonData|error? {
 
-        AvinyaType avinya_type_raw = check db_client->queryRow(
+    AvinyaType avinya_type_raw = check db_client->queryRow(
         `SELECT *
         FROM avinya_type
         WHERE global_type = "applicant" AND  foundation_type = "student";`
     );
 
-        Person|error? applicantRaw = db_client->queryRow(
+    Person|error? applicantRaw = db_client->queryRow(
         `SELECT *
         FROM person
         WHERE (email = ${person.email}  OR
@@ -647,35 +652,35 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         avinya_type_id = ${avinya_type_raw.id};`
     );
 
-        Reference referenceRaw = check db_client->queryRow(
+    Reference referenceRaw = check db_client->queryRow(
         `SELECT *
         FROM reference_number
         WHERE branch_code = ${person.branch_code} AND foundation_type = 'Student';`
     );
 
-        if (applicantRaw is Person) {
-            return error("Applicant already exists. The phone, email, or the social login account you are using is already used by another applicant");
-        }
+    if (applicantRaw is Person) {
+        return error("Applicant already exists. The phone, email, or the social login account you are using is already used by another applicant");
+    }
 
-        //     time:Utc currentTime = time:utcNow();
+//     time:Utc currentTime = time:utcNow();
 
-        // string date = time:utcToString(currentTime);
+// string date = time:utcToString(currentTime);
 
-        //     string[] timeArray = regex:split(date, "-");
-        //     string year = timeArray[0].substring(2);
+//     string[] timeArray = regex:split(date, "-");
+//     string year = timeArray[0].substring(2);
 
-        // Generate the dynamic number with leading zeros
-        int newLastRefNo = referenceRaw.last_reference_no + 1;
-        string dynamicNumberString = padStartWithZeros(newLastRefNo.toString(), 3);
-        string newBatchNo = padStartWithZeros(referenceRaw.batch_no.toString(), 2);
+    // Generate the dynamic number with leading zeros
+    int newLastRefNo = referenceRaw.last_reference_no + 1;
+    string dynamicNumberString = padStartWithZeros(newLastRefNo.toString(), 3);
+    string newBatchNo = padStartWithZeros(referenceRaw.batch_no.toString(), 2);
 
-        string branch_code = person.branch_code.toString();
+    string branch_code = person.branch_code.toString();
 
-        string id_no = string `AF-${branch_code}-${referenceRaw.acedemic_year}-ST${newBatchNo}-${dynamicNumberString}`;
+    string id_no = string `AF-${branch_code}-${referenceRaw.acedemic_year}-ST${newBatchNo}-${dynamicNumberString}`;
 
-        io:println(id_no);
+io:println(id_no);
 
-        sql:ExecutionResult|error res = db_client->execute(
+    sql:ExecutionResult|error res = db_client->execute(
         `INSERT INTO person (
             preferred_name,
             full_name,
@@ -705,7 +710,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         );`
     );
 
-        // update last_reference_no in reference_number
+    // update last_reference_no in reference_number
         sql:ExecutionResult|error? resUpdate = db_client->execute(
             `UPDATE reference_number
             SET last_reference_no = ${newLastRefNo}
@@ -723,21 +728,22 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
             return error("Error while updating data", resUpdate);
         }
 
-        if (res is sql:ExecutionResult) {
+    if (res is sql:ExecutionResult) {
 
-            int|string? insert_id = res.lastInsertId;
-            if (!(insert_id is int)) {
-                return error("Unable to insert application");
-            }
-
-            return new ((), insert_id);
+        int|string? insert_id = res.lastInsertId;
+        if (!(insert_id is int)) {
+            return error("Unable to insert application");
         }
 
-        io:println(res.toString());
-
-        return error("Error while inserting data", res);
-
+        return new ((), insert_id);
     }
+
+    io:println(res.toString());
+
+    return error("Error while inserting data", res);
+
+}
+
 
     remote function add_student_applicant_consent(ApplicantConsent applicantConsent) returns ApplicantConsentData|error? {
 
@@ -967,6 +973,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         }
 
         EvaluationData[] activityEvaluationsData = [];
+        
 
         check from Evaluation evaluation in activityEvaluations
             do {
@@ -1445,7 +1452,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
     remote function add_attendance(ActivityParticipantAttendance attendance) returns ActivityParticipantAttendanceData|error? {
         // only today's attendance can be added with this method 
-        ActivityParticipantAttendance|error todayActivityParticipantAttendance = db_client->queryRow(
+        ActivityParticipantAttendance|error todayActivityParticipantAttendance =  db_client->queryRow(
             `SELECT *
             FROM activity_participant_attendance
             WHERE person_id = ${attendance.person_id} and 
@@ -1454,18 +1461,18 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         );
         if (todayActivityParticipantAttendance is ActivityParticipantAttendance) {
             if (attendance.sign_in_time != null) {
-
-                return new (todayActivityParticipantAttendance.id);
+                
+            return new (todayActivityParticipantAttendance.id);
             }
             else if (attendance.sign_out_time != null) {
-                todayActivityParticipantAttendance = db_client->queryRow(
+                todayActivityParticipantAttendance =  db_client->queryRow(
                     `SELECT *
                     FROM activity_participant_attendance
                     WHERE person_id = ${attendance.person_id} and 
                     activity_instance_id = ${attendance.activity_instance_id} and
                     DATE(sign_out_time) = CURDATE();`
                 );
-                if (todayActivityParticipantAttendance is ActivityParticipantAttendance) {
+                if(todayActivityParticipantAttendance is ActivityParticipantAttendance ) {
                     return new (todayActivityParticipantAttendance.id);
                 }
             }
@@ -1525,7 +1532,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
     isolated resource function get class_attendance_today(int? organization_id, int? activity_id) returns ActivityParticipantAttendanceData[]|error? {
         stream<ActivityParticipantAttendance, error?> attendance_records;
-
+        
         lock {
             attendance_records = db_client->query(
                 `SELECT * 
@@ -1550,7 +1557,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
     isolated resource function get person_attendance_today(int? person_id, int? activity_id) returns ActivityParticipantAttendanceData[]|error? {
         stream<ActivityParticipantAttendance, error?> attendance_records;
-
+        
         lock {
             attendance_records = db_client->query(
                 `SELECT * 
@@ -1630,10 +1637,10 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 );
             }
         } else {
-            if (from_date != null && to_date != null) {
-                if (organization_id != null) {
+            if(from_date != null && to_date != null){
+                if(organization_id != null){
                     lock {
-                        attendance_records = db_client->query(
+                    attendance_records = db_client->query(
                         `SELECT *
                         FROM activity_participant_attendance
                         WHERE person_id IN (SELECT id FROM person WHERE organization_id = ${organization_id} AND avinya_type_id=37)
@@ -1641,8 +1648,8 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                         AND DATE(sign_in_time) BETWEEN ${from_date} AND ${to_date}
                         ORDER BY created DESC;`
                     );
-                    }
-                } else {
+                }
+                }else{
                     lock {
                         attendance_records = db_client->query(
                             `SELECT *
@@ -1654,7 +1661,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                             ORDER BY DATE(sign_in_time),created DESC;`
                         );
                     }
-                }
+                }  
             } else {
                 lock {
                     attendance_records = db_client->query(
@@ -1680,7 +1687,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
                 ActivityParticipantAttendanceData|error activityParticipantAttendanceData = new ActivityParticipantAttendanceData(0, attendance_record);
                 if !(activityParticipantAttendanceData is error) {
                     attendnaceDatas.push(activityParticipantAttendanceData);
-                } else {
+                }else{
                     log:printInfo("Error in class_attendance_report = " + activityParticipantAttendanceData.toString());
                 }
             };
@@ -1708,10 +1715,10 @@ LEFT JOIN person p ON apa.person_id = p.id
                 );
             }
         } else {
-            if (from_date != null && to_date != null) {
-                if (organization_id != null) {
+            if(from_date != null && to_date != null){
+                if(organization_id != null){
                     lock {
-                        attendance_records = db_client->query(
+                    attendance_records = db_client->query(
                         `SELECT apa.*,p.preferred_name,p.digital_id
 FROM activity_participant_attendance apa
 LEFT JOIN person p ON apa.person_id = p.id
@@ -1721,8 +1728,8 @@ LEFT JOIN person p ON apa.person_id = p.id
                         AND TIME_FORMAT(sign_in_time, '%H:%i:%s') > '07:30:59'
                         ORDER BY created DESC;`
                     );
-                    }
-                } else {
+                }
+                }else{
                     lock {
                         attendance_records = db_client->query(
                             `SELECT apa.*,o.description,p.preferred_name,p.digital_id
@@ -1737,7 +1744,7 @@ AND TIME_FORMAT(apa.sign_in_time, '%H:%i:%s') > '07:30:59'
 ORDER BY DATE(apa.sign_in_time) DESC;`
                         );
                     }
-                }
+                }  
             } else {
                 lock {
                     attendance_records = db_client->query(
@@ -1756,7 +1763,7 @@ LEFT JOIN person p ON apa.person_id = p.id
         time:Utc endTime = time:utcNow();
         time:Seconds seconds = time:utcDiffSeconds(endTime, startTime);
 
-        log:printInfo("Time taken to query execution in late_attendance_report in seconds = " + seconds.toString());
+        log:printInfo("Time taken to query execution in late_attendance_report in seconds = " + seconds.toString()); 
 
         ActivityParticipantAttendanceDataForLateAttendance[] attendnaceDatas = [];
 
@@ -2554,34 +2561,34 @@ LEFT JOIN person p ON apa.person_id = p.id
         return new ConsumableData(id);
     }
 
-    //     isolated resource function get consumableByUpdate(string updated,int avinya_type_id) returns ConsumableData[]|error {
-    //     stream<Consumable, error?> consumables;
-    //     lock {
-    //         consumables = db_client->query(
-    //             `SELECT * 
-    //             FROM consumable 
-    //             WHERE avinya_type_id = ${avinya_type_id} AND DATE_FORMAT(updated, '%Y-%m-%d %H:%i:%s') LIKE '${updated}%';
-    // `
-    //         );
-    //     }
+//     isolated resource function get consumableByUpdate(string updated,int avinya_type_id) returns ConsumableData[]|error {
+//     stream<Consumable, error?> consumables;
+//     lock {
+//         consumables = db_client->query(
+//             `SELECT * 
+//             FROM consumable 
+//             WHERE avinya_type_id = ${avinya_type_id} AND DATE_FORMAT(updated, '%Y-%m-%d %H:%i:%s') LIKE '${updated}%';
+// `
+//         );
+//     }
 
-    //     ConsumableData[] consumableDatas = [];
+//     ConsumableData[] consumableDatas = [];
 
-    //     check from Consumable consumable in consumables
-    //         do {
-    //             ConsumableData|error consumableData = new ConsumableData(null, 0, consumable);
-    //             if !(consumableData is error) {
-    //                 consumableDatas.push(consumableData);
-    //             }
-    //         };
+//     check from Consumable consumable in consumables
+//         do {
+//             ConsumableData|error consumableData = new ConsumableData(null, 0, consumable);
+//             if !(consumableData is error) {
+//                 consumableDatas.push(consumableData);
+//             }
+//         };
 
-    //     check consumables.close();
-    //     return consumableDatas;
-    //     }
+//     check consumables.close();
+//     return consumableDatas;
+//     }
 
-    isolated resource function get consumableByUpdate(string? updated, int? avinya_type_id) returns ConsumableData[]|error? {
+        isolated resource function get consumableByUpdate(string? updated, int? avinya_type_id) returns ConsumableData[]|error? {
         stream<Consumable, error?> consumables;
-        string _updated = (updated == null ? "" : updated + "%");
+        string _updated =  (updated == null? "": updated + "%");
         lock {
             consumables = db_client->query(
                 `SELECT * FROM consumable WHERE avinya_type_id = ${avinya_type_id} AND DATE_FORMAT(updated, '%Y-%m-%d %H:%i:%s') LIKE ${_updated};`
@@ -3252,7 +3259,7 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
         }
     }
 
-    resource function get resource_allocations_report(int? organization_id, int? avinya_type_id) returns ResourceAllocationData[]|error {
+    resource function get resource_allocations_report(int? organization_id,int? avinya_type_id) returns ResourceAllocationData[]|error {
         stream<ResourceAllocation, error?> resource_allocations;
         lock {
             resource_allocations = db_client->query(
@@ -3289,9 +3296,10 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
             WHERE person_id = ${dutyparticipant.person_id};`
         );
 
-        if (dutyParticipantRaw is DutyParticipant) {
+        if (dutyParticipantRaw is  DutyParticipant) {
             return error("already person assigned for duty");
         }
+
 
         sql:ExecutionResult res = check db_client->execute(
             `INSERT INTO duty_participant (
@@ -3313,9 +3321,10 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
         return new (insert_id);
     }
 
-    resource function get duty_participants(int? organization_id) returns DutyParticipantData[]|error {
 
-        Organization child_organization_raw = check db_client->queryRow(
+    resource function get duty_participants(int? organization_id) returns DutyParticipantData[]|error{
+
+       Organization child_organization_raw = check db_client->queryRow(
             `SELECT c.*
              FROM parent_child_organization pc
              JOIN organization c ON pc.child_org_id = c.id
@@ -3325,33 +3334,34 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
              AND (om_end.key_name = 'end_date' AND (om_end.value IS NULL OR STR_TO_DATE(om_end.value, '%Y-%m-%d') >= CURDATE()));`
         );
 
-        stream<DutyParticipant, error?> duty_participants;
-        lock {
-            duty_participants = db_client->query(
+         
+      stream<DutyParticipant,error?> duty_participants;
+      lock {
+           duty_participants = db_client->query(
             `SELECT * 
 	         FROM  duty_participant
 	         WHERE person_id IN (SELECT id FROM person 
              WHERE organization_id IN (select child_org_id from parent_child_organization where parent_org_id = ${child_organization_raw.id}));`
-            );
-        }
+           );
+      }
 
-        DutyParticipantData[] dutyParticipantsDatas = [];
+      DutyParticipantData[]  dutyParticipantsDatas = [];
 
-        check from DutyParticipant dutyParticipant in duty_participants
-            do {
-                DutyParticipantData|error dutyParticipantData = new DutyParticipantData(0, 0, 0, dutyParticipant);
-                if !(dutyParticipantData is error) {
-                    dutyParticipantsDatas.push(dutyParticipantData);
-                }
-            };
-        check duty_participants.close();
-        return dutyParticipantsDatas;
+      check from DutyParticipant dutyParticipant in duty_participants
+         do{
+           DutyParticipantData|error dutyParticipantData = new  DutyParticipantData(0,0,0,dutyParticipant);
+           if !(dutyParticipantData is error){
+             dutyParticipantsDatas.push(dutyParticipantData);
+           }
+         };
+      check duty_participants.close();  
+      return dutyParticipantsDatas;
     }
 
     isolated resource function get activities_by_avinya_type(int? avinya_type_id) returns ActivityData[]|error? {
-
+        
         stream<Activity, error?> activitiesByAvinyaType;
-
+        
         lock {
 
             activitiesByAvinyaType = db_client->query(
@@ -3363,9 +3373,9 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
 
         ActivityData[] activityByAvinyaTypeDatas = [];
 
-        check from Activity activityByAvinyaType in activitiesByAvinyaType
+        check from Activity activityByAvinyaType in  activitiesByAvinyaType
             do {
-                ActivityData|error activityByAvinyaTypeData = new ActivityData((), (), (), activityByAvinyaType);
+                ActivityData|error activityByAvinyaTypeData = new ActivityData((),(),(), activityByAvinyaType);
                 if !(activityByAvinyaTypeData is error) {
                     activityByAvinyaTypeDatas.push(activityByAvinyaTypeData);
                 }
@@ -3389,11 +3399,12 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
         return delete_id;
     }
 
+
     remote function update_duty_rotation_metadata(DutyRotationMetaDetails duty_rotation) returns DutyRotationMetaData|error? {
         int id = duty_rotation.id ?: 0;
         if (id == 0) {
             //return error("Unable to update duty rotation raw");
-            log:printError("Unable to update duty rotation raw");
+             log:printError("Unable to update duty rotation raw");
         }
 
         DutyRotationMetaDetails|error? duty_rotation_raw = db_client->queryRow(
@@ -3403,7 +3414,7 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
         );
 
         if !(duty_rotation_raw is DutyRotationMetaDetails) {
-
+            
             sql:ExecutionResult res = check db_client->execute(
             `INSERT INTO duty_rotation_metadata (
                 start_date,
@@ -3414,14 +3425,14 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
                 ${duty_rotation.end_date},
                 ${duty_rotation.organization_id}
              );`
-            );
-
+           );
+           
             io:println(res);
             int|string? insert_id = res.lastInsertId;
             if !(insert_id is int) {
                 return error("Unable to insert duty rotation metadata record");
             }
-            return new (insert_id);
+           return new(insert_id);
         }
         io:println(duty_rotation.start_date);
         io:println(duty_rotation.end_date);
@@ -3432,6 +3443,7 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
                 end_date = ${duty_rotation.end_date}
              WHERE id= ${id} ;`
         );
+
 
         if (res is sql:ExecutionResult) {
             return new (id);
@@ -3448,15 +3460,16 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
             WHERE organization_id = ${organization_id};`
         );
 
-        if (duty_rotation_metadata_raw is DutyRotationMetaDetails) {
-            return new (0, 0, duty_rotation_metadata_raw);
+        if(duty_rotation_metadata_raw is DutyRotationMetaDetails){
+            return new(0,0,duty_rotation_metadata_raw);
         }
         return error("Unable to find duty rotation  data by organization");
     }
 
-    resource function get duty_participants_by_duty_activity_id(int? organization_id, int? duty_activity_id) returns DutyParticipantData[]|error {
 
-        Organization child_organization_raw = check db_client->queryRow(
+    resource function get duty_participants_by_duty_activity_id(int? organization_id,int? duty_activity_id) returns DutyParticipantData[]|error{
+
+       Organization child_organization_raw = check db_client->queryRow(
             `SELECT c.*
              FROM parent_child_organization pc
              JOIN organization c ON pc.child_org_id = c.id
@@ -3466,33 +3479,35 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
              AND (om_end.key_name = 'end_date' AND (om_end.value IS NULL OR STR_TO_DATE(om_end.value, '%Y-%m-%d') >= CURDATE()));`
         );
 
-        stream<DutyParticipant, error?> duty_participants;
-        lock {
-            duty_participants = db_client->query(
+         
+      stream<DutyParticipant,error?> duty_participants;
+      lock {
+           duty_participants = db_client->query(
             `SELECT * 
 	         FROM  duty_participant
 	         WHERE person_id IN (SELECT id FROM person 
              WHERE organization_id IN (select child_org_id from parent_child_organization where parent_org_id = ${child_organization_raw.id}))
              AND activity_id = ${duty_activity_id};`
-            );
-        }
+           );
+      }
 
-        DutyParticipantData[] dutyParticipantsDatas = [];
+      DutyParticipantData[]  dutyParticipantsDatas = [];
 
-        check from DutyParticipant dutyParticipant in duty_participants
-            do {
-                DutyParticipantData|error dutyParticipantData = new DutyParticipantData(0, 0, 0, dutyParticipant);
-                if !(dutyParticipantData is error) {
-                    dutyParticipantsDatas.push(dutyParticipantData);
-                }
-            };
-        check duty_participants.close();
-        return dutyParticipantsDatas;
+      check from DutyParticipant dutyParticipant in duty_participants
+         do{
+           DutyParticipantData|error dutyParticipantData = new  DutyParticipantData(0,0,0,dutyParticipant);
+           if !(dutyParticipantData is error){
+             dutyParticipantsDatas.push(dutyParticipantData);
+           }
+         };
+      check duty_participants.close();  
+      return dutyParticipantsDatas;
     }
+
 
     remote function add_duty_attendance(ActivityParticipantAttendance duty_attendance) returns ActivityParticipantAttendanceData|error? {
         // only today's duty attendance can be added with this method 
-        ActivityParticipantAttendance|error todayDutyParticipantAttendance = db_client->queryRow(
+        ActivityParticipantAttendance|error todayDutyParticipantAttendance =  db_client->queryRow(
             `SELECT *
             FROM activity_participant_attendance
             WHERE person_id = ${duty_attendance.person_id} and 
@@ -3501,9 +3516,21 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
         );
         if (todayDutyParticipantAttendance is ActivityParticipantAttendance) {
             if (duty_attendance.sign_in_time != null) {
+                
+              return new (todayDutyParticipantAttendance.id);
 
-                return new (todayDutyParticipantAttendance.id);
-
+            }
+            else if (duty_attendance.sign_out_time != null) {
+                todayDutyParticipantAttendance =  db_client->queryRow(
+                    `SELECT *
+                    FROM activity_participant_attendance
+                    WHERE person_id = ${duty_attendance.person_id} and 
+                    activity_instance_id = ${duty_attendance.activity_instance_id} and
+                    DATE(sign_out_time) = CURDATE();`
+                );
+                if(todayDutyParticipantAttendance is ActivityParticipantAttendance ) {
+                    return new (todayDutyParticipantAttendance.id);
+                }
             }
         }
         sql:ExecutionResult res = check db_client->execute(
@@ -3511,12 +3538,16 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
                 activity_instance_id,
                 person_id,
                 sign_in_time,
-                in_marked_by
+                sign_out_time,
+                in_marked_by,
+                out_marked_by
             ) VALUES (
                 ${duty_attendance.activity_instance_id},
                 ${duty_attendance.person_id},
                 ${duty_attendance.sign_in_time},
-                ${duty_attendance.in_marked_by}
+                ${duty_attendance.sign_out_time},
+                ${duty_attendance.in_marked_by},
+                ${duty_attendance.out_marked_by}
             );`
         );
 
@@ -3529,8 +3560,8 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
     }
 
     isolated resource function get duty_attendance_today(int? organization_id, int? activity_id) returns ActivityParticipantAttendanceData[]|error? {
-
-        Organization child_organization_raw = check db_client->queryRow(
+        
+         Organization child_organization_raw = check db_client->queryRow(
             `SELECT c.*
              FROM parent_child_organization pc
              JOIN organization c ON pc.child_org_id = c.id
@@ -3539,9 +3570,9 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
              WHERE pc.parent_org_id = ${organization_id} AND (om_start.key_name = 'start_date' AND STR_TO_DATE(om_start.value, '%Y-%m-%d') <= CURDATE())
              AND (om_end.key_name = 'end_date' AND (om_end.value IS NULL OR STR_TO_DATE(om_end.value, '%Y-%m-%d') >= CURDATE()));`
         );
-
+             
         stream<ActivityParticipantAttendance, error?> duty_attendance_records;
-
+        
         lock {
             duty_attendance_records = db_client->query(
                 `SELECT * 
@@ -3566,22 +3597,23 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
         return dutyAttendanceDatas;
     }
 
-    isolated resource function get duty_participant(int? person_id) returns DutyParticipantData|error? {
 
+    isolated resource function get duty_participant(int? person_id) returns DutyParticipantData|error? {
+        
         DutyParticipant|error? dutyParticipantRaw = db_client->queryRow(
             `SELECT *
             FROM duty_participant
             WHERE person_id = ${person_id};`
         );
 
-        if !(dutyParticipantRaw is DutyParticipant) {
+        if !(dutyParticipantRaw is  DutyParticipant) {
             return error("duty participant data does not exist");
-        }
-
-        return new DutyParticipantData(0, 0, person_id);
+        }     
+        
+        return new DutyParticipantData(0,0,person_id);
     }
 
-     remote function add_duty_evaluation(Evaluation duty_evaluation) returns EvaluationData|error? {
+    remote function add_duty_evaluation(Evaluation duty_evaluation) returns EvaluationData|error? {
 
         Evaluation|error todayDutyEvaluation =  db_client->queryRow(
             `SELECT *
@@ -4145,24 +4177,8 @@ lock {
         log:printInfo((dashboardDatas).toString());
         return dashboardDatas;
     }
-}
 
-isolated function calculateWeekdays(time:Utc toDate, time:Utc fromDate) returns int {
-    int weekdays = 0;
-    time:Utc currentDate = fromDate;
-
-    while currentDate <= toDate {
-        time:Civil currentDateCivil = time:utcToCivil(currentDate);
-        if (time:SUNDAY < currentDateCivil.dayOfWeek && currentDateCivil.dayOfWeek < time:SATURDAY) {
-            weekdays += 1;
-        }
-        currentDate = time:utcAddSeconds(currentDate, 86400);
-    }
-   
-    return weekdays;
-}
-
- isolated resource function get attendance_missed_by_security(int? organization_id, int? parent_organization_id, string? from_date = null, string? to_date = null) returns ActivityParticipantAttendanceMissedBySecurityData[]|error? {
+    isolated resource function get attendance_missed_by_security(int? organization_id, int? parent_organization_id, string? from_date = null, string? to_date = null) returns ActivityParticipantAttendanceMissedBySecurityData[]|error? {
         
       stream<ActivityParticipantAttendanceMissedBySecurity, error?> attendance_missed_by_security_records;
 
@@ -4366,118 +4382,25 @@ isolated function calculateWeekdays(time:Utc toDate, time:Utc fromDate) returns 
       }
     }
 
-    isolated resource function get total_attendance_count_by_date(int? organization_id, int? parent_organization_id, string? from_date = null, string? to_date = null) returns TotalActivityParticipantAttendanceCountByDateData[]|error? {
-        
-      stream<TotalActivityParticipantAttendanceCountByDate, error?> total_attendance_count_by_date_records;
 
-      if(from_date != null && to_date != null) {
+}
 
-        if(organization_id !=null){
+isolated function calculateWeekdays(time:Utc toDate, time:Utc fromDate) returns int {
+    int weekdays = 0;
+    time:Utc currentDate = fromDate;
 
-          lock{
-            total_attendance_count_by_date_records = db_client->query(
-                `SELECT 
-                        attendance_date,
-                        COUNT(DISTINCT person_id) AS daily_total
-                    FROM (
-                        SELECT 
-                            DATE(sign_in_time) AS attendance_date,
-                            person_id
-                        FROM 
-                            activity_participant_attendance
-                        WHERE 
-                            person_id IN (
-                            SELECT id FROM person WHERE avinya_type_id = 37 AND organization_id = ${organization_id}
-                            )
-                            AND activity_instance_id IN (
-                                SELECT DISTINCT id 
-                                FROM activity_instance 
-                                WHERE activity_id = 4
-                            ) 
-                            AND DATE(sign_in_time) BETWEEN ${from_date} AND ${to_date}
-                        GROUP BY 
-                            DATE(sign_in_time), person_id
-                    ) AS daily_counts
-                    WHERE 
-                        DAYOFWEEK(attendance_date) BETWEEN 2 AND 6
-                    GROUP BY 
-                        attendance_date
-                    ORDER BY 
-                        attendance_date DESC;`
-                );
-            } 
-        }else{
-
-            lock{
-
-               total_attendance_count_by_date_records = db_client->query(
-                `SELECT 
-                        attendance_date,
-                        COUNT(DISTINCT person_id) AS daily_total
-                    FROM (
-                        SELECT 
-                            DATE(sign_in_time) AS attendance_date,
-                            person_id
-                        FROM 
-                            activity_participant_attendance
-                        WHERE 
-                            person_id IN (
-                                SELECT DISTINCT id 
-                                FROM person 
-                                WHERE avinya_type_id = 37 
-                                AND organization_id IN (
-                                    SELECT DISTINCT id 
-                                    FROM organization 
-                                    WHERE id IN (
-                                        SELECT DISTINCT child_org_id 
-                                        FROM parent_child_organization 
-                                        WHERE parent_org_id IN (
-                                            SELECT DISTINCT child_org_id 
-                                            FROM parent_child_organization 
-                                            WHERE parent_org_id = ${parent_organization_id}
-                                        )
-                                    ) 
-                                    AND avinya_type = 87
-                                )
-                            )
-                            AND activity_instance_id IN (
-                                SELECT DISTINCT id 
-                                FROM activity_instance 
-                                WHERE activity_id = 4
-                            ) 
-                            AND DATE(sign_in_time) BETWEEN ${from_date} AND ${to_date}
-                        GROUP BY 
-                            DATE(sign_in_time), person_id
-                    ) AS daily_counts
-                    WHERE 
-                        DAYOFWEEK(attendance_date) BETWEEN 2 AND 6 
-                    GROUP BY 
-                        attendance_date
-                    ORDER BY 
-                        attendance_date DESC;`
-                );
-            } 
-
+    while currentDate <= toDate {
+        time:Civil currentDateCivil = time:utcToCivil(currentDate);
+        if (time:SUNDAY < currentDateCivil.dayOfWeek && currentDateCivil.dayOfWeek < time:SATURDAY) {
+            weekdays += 1;
         }
-
-        TotalActivityParticipantAttendanceCountByDateData[] attendanceCountByDateDatas = [];
-
-        check from TotalActivityParticipantAttendanceCountByDate attendance_count_by_date_record in  total_attendance_count_by_date_records
-            do {
-                TotalActivityParticipantAttendanceCountByDateData|error attendanceCountByDateData = new TotalActivityParticipantAttendanceCountByDateData(attendance_count_by_date_record);
-                if !(attendanceCountByDateData is error) {
-                    attendanceCountByDateDatas.push(attendanceCountByDateData);
-                }
-            };
-        check  total_attendance_count_by_date_records.close();
-        return attendanceCountByDateDatas;
-
-      }else{
-        return error("Provide non-null values for both 'From Date' and 'To Date'.");
-      }
+        currentDate = time:utcAddSeconds(currentDate, 86400);
     }
+   
+    return weekdays;
+}
 
-function padStartWithZeros(string str, int len) returns string {
+  function padStartWithZeros(string str, int len) returns string {
     int strLen = str.length();
     if (strLen >= len) {
         return str;
