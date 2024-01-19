@@ -4381,6 +4381,116 @@ lock {
       }
     }
 
+    isolated resource function get total_attendance_count_by_date(int? organization_id, int? parent_organization_id, string? from_date = null, string? to_date = null) returns TotalActivityParticipantAttendanceCountByDateData[]|error? {
+        
+      stream<TotalActivityParticipantAttendanceCountByDate, error?> total_attendance_count_by_date_records;
+
+      if(from_date != null && to_date != null) {
+
+        if(organization_id !=null){
+
+          lock{
+            total_attendance_count_by_date_records = db_client->query(
+                `SELECT 
+                        attendance_date,
+                        COUNT(DISTINCT person_id) AS daily_total
+                    FROM (
+                        SELECT 
+                            DATE(sign_in_time) AS attendance_date,
+                            person_id
+                        FROM 
+                            activity_participant_attendance
+                        WHERE 
+                            person_id IN (
+                            SELECT id FROM person WHERE avinya_type_id = 37 AND organization_id = ${organization_id}
+                            )
+                            AND activity_instance_id IN (
+                                SELECT DISTINCT id 
+                                FROM activity_instance 
+                                WHERE activity_id = 4
+                            ) 
+                            AND DATE(sign_in_time) BETWEEN ${from_date} AND ${to_date}
+                        GROUP BY 
+                            DATE(sign_in_time), person_id
+                    ) AS daily_counts
+                    WHERE 
+                        DAYOFWEEK(attendance_date) BETWEEN 2 AND 6
+                    GROUP BY 
+                        attendance_date
+                    ORDER BY 
+                        attendance_date DESC;`
+                );
+            } 
+        }else{
+
+            lock{
+
+               total_attendance_count_by_date_records = db_client->query(
+                `SELECT 
+                        attendance_date,
+                        COUNT(DISTINCT person_id) AS daily_total
+                    FROM (
+                        SELECT 
+                            DATE(sign_in_time) AS attendance_date,
+                            person_id
+                        FROM 
+                            activity_participant_attendance
+                        WHERE 
+                            person_id IN (
+                                SELECT DISTINCT id 
+                                FROM person 
+                                WHERE avinya_type_id = 37 
+                                AND organization_id IN (
+                                    SELECT DISTINCT id 
+                                    FROM organization 
+                                    WHERE id IN (
+                                        SELECT DISTINCT child_org_id 
+                                        FROM parent_child_organization 
+                                        WHERE parent_org_id IN (
+                                            SELECT DISTINCT child_org_id 
+                                            FROM parent_child_organization 
+                                            WHERE parent_org_id = ${parent_organization_id}
+                                        )
+                                    ) 
+                                    AND avinya_type = 87
+                                )
+                            )
+                            AND activity_instance_id IN (
+                                SELECT DISTINCT id 
+                                FROM activity_instance 
+                                WHERE activity_id = 4
+                            ) 
+                            AND DATE(sign_in_time) BETWEEN ${from_date} AND ${to_date}
+                        GROUP BY 
+                            DATE(sign_in_time), person_id
+                    ) AS daily_counts
+                    WHERE 
+                        DAYOFWEEK(attendance_date) BETWEEN 2 AND 6 
+                    GROUP BY 
+                        attendance_date
+                    ORDER BY 
+                        attendance_date DESC;`
+                );
+            } 
+
+        }
+
+        TotalActivityParticipantAttendanceCountByDateData[] attendanceCountByDateDatas = [];
+
+        check from TotalActivityParticipantAttendanceCountByDate attendance_count_by_date_record in  total_attendance_count_by_date_records
+            do {
+                TotalActivityParticipantAttendanceCountByDateData|error attendanceCountByDateData = new TotalActivityParticipantAttendanceCountByDateData(attendance_count_by_date_record);
+                if !(attendanceCountByDateData is error) {
+                    attendanceCountByDateDatas.push(attendanceCountByDateData);
+                }
+            };
+        check  total_attendance_count_by_date_records.close();
+        return attendanceCountByDateDatas;
+
+      }else{
+        return error("Provide non-null values for both 'From Date' and 'To Date'.");
+      }
+    }
 
 }
 
