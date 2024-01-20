@@ -4337,34 +4337,33 @@ lock {
                 string value = daily_activity_participant_attendance_by_parent_org_record.description ?: "";
 
                 if(value == "Dolphins"){
-
-                    daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/Dolphins/icons8-attendance-48.png";
-                    daily_activity_participant_attendance_by_parent_org_record.color = "#FFA113";
+                    daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/icons/icons8-dolphin-100.png";
+                    daily_activity_participant_attendance_by_parent_org_record.color = "0xFF2196F3";
                   }
                 if(value == "Bears"){
 
-                    daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/Bears/icons8-attendance-48.png";
-                    daily_activity_participant_attendance_by_parent_org_record.color = "#FFA113";
+                    daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/icons/icons8-bear-96.png";
+                    daily_activity_participant_attendance_by_parent_org_record.color = "0xFFE68A00";
                   }
                 if(value == "Bees"){
 
-                    daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/Bees/icons8-attendance-48.png";
-                    daily_activity_participant_attendance_by_parent_org_record.color = "#FFA113";
+                    daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/icons/icons8-bees-64.png";
+                    daily_activity_participant_attendance_by_parent_org_record.color = "0xFF008000";
                   }
                 if(value == "Eagles"){
 
-                    daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/Eagles/icons8-attendance-48.png";
-                    daily_activity_participant_attendance_by_parent_org_record.color = "#FFA113";
+                    daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/icons/icons8-eagle-96.png";
+                    daily_activity_participant_attendance_by_parent_org_record.color = "0xFFD32F2F";
                   }
                 if(value == "Leopards"){
 
-                    daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/Leopards/icons8-attendance-48.png";
-                    daily_activity_participant_attendance_by_parent_org_record.color = "#FFA113";
+                    daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/icons/icons8-leopard-80.png";
+                    daily_activity_participant_attendance_by_parent_org_record.color = "0xFF800080";
                   }
                 if(value == "Elephants"){
 
-                    daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/Elephants/icons8-attendance-48.png";
-                    daily_activity_participant_attendance_by_parent_org_record.color = "#FFA113";
+                    daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/icons/icons8-elephant-100.png";
+                    daily_activity_participant_attendance_by_parent_org_record.color = "0xFFDAA520";
                   }          
                 
             }
