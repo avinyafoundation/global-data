@@ -432,6 +432,32 @@ public type ActivityParticipantAttendance record {|
     string? updated;
 |};
 
+public type AttendanceDashboardData record {|
+    readonly string? record_type = "attendance_dashboard_data";
+    string? title;
+    int? numOfFiles;
+    string? svgSrc;
+    string? color;
+    decimal? percentage;
+|};
+
+public type AttendanceDashboardDataForQuery record {|
+    readonly string? record_type = "attendance_dashboard_data_for_query";
+    int? present_count;
+    int? absent_count;
+    int? late_attendance;
+    int? present_count_duty;
+    int? absent_count_duty;
+    int? late_attendance_duty;
+    float? total_students;
+|};
+
+public type AttendanceDashboardDataMain record {|
+    readonly string? record_type = "attendance_dashboard_data_main";
+    AttendanceDashboardData? attendance_dashboard_data;
+|};
+
+
 public type ActivityParticipantAttendanceForLateAttendance record {|
     readonly string? record_type = "activity_participant_attendance";
     int id?;
@@ -447,6 +473,29 @@ public type ActivityParticipantAttendanceForLateAttendance record {|
     string? preferred_name;
     string? digital_id;
 |};
+
+public type ActivityParticipantAttendanceMissedBySecurity record {|
+    readonly string? record_type = "activity_participant_attendance_missed_by_security";
+    string? sign_in_time;
+    string? digital_id;
+    string? description;
+|};
+
+public type DailyActivityParticipantAttendanceByParentOrg record {|
+    readonly string? record_type = "daily_activity_participant_attendance_by_parent_org";
+    string? description;
+    int? present_count;
+    string? svg_src;
+    string? color;
+    int? total_student_count;
+|};
+
+public type TotalActivityParticipantAttendanceCountByDate record {|
+    readonly string? record_type = "total_activity_participant_attendance_count_by_date";
+    string? attendance_date;
+    int? daily_total;
+|};
+
 
 public type ActivityEvaluationCriteria record {|
     readonly string? record_type = "activity_evaluation_criteria";
@@ -576,5 +625,3 @@ public type DutyRotationMetaDetails record{|
     string? end_date;
     int? organization_id;
 |};
-
-

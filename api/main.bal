@@ -3520,18 +3520,34 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
               return new (todayDutyParticipantAttendance.id);
 
             }
+            else if (duty_attendance.sign_out_time != null) {
+                todayDutyParticipantAttendance =  db_client->queryRow(
+                    `SELECT *
+                    FROM activity_participant_attendance
+                    WHERE person_id = ${duty_attendance.person_id} and 
+                    activity_instance_id = ${duty_attendance.activity_instance_id} and
+                    DATE(sign_out_time) = CURDATE();`
+                );
+                if(todayDutyParticipantAttendance is ActivityParticipantAttendance ) {
+                    return new (todayDutyParticipantAttendance.id);
+                }
+            }
         }
         sql:ExecutionResult res = check db_client->execute(
             `INSERT INTO activity_participant_attendance (
                 activity_instance_id,
                 person_id,
                 sign_in_time,
-                in_marked_by
+                sign_out_time,
+                in_marked_by,
+                out_marked_by
             ) VALUES (
                 ${duty_attendance.activity_instance_id},
                 ${duty_attendance.person_id},
                 ${duty_attendance.sign_in_time},
-                ${duty_attendance.in_marked_by}
+                ${duty_attendance.sign_out_time},
+                ${duty_attendance.in_marked_by},
+                ${duty_attendance.out_marked_by}
             );`
         );
 
@@ -3596,7 +3612,901 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
         
         return new DutyParticipantData(0,0,person_id);
     }
-    
+
+    remote function add_duty_evaluation(Evaluation duty_evaluation) returns EvaluationData|error? {
+
+        Evaluation|error todayDutyEvaluation =  db_client->queryRow(
+            `SELECT *
+            FROM evaluation
+            WHERE evaluatee_id = ${duty_evaluation.evaluatee_id} and 
+            activity_instance_id = ${duty_evaluation.activity_instance_id} and
+            DATE(created) = CURDATE();`
+        );
+
+        if(todayDutyEvaluation is Evaluation){
+            if(duty_evaluation.evaluatee_id != null){
+
+              return new(todayDutyEvaluation.id);
+
+            }
+        }
+        
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO evaluation (
+                evaluatee_id,
+                evaluator_id,
+                evaluation_criteria_id,
+                activity_instance_id,
+                response,
+                notes,
+                grade
+            ) VALUES (
+                ${duty_evaluation.evaluatee_id},
+                ${duty_evaluation.evaluator_id},
+                ${duty_evaluation.evaluation_criteria_id},
+                ${duty_evaluation.activity_instance_id},
+                ${duty_evaluation.response},
+                ${duty_evaluation.notes},
+                ${duty_evaluation.grade}
+            );`
+        );
+
+
+        int|string? insert_id = res.lastInsertId;
+
+        if !(insert_id is int) {
+            return error("Unable to insert evaluation");
+        } 
+
+        return new(insert_id);
+    }
+
+    isolated resource function get attendance_dashboard_data_by_date(int? organization_id, int? parent_organization_id, int? activity_id, string? from_date = null, string? to_date = null) returns AttendanceDashboardDataMain[]|error? {
+        stream<AttendanceDashboardDataForQuery, error?> present_count;
+        stream<AttendanceDashboardDataForQuery, error?> absent_count;
+        stream<AttendanceDashboardDataForQuery, error?> late_attendance;
+        stream<AttendanceDashboardDataForQuery, error?> present_count_duty;
+        stream<AttendanceDashboardDataForQuery, error?> absent_count_duty;
+        stream<AttendanceDashboardDataForQuery, error?> late_attendance_duty;
+        decimal|error? students_raw = 0;
+        decimal total_students_count = 0;
+
+        if (organization_id != null) {
+            students_raw = db_client->queryRow(
+            `SELECT CAST(COUNT(*) AS DECIMAL) AS total_students
+                            FROM person p
+                            JOIN organization o ON o.id = p.organization_id
+                            WHERE p.avinya_type_id = 37 AND p.id != 26 AND o.avinya_type != 95
+                            AND p.organization_id = ${organization_id};`
+        );
+        } else {
+            students_raw = db_client->queryRow(
+            `SELECT CAST(COUNT(*) AS DECIMAL) AS total_students
+                            FROM person p
+                            JOIN organization o ON o.id = p.organization_id
+                            WHERE p.avinya_type_id = 37 AND p.id != 26 AND o.avinya_type != 95
+                            AND p.organization_id IN (
+                                                                    SELECT id
+                                                                    FROM organization
+                                                                    WHERE id IN (
+                                                                        SELECT child_org_id
+                                                                        FROM parent_child_organization
+                                                                        WHERE parent_org_id IN (
+                                                                            SELECT child_org_id
+                                                                            FROM parent_child_organization
+                                                                            WHERE parent_org_id = ${parent_organization_id}
+                                                                        )
+                                                                    )
+                                                                );`
+        );
+        }
+
+        if (students_raw is decimal) {
+            io:println("Eval Criteria ID: ", students_raw.toString());
+            total_students_count = students_raw;
+        } else if (students_raw is error) {
+            total_students_count = 0;
+            io:println("Error while getting Eval Criteria ID: ", students_raw.message());
+        }
+
+        if (organization_id != null) {
+            lock {
+                present_count = db_client->query(
+                        `SELECT IFNULL(CAST(SUM(present_count) AS SIGNED), 0) AS present_count
+                            FROM (SELECT COUNT(DISTINCT person_id) AS present_count
+                                FROM activity_participant_attendance
+                                WHERE sign_in_time IS NOT NULL
+                                    AND activity_instance_id IN (SELECT id FROM activity_instance WHERE activity_id = 4 ORDER BY id DESC) 
+                                    AND person_id IN (SELECT id FROM person WHERE avinya_type_id = 37 AND organization_id = ${organization_id}) 
+                                    AND DATE(sign_in_time) BETWEEN ${from_date} AND ${to_date}
+                                GROUP BY DATE(sign_in_time)) AS counts;`
+                    );
+                absent_count = db_client->query(
+                        `SELECT COUNT(p.id) AS absent_count
+                            FROM person p
+                            JOIN organization o ON o.id = p.organization_id
+                            CROSS JOIN (
+                                SELECT DISTINCT DATE(sign_in_time) as a_date
+                                FROM activity_participant_attendance
+                                WHERE DATE(sign_in_time) IS NOT NULL
+                                    AND activity_instance_id IN (SELECT id FROM activity_instance WHERE activity_id = 4 ORDER BY id DESC)
+                                    AND DATE(sign_in_time) BETWEEN ${from_date} AND ${to_date}
+                            ) AS subquery
+                            LEFT JOIN activity_participant_attendance a ON p.id = a.person_id AND DATE(a.sign_in_time) = subquery.a_date 
+                            WHERE a.person_id IS NULL AND p.avinya_type_id = 37 AND p.id != 26 AND o.avinya_type != 95 AND organization_id = ${organization_id}
+                            ORDER BY subquery.a_date DESC;`
+                    );
+                late_attendance = db_client->query(
+                        `SELECT COUNT(*) AS late_attendance
+                        FROM activity_participant_attendance apa
+                        LEFT JOIN person p ON apa.person_id = p.id
+                        WHERE apa.person_id IN (SELECT id FROM person WHERE organization_id = ${organization_id} AND avinya_type_id = 37)
+                        AND apa.activity_instance_id IN (SELECT id FROM activity_instance WHERE activity_id = 4)
+                        AND DATE(apa.sign_in_time) BETWEEN ${from_date} AND ${to_date}
+                        AND TIME_FORMAT(apa.sign_in_time, '%H:%i:%s') > '07:30:59';`
+                    );
+                present_count_duty = db_client->query(
+                        `SELECT IFNULL(CAST(SUM(present_count_duty) AS SIGNED), 0) AS present_count_duty
+                            FROM (SELECT COUNT(DISTINCT person_id) AS present_count_duty
+                                FROM activity_participant_attendance
+                                WHERE sign_in_time IS NOT NULL
+                                    AND activity_instance_id IN (SELECT id FROM activity_instance WHERE activity_id = 11 ORDER BY id DESC) 
+                                    AND person_id IN (SELECT id FROM person WHERE avinya_type_id = 37 AND organization_id = ${organization_id}) 
+                                    AND DATE(sign_in_time) BETWEEN ${from_date} AND ${to_date}
+                                GROUP BY DATE(sign_in_time)) AS counts;`
+                    );
+                absent_count_duty = db_client->query(
+                        `select COUNT(e.id) AS absent_count_duty FROM person p
+                        JOIN organization o ON o.id = p.organization_id 
+                        LEFT JOIN evaluation e ON p.id = e.evaluatee_id 
+                        WHERE p.avinya_type_id = 37 AND p.id != 26 AND o.avinya_type != 95
+                        AND e.evaluation_criteria_id=110
+                        AND DATE(e.updated) BETWEEN ${from_date} AND ${to_date}
+                        AND p.id IN (SELECT id FROM person WHERE avinya_type_id = 37 AND organization_id = ${organization_id});`
+                    );
+                late_attendance_duty = db_client->query(
+                        `SELECT COUNT(*) AS late_attendance_duty
+                        FROM activity_participant_attendance apa
+                        LEFT JOIN person p ON apa.person_id = p.id
+                        WHERE apa.person_id IN (SELECT id FROM person WHERE organization_id = ${organization_id} AND avinya_type_id = 37)
+                        AND apa.activity_instance_id IN (SELECT id FROM activity_instance WHERE activity_id = 11)
+                        AND DATE(apa.sign_in_time) BETWEEN ${from_date} AND ${to_date}
+                        AND TIME_FORMAT(apa.sign_in_time, '%H:%i:%s') > '14:00:00';`
+                    );
+            }
+        } else {
+            lock {
+                present_count = db_client->query(
+                            `SELECT COUNT(pa.person_id) AS present_count
+                                FROM activity_participant_attendance pa
+                                JOIN person p ON pa.person_id = p.id
+                                WHERE pa.sign_in_time IS NOT NULL
+                                    AND pa.activity_instance_id IN (
+                                        SELECT id
+                                        FROM activity_instance
+                                        WHERE activity_id = 4
+                                        ORDER BY id DESC
+                                    )
+                                    AND p.avinya_type_id = 37
+                                    AND DATE(pa.sign_in_time) BETWEEN ${from_date} AND ${to_date}
+                                    AND p.organization_id IN (
+                                        SELECT id
+                                        FROM organization
+                                        WHERE id IN (
+                                            SELECT child_org_id
+                                            FROM parent_child_organization
+                                            WHERE parent_org_id IN (
+                                                SELECT child_org_id
+                                                FROM parent_child_organization
+                                                WHERE parent_org_id = ${parent_organization_id}
+                                            )
+                                        )
+                                    );`
+                        );
+            }
+            lock {
+                absent_count = db_client->query(
+                        `SELECT COUNT(p.id) AS absent_count
+                            FROM person p
+                            JOIN organization o ON o.id = p.organization_id
+                            CROSS JOIN (
+                                SELECT DISTINCT DATE(sign_in_time) as a_date
+                                FROM activity_participant_attendance
+                                WHERE DATE(sign_in_time) IS NOT NULL
+                                    AND activity_instance_id IN (SELECT id FROM activity_instance WHERE activity_id = 4 ORDER BY id DESC)
+                                    AND DATE(sign_in_time) BETWEEN ${from_date} AND ${to_date}
+                            ) AS subquery
+                            LEFT JOIN activity_participant_attendance a ON p.id = a.person_id AND DATE(a.sign_in_time) = subquery.a_date 
+                            WHERE a.person_id IS NULL AND p.avinya_type_id = 37 AND p.id != 26 AND o.avinya_type != 95
+                            AND p.organization_id IN (
+                                                                    SELECT id
+                                                                    FROM organization
+                                                                    WHERE id IN (
+                                                                        SELECT child_org_id
+                                                                        FROM parent_child_organization
+                                                                        WHERE parent_org_id IN (
+                                                                            SELECT child_org_id
+                                                                            FROM parent_child_organization
+                                                                            WHERE parent_org_id = ${parent_organization_id}
+                                                                        )
+                                                                    )
+                                                                )
+                            ORDER BY subquery.a_date DESC;`
+                    );
+            }
+            lock {
+                late_attendance = db_client->query(
+                            `SELECT COUNT(*) AS late_attendance
+                                FROM activity_participant_attendance apa
+                                LEFT JOIN person p ON apa.person_id = p.id
+                                WHERE p.organization_id IN (
+                                                                        SELECT id
+                                                                        FROM organization
+                                                                        WHERE id IN (
+                                                                            SELECT child_org_id
+                                                                            FROM parent_child_organization
+                                                                            WHERE parent_org_id IN (
+                                                                                SELECT child_org_id
+                                                                                FROM parent_child_organization
+                                                                                WHERE parent_org_id = ${parent_organization_id}
+                                                                            )
+                                                                        )
+                                                                    )
+                                AND avinya_type_id = 37
+                                    AND apa.activity_instance_id IN (SELECT id FROM activity_instance WHERE activity_id = 4)
+                                    AND DATE(apa.sign_in_time) BETWEEN ${from_date} AND ${to_date}
+                                    AND TIME_FORMAT(apa.sign_in_time, '%H:%i:%s') > '07:30:59';`
+                        );
+            }
+            lock {
+                present_count_duty = db_client->query(
+                        `SELECT COUNT(pa.person_id) AS present_count_duty
+                                FROM activity_participant_attendance pa
+                                JOIN person p ON pa.person_id = p.id
+                                WHERE pa.sign_in_time IS NOT NULL
+                                    AND pa.activity_instance_id IN (
+                                        SELECT id
+                                        FROM activity_instance
+                                        WHERE activity_id = 11
+                                        ORDER BY id DESC
+                                    )
+                                    AND p.avinya_type_id = 37
+                                    AND DATE(pa.sign_in_time) BETWEEN ${from_date} AND ${to_date}
+                                    AND p.organization_id IN (
+                                        SELECT id
+                                        FROM organization
+                                        WHERE id IN (
+                                            SELECT child_org_id
+                                            FROM parent_child_organization
+                                            WHERE parent_org_id IN (
+                                                SELECT child_org_id
+                                                FROM parent_child_organization
+                                                WHERE parent_org_id = ${parent_organization_id}
+                                            )
+                                        )
+                                    );`
+                    );
+            }
+            lock {
+                absent_count_duty = db_client->query(
+                        `select COUNT(e.id) AS absent_count_duty FROM person p
+JOIN organization o ON o.id = p.organization_id 
+LEFT JOIN evaluation e ON p.id = e.evaluatee_id 
+WHERE p.avinya_type_id = 37 AND p.id != 26 AND o.avinya_type != 95
+AND e.evaluation_criteria_id=110
+AND DATE(e.updated) BETWEEN ${from_date} AND ${to_date}
+AND p.organization_id IN (
+						SELECT id
+						FROM organization
+						WHERE id IN (
+							SELECT child_org_id
+							FROM parent_child_organization
+							WHERE parent_org_id IN (
+								SELECT child_org_id
+								FROM parent_child_organization
+								WHERE parent_org_id = ${parent_organization_id}
+							)
+						)
+					);`
+                    );
+            }
+            lock {
+                late_attendance_duty = db_client->query(
+                            `SELECT COUNT(*) AS late_attendance_duty
+                                FROM activity_participant_attendance apa
+                                LEFT JOIN person p ON apa.person_id = p.id
+                                WHERE p.organization_id IN (
+                                                                        SELECT id
+                                                                        FROM organization
+                                                                        WHERE id IN (
+                                                                            SELECT child_org_id
+                                                                            FROM parent_child_organization
+                                                                            WHERE parent_org_id IN (
+                                                                                SELECT child_org_id
+                                                                                FROM parent_child_organization
+                                                                                WHERE parent_org_id = ${parent_organization_id}
+                                                                            )
+                                                                        )
+                                                                    )
+                                AND avinya_type_id = 37
+                                    AND apa.activity_instance_id IN (SELECT id FROM activity_instance WHERE activity_id = 11)
+                                    AND DATE(apa.sign_in_time) BETWEEN ${from_date} AND ${to_date}
+                                    AND TIME_FORMAT(apa.sign_in_time, '%H:%i:%s') > '14:00:00';`
+                        );
+            }
+        }
+                AttendanceDashboardDataMain[] dashboardDatas = [];
+
+decimal days = 1;
+
+if (to_date != null && from_date != null) {
+    lock {
+        time:Utc toDate = check time:utcFromString(to_date + "T00:00:00Z");
+        time:Utc fromDate = check time:utcFromString(from_date + "T00:00:00Z");
+        int weekDaysDurationInSeconds = calculateWeekdays(toDate, fromDate);
+        days = <decimal>weekDaysDurationInSeconds;
+        io:println("Time taken days " + days.toString());
+        string emailFormattedString = time:utcToEmailString(toDate, "Z");
+        string dayAbbreviation = emailFormattedString.substring(0, 3);
+        io:println(`Email formatted string: ${dayAbbreviation}`);
+    }
+}
+
+// Process present_count stream
+lock {
+    check from AttendanceDashboardDataForQuery attendance_record in present_count do {
+        decimal? totalStudent = 1;
+        if (<float>days == 0.0) {
+            totalStudent = total_students_count;
+        } else {
+            totalStudent = total_students_count * days;
+        }
+        io:println("Time taken totalStudent " + totalStudent.toString());
+        io:println("Time taken total_students_count " + attendance_record.present_count.toString());
+        decimal? percentage = (attendance_record.present_count * 100) / totalStudent;
+        if (percentage is null) {
+            percentage = 0;
+        }
+        decimal roundedPercentage = 0;
+        if(percentage is decimal) {
+             roundedPercentage = decimal:round(percentage, 2);
+        }
+
+        AttendanceDashboardData attendanceData = {
+            title: "Daily Attendance",
+            numOfFiles: attendance_record.present_count,
+            svgSrc: "assets/icons/icons8-attendance-48.png",
+            color: "#FFA113",
+            percentage: roundedPercentage
+        };
+
+        AttendanceDashboardDataMain dashboardDataMain = {
+            attendance_dashboard_data: attendanceData
+        };
+
+        dashboardDatas.push(dashboardDataMain);
+    };
+}
+
+        // }
+        // Process absent_count stream
+        lock {
+            check from AttendanceDashboardDataForQuery attendance_record in absent_count
+                do {
+                    decimal? totalStudent = 1;
+        if (<float>days == 0.0) {
+            totalStudent = total_students_count;
+        } else {
+            totalStudent = total_students_count * days;
+        }
+        io:println("Time taken totalStudent " + totalStudent.toString());
+        io:println("Time taken total_students_count " + attendance_record.present_count.toString());
+        decimal? percentage = (attendance_record.absent_count * 100) / totalStudent;
+        if (percentage is null) {
+            percentage = 0;
+        }
+        decimal roundedPercentage = 0;
+        if(percentage is decimal) {
+             roundedPercentage = decimal:round(percentage, 2);
+        }
+                    AttendanceDashboardData attendanceData = {
+                        title: "Absent Students",
+                        numOfFiles: attendance_record.absent_count, // You need to set the appropriate value
+                        svgSrc: "assets/icons/absent.png",
+                        color: "#FFFF00", // Replace with the actual color value
+                        percentage: roundedPercentage
+                    };
+
+                    AttendanceDashboardDataMain dashboardDataMain = {
+                        attendance_dashboard_data: attendanceData
+                    };
+
+                    dashboardDatas.push(dashboardDataMain);
+                };
+        }
+        // Process late_attendance stream
+        lock {
+            check from AttendanceDashboardDataForQuery attendance_record in late_attendance
+                do {
+                    decimal? totalStudent = 1;
+        if (<float>days == 0.0) {
+            totalStudent = total_students_count;
+        } else {
+            totalStudent = total_students_count * days;
+        }
+        io:println("Time taken totalStudent " + totalStudent.toString());
+        io:println("Time taken total_students_count " + attendance_record.present_count.toString());
+        decimal? percentage = (attendance_record.late_attendance * 100) / totalStudent;
+        if (percentage is null) {
+            percentage = 0;
+        }
+        decimal roundedPercentage = 0;
+        if(percentage is decimal) {
+             roundedPercentage = decimal:round(percentage, 2);
+        }
+                    log:printInfo("Time Arrival");
+                    log:printInfo(attendance_record.late_attendance.toString());
+                    AttendanceDashboardData attendanceData = {
+                        title: "Late Arrival",
+                        numOfFiles: attendance_record.late_attendance, // You need to set the appropriate value
+                        svgSrc: "assets/icons/late.png",
+                        color: "#F61D1D", // Replace with the actual color value
+                        percentage: roundedPercentage
+                    };
+
+                    AttendanceDashboardDataMain dashboardDataMain = {
+                        attendance_dashboard_data: attendanceData
+                    };
+
+                    dashboardDatas.push(dashboardDataMain);
+                };
+        }
+        // Process present_count_duty stream
+        lock {
+            check from AttendanceDashboardDataForQuery attendance_record in present_count_duty
+                do {
+                    decimal? totalStudent = 1;
+        if (<float>days == 0.0) {
+            totalStudent = total_students_count;
+        } else {
+            totalStudent = total_students_count * days;
+        }
+        io:println("Time taken totalStudent " + totalStudent.toString());
+        io:println("Time taken total_students_count " + attendance_record.present_count.toString());
+        decimal? percentage = (attendance_record.present_count_duty * 100) / totalStudent;
+        if (percentage is null) {
+            percentage = 0;
+        }
+        decimal roundedPercentage = 0;
+        if(percentage is decimal) {
+             roundedPercentage = decimal:round(percentage, 2);
+        }
+                    AttendanceDashboardData attendanceData = {
+                        title: "Present for Duty",
+                        numOfFiles: attendance_record.present_count_duty, // You need to set the appropriate value
+                        svgSrc: "assets/icons/duty.png",
+                        color: "#1DBA28", // Replace with the actual color value
+                        percentage: roundedPercentage
+                    };
+
+                    AttendanceDashboardDataMain dashboardDataMain = {
+                        attendance_dashboard_data: attendanceData
+                    };
+
+                    dashboardDatas.push(dashboardDataMain);
+                };
+        }
+        // Process absent_count_duty stream
+        lock {
+            check from AttendanceDashboardDataForQuery attendance_record in absent_count_duty
+                do {
+                     decimal? totalStudent = 1;
+        if (<float>days == 0.0) {
+            totalStudent = total_students_count;
+        } else {
+            totalStudent = total_students_count * days;
+        }
+        io:println("Time taken totalStudent " + totalStudent.toString());
+        io:println("Time taken total_students_count " + attendance_record.present_count.toString());
+        decimal? percentage = (attendance_record.absent_count_duty * 100) / totalStudent;
+        if (percentage is null) {
+            percentage = 0;
+        }
+        decimal roundedPercentage = 0;
+        if(percentage is decimal) {
+             roundedPercentage = decimal:round(percentage, 2);
+        }
+                    AttendanceDashboardData attendanceData = {
+                        title: "Absent for Duty",
+                        numOfFiles: attendance_record.absent_count_duty, // You need to set the appropriate value
+                        svgSrc: "assets/icons/absent.png",
+                        color: "#007EE5", // Replace with the actual color value
+                        percentage: roundedPercentage
+                    };
+
+                    AttendanceDashboardDataMain dashboardDataMain = {
+                        attendance_dashboard_data: attendanceData
+                    };
+
+                    dashboardDatas.push(dashboardDataMain);
+                };
+        }
+        // Process late_attendance_duty stream
+        lock {
+            check from AttendanceDashboardDataForQuery attendance_record in late_attendance_duty
+                do {
+                     decimal? totalStudent = 1;
+        if (<float>days == 0.0) {
+            totalStudent = total_students_count;
+        } else {
+            totalStudent = total_students_count * days;
+        }
+        io:println("Time taken totalStudent " + totalStudent.toString());
+        io:println("Time taken total_students_count " + attendance_record.present_count.toString());
+        decimal? percentage = (attendance_record.late_attendance_duty * 100) / totalStudent;
+        if (percentage is null) {
+            percentage = 0;
+        }
+        decimal roundedPercentage = 0;
+        if(percentage is decimal) {
+             roundedPercentage = decimal:round(percentage, 2);
+        }
+                    AttendanceDashboardData attendanceData = {
+                        title: "Late for Duty",
+                        numOfFiles: attendance_record.late_attendance_duty, // You need to set the appropriate value
+                        svgSrc: "assets/icons/late.png",
+                        color: "#A700E5", // Replace with the actual color value
+                        percentage: roundedPercentage
+                    };
+
+                    AttendanceDashboardDataMain dashboardDataMain = {
+                        attendance_dashboard_data: attendanceData
+                    };
+
+                    dashboardDatas.push(dashboardDataMain);
+                };
+        }
+
+        check present_count.close();
+        check absent_count.close();
+        check late_attendance.close();
+        check present_count_duty.close();
+        check absent_count_duty.close();
+        check late_attendance_duty.close();
+        log:printInfo("Time ffffffff");
+        log:printInfo((dashboardDatas).toString());
+        return dashboardDatas;
+    }
+
+    isolated resource function get attendance_missed_by_security(int? organization_id, int? parent_organization_id, string? from_date = null, string? to_date = null) returns ActivityParticipantAttendanceMissedBySecurityData[]|error? {
+        
+      stream<ActivityParticipantAttendanceMissedBySecurity, error?> attendance_missed_by_security_records;
+
+      if(from_date != null && to_date != null) {
+
+        if(organization_id !=null){
+
+          lock{
+            attendance_missed_by_security_records = db_client->query(
+                `SELECT DATE(a.sign_in_time) AS sign_in_time,p.digital_id,o.description
+                    FROM person p
+                    JOIN activity_participant_attendance a ON p.id = a.person_id
+                    JOIN activity_instance ai ON a.activity_instance_id = ai.id
+                    JOIN organization o ON o.id = p.organization_id
+                    WHERE p.avinya_type_id = 37
+                        AND o.avinya_type!=95
+                        AND ai.activity_id = 1
+                        AND a.sign_in_time IS NOT NULL
+                        AND NOT EXISTS (
+                            SELECT 1
+                            FROM activity_participant_attendance a2
+                            JOIN activity_instance ai2 ON a2.activity_instance_id = ai2.id
+                            WHERE a2.person_id = p.id
+                                AND DATE(a2.sign_in_time) = DATE(a.sign_in_time)
+                                AND ai2.activity_id = 4
+                        )
+                        AND o.id = ${organization_id}
+                        AND DATE(a.sign_in_time) BETWEEN ${from_date} AND ${to_date}
+                    GROUP BY p.digital_id, sign_in_time, ai.id, p.organization_id
+                    ORDER BY ai.id DESC;`
+                );
+            } 
+        }else{
+
+            lock{
+
+               attendance_missed_by_security_records = db_client->query(
+                `SELECT DATE(a.sign_in_time) AS sign_in_time,p.digital_id,o.description
+                    FROM person p
+                    JOIN activity_participant_attendance a ON p.id = a.person_id
+                    JOIN activity_instance ai ON a.activity_instance_id = ai.id
+                    JOIN organization o ON o.id = p.organization_id
+                    WHERE p.avinya_type_id = 37
+                        AND o.avinya_type!=95
+                        AND ai.activity_id = 1
+                        AND a.sign_in_time IS NOT NULL
+                        AND NOT EXISTS (
+                            SELECT 1
+                            FROM activity_participant_attendance a2
+                            JOIN activity_instance ai2 ON a2.activity_instance_id = ai2.id
+                            WHERE a2.person_id = p.id
+                                AND DATE(a2.sign_in_time) = DATE(a.sign_in_time)
+                                AND ai2.activity_id = 4
+                        )
+                        AND p.organization_id IN (
+                                        SELECT id
+                                        FROM organization
+                                        WHERE id IN (
+                                            SELECT child_org_id
+                                            FROM parent_child_organization
+                                            WHERE parent_org_id IN (
+                                                SELECT child_org_id
+                                                FROM parent_child_organization
+                                                WHERE parent_org_id = ${parent_organization_id}
+                                            )
+                                        ))
+                        AND DATE(a.sign_in_time) BETWEEN ${from_date} AND ${to_date}
+                    GROUP BY p.digital_id, sign_in_time, ai.id, p.organization_id
+                    ORDER BY ai.id DESC;`
+                );
+            } 
+
+        }
+
+        ActivityParticipantAttendanceMissedBySecurityData[] attendanceMissedBySecurityDatas = [];
+
+        check from ActivityParticipantAttendanceMissedBySecurity attendance_missed_by_security_record in  attendance_missed_by_security_records
+            do {
+                ActivityParticipantAttendanceMissedBySecurityData|error attendanceMissedBySecurityData = new ActivityParticipantAttendanceMissedBySecurityData(attendance_missed_by_security_record);
+                if !(attendanceMissedBySecurityData is error) {
+                    attendanceMissedBySecurityDatas.push(attendanceMissedBySecurityData);
+                }
+            };
+        check  attendance_missed_by_security_records.close();
+        return attendanceMissedBySecurityDatas;
+
+      }else{
+        return error("Provide non-null values for both 'From Date' and 'To Date'.");
+      }
+    }
+
+    isolated resource function get daily_students_attendance_by_parent_org(int? parent_organization_id) returns DailyActivityParticipantAttendanceByParentOrgData[]|error? {
+        
+      stream<DailyActivityParticipantAttendanceByParentOrg, error?> daily_activity_participant_attendance_by_parent_org_records;
+
+
+        if(parent_organization_id !=null){
+
+          lock{
+            daily_activity_participant_attendance_by_parent_org_records = db_client->query(
+                `SELECT 
+                    COUNT(pa.person_id) AS present_count, 
+                    o.description, 
+                    (
+                        SELECT COUNT(p_total.id) 
+                        FROM person p_total
+                        WHERE p_total.organization_id = o.id
+                        AND p_total.avinya_type_id = 37
+                    ) AS total_student_count
+                FROM 
+                    activity_participant_attendance pa
+                JOIN 
+                    person p ON pa.person_id = p.id
+                LEFT JOIN 
+                    organization o ON o.id = p.organization_id
+                WHERE 
+                    pa.sign_in_time IS NOT NULL
+                    AND pa.activity_instance_id IN (
+                        SELECT id
+                        FROM activity_instance
+                        WHERE activity_id = 4
+                        ORDER BY id DESC
+                    )
+                    AND p.avinya_type_id = 37
+                    AND DATE(pa.sign_in_time) = CURRENT_DATE()
+                    AND p.organization_id IN (
+                        SELECT id
+                        FROM organization
+                        WHERE id IN (
+                            SELECT child_org_id
+                            FROM parent_child_organization
+                            WHERE parent_org_id IN (
+                                SELECT child_org_id
+                                FROM parent_child_organization
+                                WHERE parent_org_id = ${parent_organization_id}
+                            )
+                        )
+                    )
+                GROUP BY 
+                    p.organization_id, o.description, o.id;`
+                );
+            } 
+        
+        int parentOrg = (parent_organization_id == 2) ? parent_organization_id : 0;  //this is add for bandaragama academy
+
+
+        DailyActivityParticipantAttendanceByParentOrgData[] dailyActivityParticipantAttendanceByParentOrgDatas = [];
+
+        check from DailyActivityParticipantAttendanceByParentOrg daily_activity_participant_attendance_by_parent_org_record in  daily_activity_participant_attendance_by_parent_org_records
+
+         do {
+            
+            if(parentOrg == 2){ // This code block is intended for the Bandaragama Academy.if other academy  add another if code block.
+                                // This code block assigns the SVG source and color values for the six classes at the Bandaragama Academy.
+                
+                string value = daily_activity_participant_attendance_by_parent_org_record.description ?: "";
+
+                if(value == "Dolphins"){
+                    daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/icons/icons8-dolphin-100.png";
+                    daily_activity_participant_attendance_by_parent_org_record.color = "0xFF2196F3";
+                  }
+                if(value == "Bears"){
+
+                    daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/icons/icons8-bear-96.png";
+                    daily_activity_participant_attendance_by_parent_org_record.color = "0xFFE68A00";
+                  }
+                if(value == "Bees"){
+
+                    daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/icons/icons8-bees-64.png";
+                    daily_activity_participant_attendance_by_parent_org_record.color = "0xFF008000";
+                  }
+                if(value == "Eagles"){
+
+                    daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/icons/icons8-eagle-96.png";
+                    daily_activity_participant_attendance_by_parent_org_record.color = "0xFFD32F2F";
+                  }
+                if(value == "Leopards"){
+
+                    daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/icons/icons8-leopard-80.png";
+                    daily_activity_participant_attendance_by_parent_org_record.color = "0xFF800080";
+                  }
+                if(value == "Elephants"){
+
+                    daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/icons/icons8-elephant-100.png";
+                    daily_activity_participant_attendance_by_parent_org_record.color = "0xFFDAA520";
+                  }          
+                
+            }
+
+                DailyActivityParticipantAttendanceByParentOrgData|error dailyActivityParticipantAttendanceByParentOrgData = new DailyActivityParticipantAttendanceByParentOrgData(daily_activity_participant_attendance_by_parent_org_record);
+                if !(dailyActivityParticipantAttendanceByParentOrgData is error) {
+                    dailyActivityParticipantAttendanceByParentOrgDatas.push(dailyActivityParticipantAttendanceByParentOrgData);
+                }
+            };
+        check  daily_activity_participant_attendance_by_parent_org_records.close();
+        return dailyActivityParticipantAttendanceByParentOrgDatas;
+
+      }else{
+        return error("Provide non-null value for parent organization id.");
+      }
+    }
+
+    isolated resource function get total_attendance_count_by_date(int? organization_id, int? parent_organization_id, string? from_date = null, string? to_date = null) returns TotalActivityParticipantAttendanceCountByDateData[]|error? {
+        
+      stream<TotalActivityParticipantAttendanceCountByDate, error?> total_attendance_count_by_date_records;
+
+      if(from_date != null && to_date != null) {
+
+        if(organization_id !=null){
+
+          lock{
+            total_attendance_count_by_date_records = db_client->query(
+                `SELECT 
+                        attendance_date,
+                        COUNT(DISTINCT person_id) AS daily_total
+                    FROM (
+                        SELECT 
+                            DATE(sign_in_time) AS attendance_date,
+                            person_id
+                        FROM 
+                            activity_participant_attendance
+                        WHERE 
+                            person_id IN (
+                            SELECT id FROM person WHERE avinya_type_id = 37 AND organization_id = ${organization_id}
+                            )
+                            AND activity_instance_id IN (
+                                SELECT DISTINCT id 
+                                FROM activity_instance 
+                                WHERE activity_id = 4
+                            ) 
+                            AND DATE(sign_in_time) BETWEEN ${from_date} AND ${to_date}
+                        GROUP BY 
+                            DATE(sign_in_time), person_id
+                    ) AS daily_counts
+                    WHERE 
+                        DAYOFWEEK(attendance_date) BETWEEN 2 AND 6
+                    GROUP BY 
+                        attendance_date
+                    ORDER BY 
+                        attendance_date DESC;`
+                );
+            } 
+        }else{
+
+            lock{
+
+               total_attendance_count_by_date_records = db_client->query(
+                `SELECT 
+                        attendance_date,
+                        COUNT(DISTINCT person_id) AS daily_total
+                    FROM (
+                        SELECT 
+                            DATE(sign_in_time) AS attendance_date,
+                            person_id
+                        FROM 
+                            activity_participant_attendance
+                        WHERE 
+                            person_id IN (
+                                SELECT DISTINCT id 
+                                FROM person 
+                                WHERE avinya_type_id = 37 
+                                AND organization_id IN (
+                                    SELECT DISTINCT id 
+                                    FROM organization 
+                                    WHERE id IN (
+                                        SELECT DISTINCT child_org_id 
+                                        FROM parent_child_organization 
+                                        WHERE parent_org_id IN (
+                                            SELECT DISTINCT child_org_id 
+                                            FROM parent_child_organization 
+                                            WHERE parent_org_id = ${parent_organization_id}
+                                        )
+                                    ) 
+                                    AND avinya_type = 87
+                                )
+                            )
+                            AND activity_instance_id IN (
+                                SELECT DISTINCT id 
+                                FROM activity_instance 
+                                WHERE activity_id = 4
+                            ) 
+                            AND DATE(sign_in_time) BETWEEN ${from_date} AND ${to_date}
+                        GROUP BY 
+                            DATE(sign_in_time), person_id
+                    ) AS daily_counts
+                    WHERE 
+                        DAYOFWEEK(attendance_date) BETWEEN 2 AND 6 
+                    GROUP BY 
+                        attendance_date
+                    ORDER BY 
+                        attendance_date DESC;`
+                );
+            } 
+
+        }
+
+        TotalActivityParticipantAttendanceCountByDateData[] attendanceCountByDateDatas = [];
+
+        check from TotalActivityParticipantAttendanceCountByDate attendance_count_by_date_record in  total_attendance_count_by_date_records
+            do {
+                TotalActivityParticipantAttendanceCountByDateData|error attendanceCountByDateData = new TotalActivityParticipantAttendanceCountByDateData(attendance_count_by_date_record);
+                if !(attendanceCountByDateData is error) {
+                    attendanceCountByDateDatas.push(attendanceCountByDateData);
+                }
+            };
+        check  total_attendance_count_by_date_records.close();
+        return attendanceCountByDateDatas;
+
+      }else{
+        return error("Provide non-null values for both 'From Date' and 'To Date'.");
+      }
+    }
+
+}
+
+isolated function calculateWeekdays(time:Utc toDate, time:Utc fromDate) returns int {
+    int weekdays = 0;
+    time:Utc currentDate = fromDate;
+
+    while currentDate <= toDate {
+        time:Civil currentDateCivil = time:utcToCivil(currentDate);
+        if (time:SUNDAY < currentDateCivil.dayOfWeek && currentDateCivil.dayOfWeek < time:SATURDAY) {
+            weekdays += 1;
+        }
+        currentDate = time:utcAddSeconds(currentDate, 86400);
+    }
+   
+    return weekdays;
 }
 
   function padStartWithZeros(string str, int len) returns string {
@@ -3632,30 +4542,28 @@ isolated function updateDutyParticipantsRotationCycle() returns error?{
         string start_date = <string>duty_rotation_meta_data.start_date;
         string end_date  = <string>duty_rotation_meta_data.end_date;
 
-        // log:printInfo("=stringformat==");
-        // log:printInfo(start_date);
-        // log:printInfo(end_date);
 
         time:Utc start_date_in_utc = check time:utcFromString(start_date);
         time:Utc end_date_in_utc = check time:utcFromString(end_date);
 
-         // Parse the date strings into time:Time objects
-        // log:printInfo("=========utc format");
-        // log:printInfo(start_date_in_utc.toString());
-        // log:printInfo(end_date_in_utc.toString());
 
         time:Seconds difference_in_seconds  = time:utcDiffSeconds(end_date_in_utc,start_date_in_utc);
-         
-        // calculate next ending date
-        time:Utc next_ending_date = time:utcAddSeconds(end_date_in_utc,difference_in_seconds);
 
+
+        // calculate starting date
+        time:Utc next_starting_date = time:utcAddSeconds(end_date_in_utc,259200); // 3 days = 259200 seconds
+
+        // calculate  ending date
+        time:Utc next_ending_date = time:utcAddSeconds(next_starting_date,difference_in_seconds);
+
+       
+        string utcStringOfNextStartingDate = time:utcToString(next_starting_date);
         string utcStringOfNextEndingDate = time:utcToString(next_ending_date);
 
-        log:printInfo(utcStringOfNextEndingDate);
 
         sql:ExecutionResult res = check db_client->execute(
                                 `UPDATE duty_rotation_metadata SET
-                                start_date = ${end_date},
+                                start_date = ${utcStringOfNextStartingDate},
                                 end_date = ${utcStringOfNextEndingDate}               
                                 WHERE organization_id = ${duty_rotation_meta_data.organization_id};`
                             );
@@ -3693,10 +4601,9 @@ isolated function updateDutyParticipantsRotationCycle() returns error?{
         var updateResult = updateDutyParticipantsWorkRotation(dutyParticipantsArray);
         
           if(updateResult is error){
-            log:printInfo("updateresult");
             log:printError("Error update Rotation Cycle of duty participants: ", updateResult);
           }else{
-            log:printInfo("Duty participants Rotation Cycle updated successfully-2");
+            log:printInfo("Duty participants Rotation Cycle updated successfully");
           }
 
     };
@@ -3722,16 +4629,17 @@ isolated function updateDutyParticipantsWorkRotation(DutyParticipant[] dutyParti
               };
                  
            foreach DutyParticipant activityObject in dutyParticipantsArray{
-                    io:println("activity object id:",activityObject.activity_id);
-                    io:println("activity ids:",dynamicDutyActivitiesArray);
+
+              if(activityObject.role == "member"){
+
                      int? currentIndex = dynamicDutyActivitiesArray.indexOf(activityObject.activity_id);
                      int? nextIndex = (currentIndex + 1) % dynamicDutyActivitiesArray.length();
         
                  if(currentIndex != null && nextIndex !=null){
 
-                     io:println("before updating id:",activityObject);
+                     
                      activityObject.activity_id = dynamicDutyActivitiesArray[nextIndex];
-                     io:println("after updating id:",activityObject);
+                     
 
 
                        int id = activityObject.id ?: 0;
@@ -3750,6 +4658,7 @@ isolated function updateDutyParticipantsWorkRotation(DutyParticipant[] dutyParti
                         }
 
                    }
+                }
             }     
 
 }
