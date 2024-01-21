@@ -4188,7 +4188,7 @@ lock {
 
           lock{
             attendance_missed_by_security_records = db_client->query(
-                `SELECT DATE(a.sign_in_time) AS sign_in_time,p.digital_id,o.description
+                `SELECT DATE(a.sign_in_time) AS sign_in_time,p.preferred_name,p.digital_id,o.description
                     FROM person p
                     JOIN activity_participant_attendance a ON p.id = a.person_id
                     JOIN activity_instance ai ON a.activity_instance_id = ai.id
@@ -4207,7 +4207,7 @@ lock {
                         )
                         AND o.id = ${organization_id}
                         AND DATE(a.sign_in_time) BETWEEN ${from_date} AND ${to_date}
-                    GROUP BY p.digital_id, sign_in_time, ai.id, p.organization_id
+                    GROUP BY p.preferred_name,p.digital_id, sign_in_time, ai.id, p.organization_id
                     ORDER BY ai.id DESC;`
                 );
             } 
@@ -4216,7 +4216,7 @@ lock {
             lock{
 
                attendance_missed_by_security_records = db_client->query(
-                `SELECT DATE(a.sign_in_time) AS sign_in_time,p.digital_id,o.description
+                `SELECT DATE(a.sign_in_time) AS sign_in_time,p.preferred_name,p.digital_id,o.description
                     FROM person p
                     JOIN activity_participant_attendance a ON p.id = a.person_id
                     JOIN activity_instance ai ON a.activity_instance_id = ai.id
@@ -4246,7 +4246,7 @@ lock {
                                             )
                                         ))
                         AND DATE(a.sign_in_time) BETWEEN ${from_date} AND ${to_date}
-                    GROUP BY p.digital_id, sign_in_time, ai.id, p.organization_id
+                    GROUP BY p.preferred_name,p.digital_id, sign_in_time, ai.id, p.organization_id
                     ORDER BY ai.id DESC;`
                 );
             } 
