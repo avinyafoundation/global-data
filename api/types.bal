@@ -477,6 +477,7 @@ public type ActivityParticipantAttendanceForLateAttendance record {|
 public type ActivityParticipantAttendanceMissedBySecurity record {|
     readonly string? record_type = "activity_participant_attendance_missed_by_security";
     string? sign_in_time;
+    string? preferred_name;
     string? digital_id;
     string? description;
 |};
