@@ -2,6 +2,7 @@ public isolated service class ActivityParticipantAttendanceMissedBySecurityData 
     private ActivityParticipantAttendanceMissedBySecurity activity_participant_attendance_missed_by_security = {
         sign_in_time: "",
         description: "",
+        preferred_name:"",
         digital_id: ""
     };
 
@@ -23,6 +24,13 @@ public isolated service class ActivityParticipantAttendanceMissedBySecurityData 
     isolated resource function get description() returns string? {
         lock {
                 return self.activity_participant_attendance_missed_by_security.description;
+        }
+    }
+
+
+    isolated resource function get preferred_name() returns string? {
+        lock {
+                return self.activity_participant_attendance_missed_by_security.preferred_name;
         }
     }
 
