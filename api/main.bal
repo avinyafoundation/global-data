@@ -3761,7 +3761,7 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
                         LEFT JOIN evaluation e ON p.id = e.evaluatee_id 
                         WHERE p.avinya_type_id = 37 AND p.id != 26 AND o.avinya_type != 95
                         AND e.evaluation_criteria_id=110
-                        AND DATE(e.updated) BETWEEN ${from_date} AND ${to_date}
+                        AND DATE(e.created) BETWEEN ${from_date} AND ${to_date}
                         AND p.id IN (SELECT id FROM person WHERE avinya_type_id = 37 AND organization_id = ${organization_id});`
                     );
                 late_attendance_duty = db_client->query(
@@ -3894,7 +3894,7 @@ JOIN organization o ON o.id = p.organization_id
 LEFT JOIN evaluation e ON p.id = e.evaluatee_id 
 WHERE p.avinya_type_id = 37 AND p.id != 26 AND o.avinya_type != 95
 AND e.evaluation_criteria_id=110
-AND DATE(e.updated) BETWEEN ${from_date} AND ${to_date}
+AND DATE(e.created) BETWEEN ${from_date} AND ${to_date}
 AND p.organization_id IN (
 						SELECT id
 						FROM organization
