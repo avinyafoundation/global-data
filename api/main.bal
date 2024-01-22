@@ -3945,7 +3945,7 @@ if (to_date != null && from_date != null) {
         time:Utc fromDate = check time:utcFromString(from_date + "T00:00:00Z");
         int weekDaysDurationInSeconds = calculateWeekdays(toDate, fromDate);
         days = <decimal>weekDaysDurationInSeconds;
-        io:println("Time taken days " + days.toString());
+        io:println("Time taken days2 " + days.toString());
         string emailFormattedString = time:utcToEmailString(toDate, "Z");
         string dayAbbreviation = emailFormattedString.substring(0, 3);
         io:println(`Email formatted string: ${dayAbbreviation}`);
