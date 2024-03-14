@@ -474,6 +474,16 @@ public type ActivityParticipantAttendanceForLateAttendance record {|
     string? digital_id;
 |};
 
+public type ActivityParticipantAttendanceSummaryReport record {|
+    readonly string? record_type = "activity_participant_attendance_summary_report";
+    string? sign_in_date;
+    int? present_count;
+    int? late_count;
+    int? total_count;
+    decimal? present_attendance_percentage;
+    decimal? late_attendance_percentage;
+|};
+
 public type ActivityParticipantAttendanceMissedBySecurity record {|
     readonly string? record_type = "activity_participant_attendance_missed_by_security";
     string? sign_in_time;
