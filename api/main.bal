@@ -1625,7 +1625,10 @@ io:println(id_no);
 
         time:Utc startTime = time:utcNow();
 
-        int|error? avinya_type_id = db_client->queryRow(
+
+        if (result_limit > 0) {
+            lock {
+                int|error? avinya_type_id = db_client->queryRow(
             `SELECT avinya_type FROM organization WHERE id = ${organization_id};`
         );
                     io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
@@ -1634,10 +1637,6 @@ io:println(id_no);
             io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
             return error("AvinyaType ID does not exist");
         }
-
-
-        if (result_limit > 0) {
-            lock {
                 attendance_records = db_client->query(
                     `SELECT * 
                     FROM activity_participant_attendance
@@ -1651,6 +1650,15 @@ io:println(id_no);
             if(from_date != null && to_date != null){
                 if(organization_id != null){
                     lock {
+                        int|error? avinya_type_id = db_client->queryRow(
+            `SELECT avinya_type FROM organization WHERE id = ${organization_id};`
+        );
+                    io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
+
+         if !(avinya_type_id is int) {
+            io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
+            return error("AvinyaType ID does not exist");
+        }
                     attendance_records = db_client->query(
                         `SELECT *
                         FROM activity_participant_attendance
@@ -1665,7 +1673,7 @@ io:println(id_no);
                         attendance_records = db_client->query(
                             `SELECT *
                             FROM activity_participant_attendance
-                            WHERE person_id in (SELECT id FROM person WHERE avinya_type_id=${avinya_type_id} AND
+                            WHERE person_id in (SELECT id FROM person WHERE avinya_type_id=37 AND
                             organization_id in (SELECT id FROM organization WHERE id in (SELECT child_org_id FROM parent_child_organization WHERE parent_org_id IN (SELECT child_org_id from parent_child_organization where parent_org_id = ${parent_organization_id})) AND avinya_type IN (87, 10, 96)))
                             AND activity_instance_id in (SELECT id FROM activity_instance WHERE activity_id = ${activity_id}) 
                             AND DATE(sign_in_time) BETWEEN ${from_date} AND ${to_date}
@@ -1675,6 +1683,15 @@ io:println(id_no);
                 }  
             } else {
                 lock {
+                    int|error? avinya_type_id = db_client->queryRow(
+            `SELECT avinya_type FROM organization WHERE id = ${organization_id};`
+        );
+                    io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
+
+         if !(avinya_type_id is int) {
+            io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
+            return error("AvinyaType ID does not exist");
+        }
                     attendance_records = db_client->query(
                         `SELECT * 
                         FROM activity_participant_attendance
