@@ -1747,7 +1747,7 @@ LEFT JOIN person p ON apa.person_id = p.id
                     FROM activity_participant_attendance
                     WHERE person_id in (SELECT id FROM person WHERE organization_id = ${organization_id} AND avinya_type_id=${avinya_type_id}) AND 
                     activity_instance_id in (SELECT id FROM activity_instance WHERE activity_id = ${activity_id}) 
-                    AND TIME_FORMAT(sign_in_time, '%H:%i:%s') > '07:30:59'
+                    AND TIME_FORMAT(sign_in_time, '%H:%i:%s') > '08:30:59'
                     ORDER BY created DESC
                     LIMIT ${result_limit};`
                 );
@@ -1763,7 +1763,7 @@ LEFT JOIN person p ON apa.person_id = p.id
                         WHERE person_id IN (SELECT id FROM person WHERE organization_id = ${organization_id} AND avinya_type_id=${avinya_type_id})
                         AND activity_instance_id IN (SELECT id FROM activity_instance WHERE activity_id = ${activity_id})
                         AND DATE(sign_in_time) BETWEEN ${from_date} AND ${to_date}
-                        AND TIME_FORMAT(sign_in_time, '%H:%i:%s') > '07:30:59'
+                        AND TIME_FORMAT(sign_in_time, '%H:%i:%s') > '08:30:59'
                         ORDER BY created DESC;`
                     );
                 }
@@ -1778,7 +1778,7 @@ WHERE apa.person_id in (SELECT id FROM person WHERE avinya_type_id=${avinya_type
 organization_id in (SELECT id FROM organization WHERE id in (SELECT child_org_id FROM parent_child_organization WHERE parent_org_id IN (SELECT child_org_id from parent_child_organization where parent_org_id = ${parent_organization_id})) AND avinya_type IN (87, 10, 96)))
 AND apa.activity_instance_id in (SELECT id FROM activity_instance WHERE activity_id = ${activity_id}) 
 AND DATE(apa.sign_in_time) BETWEEN ${from_date} AND ${to_date}
-AND TIME_FORMAT(apa.sign_in_time, '%H:%i:%s') > '07:30:59'
+AND TIME_FORMAT(apa.sign_in_time, '%H:%i:%s') > '08:30:59'
 ORDER BY DATE(apa.sign_in_time) DESC;`
                         );
                     }
@@ -1791,7 +1791,7 @@ FROM activity_participant_attendance apa
 LEFT JOIN person p ON apa.person_id = p.id
                         WHERE person_id in (SELECT id FROM person WHERE organization_id = ${organization_id} AND avinya_type_id=${avinya_type_id}) AND 
                         activity_instance_id in (SELECT id FROM activity_instance WHERE activity_id = ${activity_id}) 
-                        AND TIME_FORMAT(sign_in_time, '%H:%i:%s') > '07:30:59'
+                        AND TIME_FORMAT(sign_in_time, '%H:%i:%s') > '08:30:59'
                         ORDER BY created DESC;`
                     );
                 }
@@ -3781,7 +3781,7 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
                         WHERE apa.person_id IN (SELECT id FROM person WHERE organization_id = ${organization_id} AND avinya_type_id = 37)
                         AND apa.activity_instance_id IN (SELECT id FROM activity_instance WHERE activity_id = 4)
                         AND DATE(apa.sign_in_time) BETWEEN ${from_date} AND ${to_date}
-                        AND TIME_FORMAT(apa.sign_in_time, '%H:%i:%s') > '07:30:59';`
+                        AND TIME_FORMAT(apa.sign_in_time, '%H:%i:%s') > '08:30:59';`
                     );
                 present_count_duty = db_client->query(
                         `SELECT IFNULL(CAST(SUM(present_count_duty) AS SIGNED), 0) AS present_count_duty
@@ -3893,7 +3893,7 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
                                 AND avinya_type_id = 37
                                     AND apa.activity_instance_id IN (SELECT id FROM activity_instance WHERE activity_id = 4)
                                     AND DATE(apa.sign_in_time) BETWEEN ${from_date} AND ${to_date}
-                                    AND TIME_FORMAT(apa.sign_in_time, '%H:%i:%s') > '07:30:59';`
+                                    AND TIME_FORMAT(apa.sign_in_time, '%H:%i:%s') > '08:30:59';`
                         );
             }
             lock {
@@ -4542,7 +4542,7 @@ lock {
                                         `SELECT
                                             DATE(pa.sign_in_time) AS sign_in_date,
                                             COUNT(pa.person_id) AS present_count,
-                                            COUNT(CASE WHEN TIME_FORMAT(pa.sign_in_time, '%H:%i:%s') > '07:30:59' THEN 1 END) AS late_count,
+                                            COUNT(CASE WHEN TIME_FORMAT(pa.sign_in_time, '%H:%i:%s') > '08:30:59' THEN 1 END) AS late_count,
                                             ts.total_count
                                         FROM
                                             activity_participant_attendance pa
