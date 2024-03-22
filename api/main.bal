@@ -1629,7 +1629,7 @@ io:println(id_no);
         if (result_limit > 0) {
             lock {
                 int|error? avinya_type_id = db_client->queryRow(
-            `SELECT avinya_type FROM organization WHERE id = ${organization_id};`
+            `SELECT p.avinya_type_id FROM organization o left join person p on o.id = p.organization_id WHERE o.id = ${organization_id} AND p.avinya_type_id NOT IN (99, 100) ORDER BY p.avinya_type_id LIMIT 1;`
         );
                     io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
 
@@ -1651,7 +1651,7 @@ io:println(id_no);
                 if(organization_id != null){
                     lock {
                         int|error? avinya_type_id = db_client->queryRow(
-            `SELECT avinya_type FROM organization WHERE id = ${organization_id};`
+            `SELECT p.avinya_type_id FROM organization o left join person p on o.id = p.organization_id WHERE o.id = ${organization_id} AND p.avinya_type_id NOT IN (99, 100) ORDER BY p.avinya_type_id LIMIT 1;`
         );
                     io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
 
@@ -1684,7 +1684,7 @@ io:println(id_no);
             } else {
                 lock {
                     int|error? avinya_type_id = db_client->queryRow(
-            `SELECT avinya_type FROM organization WHERE id = ${organization_id};`
+            `SELECT p.avinya_type_id FROM organization o left join person p on o.id = p.organization_id WHERE o.id = ${organization_id} AND p.avinya_type_id NOT IN (99, 100) ORDER BY p.avinya_type_id LIMIT 1;`
         );
                     io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
 
@@ -1729,7 +1729,7 @@ io:println(id_no);
         time:Utc startTime = time:utcNow();
 
           int|error? avinya_type_id = db_client->queryRow(
-            `SELECT avinya_type FROM organization WHERE id = ${organization_id};`
+            `SELECT p.avinya_type_id FROM organization o left join person p on o.id = p.organization_id WHERE o.id = ${organization_id} AND p.avinya_type_id NOT IN (99, 100) ORDER BY p.avinya_type_id LIMIT 1;`
         );
                     io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
 
@@ -3710,11 +3710,20 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
         decimal total_students_count = 0;
 
         if (organization_id != null) {
+              int|error? avinya_type_id = db_client->queryRow(
+            `SELECT p.avinya_type_id FROM organization o left join person p on o.id = p.organization_id WHERE o.id = ${organization_id} AND p.avinya_type_id NOT IN (99, 100) ORDER BY p.avinya_type_id LIMIT 1;`
+        );
+                    io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
+
+         if !(avinya_type_id is int) {
+            io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
+            return error("AvinyaType ID does not exist");
+        }
             students_raw = db_client->queryRow(
             `SELECT CAST(COUNT(*) AS DECIMAL) AS total_students
                             FROM person p
                             JOIN organization o ON o.id = p.organization_id
-                            WHERE p.avinya_type_id = 37 AND p.id != 26 AND o.avinya_type != 95
+                            WHERE p.avinya_type_id = ${avinya_type_id} AND p.id != 26 AND o.avinya_type NOT IN (95, 97, 98)
                             AND p.organization_id = ${organization_id};`
         );
         } else {
@@ -3722,7 +3731,7 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
             `SELECT CAST(COUNT(*) AS DECIMAL) AS total_students
                             FROM person p
                             JOIN organization o ON o.id = p.organization_id
-                            WHERE p.avinya_type_id = 37 AND p.id != 26 AND o.avinya_type != 95
+                            WHERE p.avinya_type_id IN (37, 10, 96) AND p.id != 26 AND o.avinya_type NOT IN (95, 97, 98)
                             AND p.organization_id IN (
                                                                     SELECT id
                                                                     FROM organization
@@ -3749,13 +3758,22 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
 
         if (organization_id != null) {
             lock {
+                     int|error? avinya_type_id = db_client->queryRow(
+            `SELECT p.avinya_type_id FROM organization o left join person p on o.id = p.organization_id WHERE o.id = ${organization_id} AND p.avinya_type_id NOT IN (99, 100) ORDER BY p.avinya_type_id LIMIT 1;`
+        );
+                    io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
+
+         if !(avinya_type_id is int) {
+            io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
+            return error("AvinyaType ID does not exist");
+        }
                 present_count = db_client->query(
                         `SELECT IFNULL(CAST(SUM(present_count) AS SIGNED), 0) AS present_count
                             FROM (SELECT COUNT(DISTINCT person_id) AS present_count
                                 FROM activity_participant_attendance
                                 WHERE sign_in_time IS NOT NULL
                                     AND activity_instance_id IN (SELECT id FROM activity_instance WHERE activity_id = 4 ORDER BY id DESC) 
-                                    AND person_id IN (SELECT id FROM person WHERE avinya_type_id = 37 AND organization_id = ${organization_id}) 
+                                    AND person_id IN (SELECT id FROM person WHERE avinya_type_id = ${avinya_type_id} AND organization_id = ${organization_id}) 
                                     AND DATE(sign_in_time) BETWEEN ${from_date} AND ${to_date}
                                 GROUP BY DATE(sign_in_time)) AS counts;`
                     );
@@ -3771,14 +3789,14 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
                                     AND DATE(sign_in_time) BETWEEN ${from_date} AND ${to_date}
                             ) AS subquery
                             LEFT JOIN activity_participant_attendance a ON p.id = a.person_id AND DATE(a.sign_in_time) = subquery.a_date 
-                            WHERE a.person_id IS NULL AND p.avinya_type_id = 37 AND p.id != 26 AND o.avinya_type != 95 AND organization_id = ${organization_id}
+                            WHERE a.person_id IS NULL AND p.avinya_type_id = ${avinya_type_id} AND p.id != 26 AND o.avinya_type NOT IN (95, 97, 98) AND organization_id = ${organization_id}
                             ORDER BY subquery.a_date DESC;`
                     );
                 late_attendance = db_client->query(
                         `SELECT COUNT(*) AS late_attendance
                         FROM activity_participant_attendance apa
                         LEFT JOIN person p ON apa.person_id = p.id
-                        WHERE apa.person_id IN (SELECT id FROM person WHERE organization_id = ${organization_id} AND avinya_type_id = 37)
+                        WHERE apa.person_id IN (SELECT id FROM person WHERE organization_id = ${organization_id} AND avinya_type_id = ${avinya_type_id})
                         AND apa.activity_instance_id IN (SELECT id FROM activity_instance WHERE activity_id = 4)
                         AND DATE(apa.sign_in_time) BETWEEN ${from_date} AND ${to_date}
                         AND TIME_FORMAT(apa.sign_in_time, '%H:%i:%s') > '08:30:59';`
@@ -3789,7 +3807,7 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
                                 FROM activity_participant_attendance
                                 WHERE sign_in_time IS NOT NULL
                                     AND activity_instance_id IN (SELECT id FROM activity_instance WHERE activity_id = 11 ORDER BY id DESC) 
-                                    AND person_id IN (SELECT id FROM person WHERE avinya_type_id = 37 AND organization_id = ${organization_id}) 
+                                    AND person_id IN (SELECT id FROM person WHERE avinya_type_id = ${avinya_type_id} AND organization_id = ${organization_id}) 
                                     AND DATE(sign_in_time) BETWEEN ${from_date} AND ${to_date}
                                 GROUP BY DATE(sign_in_time)) AS counts;`
                     );
@@ -3797,16 +3815,16 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
                         `select COUNT(e.id) AS absent_count_duty FROM person p
                         JOIN organization o ON o.id = p.organization_id 
                         LEFT JOIN evaluation e ON p.id = e.evaluatee_id 
-                        WHERE p.avinya_type_id = 37 AND p.id != 26 AND o.avinya_type != 95
+                        WHERE p.avinya_type_id = ${avinya_type_id} AND p.id != 26 AND o.avinya_type NOT IN (95, 97, 98)
                         AND e.evaluation_criteria_id=110
                         AND DATE(e.created) BETWEEN ${from_date} AND ${to_date}
-                        AND p.id IN (SELECT id FROM person WHERE avinya_type_id = 37 AND organization_id = ${organization_id});`
+                        AND p.id IN (SELECT id FROM person WHERE avinya_type_id = ${avinya_type_id} AND organization_id = ${organization_id});`
                     );
                 late_attendance_duty = db_client->query(
                         `SELECT COUNT(*) AS late_attendance_duty
                         FROM activity_participant_attendance apa
                         LEFT JOIN person p ON apa.person_id = p.id
-                        WHERE apa.person_id IN (SELECT id FROM person WHERE organization_id = ${organization_id} AND avinya_type_id = 37)
+                        WHERE apa.person_id IN (SELECT id FROM person WHERE organization_id = ${organization_id} AND avinya_type_id = ${avinya_type_id})
                         AND apa.activity_instance_id IN (SELECT id FROM activity_instance WHERE activity_id = 11)
                         AND DATE(apa.sign_in_time) BETWEEN ${from_date} AND ${to_date}
                         AND TIME_FORMAT(apa.sign_in_time, '%H:%i:%s') > '14:00:00';`
@@ -3825,7 +3843,7 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
                                         WHERE activity_id = 4
                                         ORDER BY id DESC
                                     )
-                                    AND p.avinya_type_id = 37
+                                    AND p.avinya_type_id IN (37, 10, 96)
                                     AND DATE(pa.sign_in_time) BETWEEN ${from_date} AND ${to_date}
                                     AND p.organization_id IN (
                                         SELECT id
@@ -3855,7 +3873,7 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
                                     AND DATE(sign_in_time) BETWEEN ${from_date} AND ${to_date}
                             ) AS subquery
                             LEFT JOIN activity_participant_attendance a ON p.id = a.person_id AND DATE(a.sign_in_time) = subquery.a_date 
-                            WHERE a.person_id IS NULL AND p.avinya_type_id = 37 AND p.id != 26 AND o.avinya_type != 95
+                            WHERE a.person_id IS NULL AND p.avinya_type_id IN (37, 10, 96) AND p.id != 26 AND o.avinya_type NOT IN (95, 97, 98)
                             AND p.organization_id IN (
                                                                     SELECT id
                                                                     FROM organization
@@ -3890,7 +3908,7 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
                                                                             )
                                                                         )
                                                                     )
-                                AND avinya_type_id = 37
+                                AND avinya_type_id IN (37, 10, 96)
                                     AND apa.activity_instance_id IN (SELECT id FROM activity_instance WHERE activity_id = 4)
                                     AND DATE(apa.sign_in_time) BETWEEN ${from_date} AND ${to_date}
                                     AND TIME_FORMAT(apa.sign_in_time, '%H:%i:%s') > '08:30:59';`
@@ -3908,7 +3926,7 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
                                         WHERE activity_id = 11
                                         ORDER BY id DESC
                                     )
-                                    AND p.avinya_type_id = 37
+                                    AND p.avinya_type_id IN (37, 10, 96)
                                     AND DATE(pa.sign_in_time) BETWEEN ${from_date} AND ${to_date}
                                     AND p.organization_id IN (
                                         SELECT id
@@ -3930,7 +3948,7 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
                         `select COUNT(e.id) AS absent_count_duty FROM person p
 JOIN organization o ON o.id = p.organization_id 
 LEFT JOIN evaluation e ON p.id = e.evaluatee_id 
-WHERE p.avinya_type_id = 37 AND p.id != 26 AND o.avinya_type != 95
+WHERE p.avinya_type_id IN (37, 10, 96) AND p.id != 26 AND o.avinya_type NOT IN (95, 97, 98)
 AND e.evaluation_criteria_id=110
 AND DATE(e.created) BETWEEN ${from_date} AND ${to_date}
 AND p.organization_id IN (
@@ -3966,7 +3984,7 @@ AND p.organization_id IN (
                                                                             )
                                                                         )
                                                                     )
-                                AND avinya_type_id = 37
+                                AND avinya_type_id IN (37, 10, 96)
                                     AND apa.activity_instance_id IN (SELECT id FROM activity_instance WHERE activity_id = 11)
                                     AND DATE(apa.sign_in_time) BETWEEN ${from_date} AND ${to_date}
                                     AND TIME_FORMAT(apa.sign_in_time, '%H:%i:%s') > '14:00:00';`
@@ -4225,13 +4243,22 @@ lock {
         if(organization_id !=null){
 
           lock{
+             int|error? avinya_type_id = db_client->queryRow(
+            `SELECT p.avinya_type_id FROM organization o left join person p on o.id = p.organization_id WHERE o.id = ${organization_id} AND p.avinya_type_id NOT IN (99, 100) ORDER BY p.avinya_type_id LIMIT 1;`
+        );
+                    io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
+
+         if !(avinya_type_id is int) {
+            io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
+            return error("AvinyaType ID does not exist");
+        }
             attendance_missed_by_security_records = db_client->query(
                 `SELECT DATE(a.sign_in_time) AS sign_in_time,p.preferred_name,p.digital_id,o.description
                     FROM person p
                     JOIN activity_participant_attendance a ON p.id = a.person_id
                     JOIN activity_instance ai ON a.activity_instance_id = ai.id
                     JOIN organization o ON o.id = p.organization_id
-                    WHERE p.avinya_type_id = 37
+                    WHERE p.avinya_type_id = ${avinya_type_id}
                         AND o.avinya_type!=95
                         AND ai.activity_id = 1
                         AND a.sign_in_time IS NOT NULL
@@ -4259,8 +4286,8 @@ lock {
                     JOIN activity_participant_attendance a ON p.id = a.person_id
                     JOIN activity_instance ai ON a.activity_instance_id = ai.id
                     JOIN organization o ON o.id = p.organization_id
-                    WHERE p.avinya_type_id = 37
-                        AND o.avinya_type!=95
+                    WHERE p.avinya_type_id IN (37, 10, 96)
+                        AND o.avinya_type NOT IN (95, 97, 98)
                         AND ai.activity_id = 1
                         AND a.sign_in_time IS NOT NULL
                         AND NOT EXISTS (
@@ -4324,7 +4351,7 @@ lock {
                         SELECT COUNT(p_total.id) 
                         FROM person p_total
                         WHERE p_total.organization_id = o.id
-                        AND p_total.avinya_type_id = 37
+                        AND p_total.avinya_type_id IN (37, 10, 96)
                     ) AS total_student_count
                 FROM 
                     activity_participant_attendance pa
@@ -4340,7 +4367,7 @@ lock {
                         WHERE activity_id = 4
                         ORDER BY id DESC
                     )
-                    AND p.avinya_type_id = 37
+                    AND p.avinya_type_id IN (37, 10, 96)
                     AND DATE(pa.sign_in_time) = CURRENT_DATE()
                     AND p.organization_id IN (
                         SELECT id
@@ -4402,7 +4429,17 @@ lock {
 
                     daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/icons/icons8-elephant-100.png";
                     daily_activity_participant_attendance_by_parent_org_record.color = "0xFFDAA520";
-                  }          
+                  }
+                  if(value == "IT"){
+
+                    daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/icons/icons8-computer-96.png";
+                    daily_activity_participant_attendance_by_parent_org_record.color = "0xFF008000";
+                  }
+                if(value == "CS"){
+
+                    daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/icons/icons8-customer-service-64.png";
+                    daily_activity_participant_attendance_by_parent_org_record.color = "0xFFFF00FF";
+                  }         
                 
             }
 
@@ -4428,6 +4465,15 @@ lock {
         if(organization_id !=null){
 
           lock{
+              int|error? avinya_type_id = db_client->queryRow(
+            `SELECT p.avinya_type_id FROM organization o left join person p on o.id = p.organization_id WHERE o.id = ${organization_id} AND p.avinya_type_id NOT IN (99, 100) ORDER BY p.avinya_type_id LIMIT 1;`
+        );
+                    io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
+
+         if !(avinya_type_id is int) {
+            io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
+            return error("AvinyaType ID does not exist");
+        }
             total_attendance_count_by_date_records = db_client->query(
                 `SELECT 
                         attendance_date,
@@ -4440,7 +4486,7 @@ lock {
                             activity_participant_attendance
                         WHERE 
                             person_id IN (
-                            SELECT id FROM person WHERE avinya_type_id = 37 AND organization_id = ${organization_id}
+                            SELECT id FROM person WHERE avinya_type_id = ${avinya_type_id} AND organization_id = ${organization_id}
                             )
                             AND activity_instance_id IN (
                                 SELECT DISTINCT id 
@@ -4477,7 +4523,7 @@ lock {
                             person_id IN (
                                 SELECT DISTINCT id 
                                 FROM person 
-                                WHERE avinya_type_id = 37 
+                                WHERE avinya_type_id IN (37, 10, 96)
                                 AND organization_id IN (
                                     SELECT DISTINCT id 
                                     FROM organization 
@@ -4490,7 +4536,7 @@ lock {
                                             WHERE parent_org_id = ${parent_organization_id}
                                         )
                                     ) 
-                                    AND avinya_type = 87
+                                    AND avinya_type IN (87, 10, 96)
                                 )
                             )
                             AND activity_instance_id IN (
