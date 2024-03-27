@@ -636,3 +636,11 @@ public type DutyRotationMetaDetails record{|
     string? end_date;
     int? organization_id;
 |};
+
+public type OrganizationMetaDataDetails record{|
+    readonly string?  record_type = "organization_metadata";
+    int id?;
+    int? organization_id;
+    string? key_name;
+    string? value;
+|};

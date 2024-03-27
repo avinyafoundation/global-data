@@ -4493,72 +4493,59 @@ lock {
       }
     }
 
-    isolated resource function get daily_attendance_summary_report(int? parent_organization_id, string? from_date = null, string? to_date = null) returns DailyActivityParticipantAttendanceSummaryReportData[]|error? {
+    isolated resource function get daily_attendance_summary_report(int? organization_id,int? avinya_type_id,string? from_date = null, string? to_date = null) returns DailyActivityParticipantAttendanceSummaryReportData[]|error? {
         
       stream<ActivityParticipantAttendanceSummaryReport, error?> daily_attendance_summary_report_records;
+
 
       if(from_date != null && to_date != null) {
 
           lock{
             
             daily_attendance_summary_report_records = db_client->query(
-                                        `SELECT
-                                            DATE(pa.sign_in_time) AS sign_in_date,
-                                            COUNT(pa.person_id) AS present_count,
-                                            COUNT(CASE WHEN TIME_FORMAT(pa.sign_in_time, '%H:%i:%s') > '07:30:59' THEN 1 END) AS late_count,
-                                            ts.total_count
-                                        FROM
-                                            activity_participant_attendance pa
-                                            JOIN person p ON pa.person_id = p.id
-                                            JOIN (
-                                                SELECT COUNT(*) AS total_count
-                                                FROM person p
-                                                JOIN organization o ON o.id = p.organization_id
-                                                WHERE p.avinya_type_id = 37
-                                                AND p.id != 26
-                                                AND o.avinya_type != 95
-                                                AND p.organization_id IN (
-                                                    SELECT id
-                                                    FROM organization
-                                                    WHERE id IN (
-                                                        SELECT child_org_id
-                                                        FROM parent_child_organization
-                                                        WHERE parent_org_id IN (
-                                                            SELECT child_org_id
-                                                            FROM parent_child_organization
-                                                            WHERE parent_org_id = ${parent_organization_id}
-                                                        )
-                                                    )
-                                                )
-                                            ) ts
-                                        WHERE
-                                            pa.sign_in_time IS NOT NULL
-                                            AND pa.activity_instance_id IN (
-                                                SELECT id
-                                                FROM activity_instance
-                                                WHERE activity_id = 4
+                                `SELECT
+                                    DATE(pa.sign_in_time) AS sign_in_date,
+                                    COUNT(pa.person_id) AS present_count,
+                                    COUNT(CASE WHEN TIME_FORMAT(pa.sign_in_time, '%H:%i:%s') > '07:30:59' THEN 1 END) AS late_count,
+                                    ts.total_count
+                                FROM
+                                    activity_participant_attendance pa
+                                    JOIN person p ON pa.person_id = p.id
+                                    JOIN (
+                                        SELECT COUNT(*) AS total_count
+                                        FROM person p
+                                        JOIN organization o ON o.id = p.organization_id
+                                        WHERE p.avinya_type_id = ${avinya_type_id}
+                                        AND p.id != 26
+                                        AND p.organization_id IN (
+                                            SELECT id
+                                            FROM organization
+                                            WHERE id IN (
+                                                SELECT child_org_id
+                                                FROM parent_child_organization
+                                                WHERE parent_org_id =${organization_id}
                                             )
-                                            AND p.avinya_type_id = 37
-                                            AND DATE(pa.sign_in_time) BETWEEN ${from_date} AND ${to_date}
-                                            AND p.organization_id IN (
-                                                SELECT id
-                                                FROM organization
-                                                WHERE id IN (
-                                                    SELECT child_org_id
-                                                    FROM parent_child_organization
-                                                    WHERE parent_org_id IN (
-                                                        SELECT child_org_id
-                                                        FROM parent_child_organization
-                                                        WHERE parent_org_id = ${parent_organization_id}
-                                                    )
-                                                )
-                                            )
-                                        GROUP BY DATE(pa.sign_in_time), ts.total_count;`);
+                                        )
+                                    ) ts
+                                WHERE
+                                    pa.sign_in_time IS NOT NULL
+                                    AND pa.activity_instance_id IN (
+                                        SELECT id
+                                        FROM activity_instance
+                                        WHERE activity_id = 4
+                                    )
+                                    AND p.avinya_type_id = ${avinya_type_id}
+                                    AND DATE(pa.sign_in_time) BETWEEN ${from_date} AND ${to_date}
+                                GROUP BY DATE(pa.sign_in_time), ts.total_count;`);                                       
+                                                      
             } 
             
             DailyActivityParticipantAttendanceSummaryReportData[] attendanceSummaryReportDatas = [];
+            decimal? present_attendance_percentage = 0.0;
+            decimal? late_attendance_percentage = 0.0;
 
             check from ActivityParticipantAttendanceSummaryReport attendance_summary_report_record in  daily_attendance_summary_report_records
+            
             do {
                 
                 int? present_count = attendance_summary_report_record.present_count;
@@ -4568,19 +4555,26 @@ lock {
                 int? total_count   = attendance_summary_report_record.total_count;
                 
                 
+              if(total_count > 0){  
                 
-                decimal? present_attendance_percentage = (present_count * 100) / total_count;
+                present_attendance_percentage = (present_count * 100) / total_count;
                 
-                decimal? late_attendance_percentage = (late_count * 100) / total_count;
-
+                late_attendance_percentage = (late_count * 100) / total_count;
+              
+              }else{
+                present_attendance_percentage = 0;
+                
+                late_attendance_percentage = 0;
+              
+              }
                 
                 
-                if (present_attendance_percentage is null) {
-                    present_attendance_percentage = 0;
-                }
-                if(late_attendance_percentage is null){
-                    late_attendance_percentage = 0;
-                }
+                // if (present_attendance_percentage is null) {
+                //     present_attendance_percentage = 0;
+                // }
+                // if(late_attendance_percentage is null){
+                //     late_attendance_percentage = 0;
+                // }
                 
                 decimal roundedPresentAttendancePercentage = 0;
                 decimal roundedLateAttendancePercentage = 0;
