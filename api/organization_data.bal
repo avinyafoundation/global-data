@@ -212,4 +212,29 @@ lock{
 
         return vacanciesData;
     }
+
+    isolated resource function get organization_metadata() returns OrganizationMetaData[]|error? {
+       
+        stream<OrganizationMetaDataDetails, error?> org_meta_data;
+        lock {
+            org_meta_data = db_client->query(
+                `SELECT *
+                FROM organization_metadata
+                WHERE organization_id = ${self.organization.id}`
+            );
+        }
+
+        OrganizationMetaData[] org_meta_data_details = [];
+
+        check from OrganizationMetaDataDetails orgmetdatadetails in org_meta_data
+            do {
+                OrganizationMetaData|error org_meta_data_det = new OrganizationMetaData((),(),orgmetdatadetails);
+                if !(org_meta_data_det is error) {
+                    org_meta_data_details.push(org_meta_data_det);
+                }
+            };
+        check org_meta_data.close();
+        return org_meta_data_details;
+    }
+
 }
