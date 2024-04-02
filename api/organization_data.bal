@@ -1,3 +1,5 @@
+import ballerina/io;
+
 public isolated service class OrganizationData {
     private Organization organization;
 
@@ -95,7 +97,7 @@ public isolated service class OrganizationData {
             child_org_ids = db_client->query(
                 `SELECT *
                 FROM parent_child_organization
-                WHERE parent_org_id = ${self.organization.id} AND parent_org_id != 17`
+                WHERE parent_org_id = ${self.organization.id} AND parent_org_id != 17 AND parent_org_id != 24`
             );
         }
 
@@ -139,13 +141,33 @@ public isolated service class OrganizationData {
     isolated resource function get people() returns PersonData[]|error? {
         // Get list of people in the organization
         stream<Person, error?> people;
-        lock {
+
+lock{
+        int|error? avinya_type_id = db_client->queryRow(
+            `SELECT avinya_type FROM organization WHERE id = ${self.organization.id};`
+        );
+                    io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
+
+         if !(avinya_type_id is int) {
+            io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
+            return error("AvinyaType ID does not exist");
+        }
+
+        if(avinya_type_id == 10 || avinya_type_id == 96){ // if organization is 10 or 96, get all vocational it students or cs students
+                people = db_client->query(
+                    `SELECT *
+                    FROM person
+                    WHERE avinya_type_id=${avinya_type_id} AND organization_id = ${self.organization.id}`
+                );
+            }else{
             people = db_client->query(
                 `SELECT *
                 FROM person
                 WHERE organization_id = ${self.organization.id} AND avinya_type_id=37`
             );
-        }
+            }
+}
+
 
         PersonData[] peopleData = [];
 
