@@ -133,7 +133,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         stream<Person, error?> studentList;
         lock {
             studentList = db_client->query(
-                `SELECT * FROM person WHERE avinya_type_id=37 AND organization_id in
+                `SELECT * FROM person WHERE avinya_type_id IN (37, 10, 96) AND organization_id in
                 (SELECT child_org_id FROM parent_child_organization WHERE parent_org_id IN
                 (SELECT organization_id FROM organization_metadata WHERE organization_id IN
                 (SELECT id FROM organization WHERE id in (SELECT child_org_id FROM parent_child_organization WHERE parent_org_id = 2 ) AND avinya_type = 86)
@@ -1673,7 +1673,7 @@ io:println(id_no);
                         attendance_records = db_client->query(
                             `SELECT *
                             FROM activity_participant_attendance
-                            WHERE person_id in (SELECT id FROM person WHERE avinya_type_id=37 AND
+                            WHERE person_id in (SELECT id FROM person WHERE avinya_type_id IN (37, 10, 96) AND
                             organization_id in (SELECT id FROM organization WHERE id in (SELECT child_org_id FROM parent_child_organization WHERE parent_org_id IN (SELECT child_org_id from parent_child_organization where parent_org_id = ${parent_organization_id})) AND avinya_type IN (87, 10, 96)))
                             AND activity_instance_id in (SELECT id FROM activity_instance WHERE activity_id = ${activity_id}) 
                             AND DATE(sign_in_time) BETWEEN ${from_date} AND ${to_date}
@@ -1728,17 +1728,17 @@ io:println(id_no);
 
         time:Utc startTime = time:utcNow();
 
-          int|error? avinya_type_id = db_client->queryRow(
-            `SELECT p.avinya_type_id FROM organization o left join person p on o.id = p.organization_id WHERE o.id = ${organization_id} AND p.avinya_type_id NOT IN (99, 100) ORDER BY p.avinya_type_id LIMIT 1;`
-        );
-                    io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
-
-         if !(avinya_type_id is int) {
-            io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
-            return error("AvinyaType ID does not exist");
-        }
 
         if (result_limit > 0) {
+               int|error? avinya_type_id = db_client->queryRow(
+                    `SELECT p.avinya_type_id FROM organization o left join person p on o.id = p.organization_id WHERE o.id = ${organization_id} AND p.avinya_type_id NOT IN (99, 100) ORDER BY p.avinya_type_id LIMIT 1;`
+                );
+                            io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
+
+                if !(avinya_type_id is int) {
+                    io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
+                    return error("AvinyaType ID does not exist");
+                }
             lock {
                 attendance_records = db_client->query(
                     `SELECT apa.*,p.preferred_name,p.digital_id
@@ -1755,6 +1755,17 @@ LEFT JOIN person p ON apa.person_id = p.id
         } else {
             if(from_date != null && to_date != null){
                 if(organization_id != null){
+
+                    int|error? avinya_type_id = db_client->queryRow(
+                            `SELECT p.avinya_type_id FROM organization o left join person p on o.id = p.organization_id WHERE o.id = ${organization_id} AND p.avinya_type_id NOT IN (99, 100) ORDER BY p.avinya_type_id LIMIT 1;`
+                        );
+                                    io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
+
+                        if !(avinya_type_id is int) {
+                            io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
+                            return error("AvinyaType ID does not exist");
+                        }
+
                     lock {
                     attendance_records = db_client->query(
                         `SELECT apa.*,p.preferred_name,p.digital_id
@@ -1771,24 +1782,34 @@ LEFT JOIN person p ON apa.person_id = p.id
                     lock {
                         attendance_records = db_client->query(
                             `SELECT apa.*,o.description,p.preferred_name,p.digital_id
-FROM activity_participant_attendance apa
-LEFT JOIN person p ON apa.person_id = p.id
-LEFT JOIN organization o ON p.organization_id = o.id
-WHERE apa.person_id in (SELECT id FROM person WHERE avinya_type_id=${avinya_type_id} AND
-organization_id in (SELECT id FROM organization WHERE id in (SELECT child_org_id FROM parent_child_organization WHERE parent_org_id IN (SELECT child_org_id from parent_child_organization where parent_org_id = ${parent_organization_id})) AND avinya_type IN (87, 10, 96)))
-AND apa.activity_instance_id in (SELECT id FROM activity_instance WHERE activity_id = ${activity_id}) 
-AND DATE(apa.sign_in_time) BETWEEN ${from_date} AND ${to_date}
-AND TIME_FORMAT(apa.sign_in_time, '%H:%i:%s') > '08:30:59'
-ORDER BY DATE(apa.sign_in_time) DESC;`
+                                FROM activity_participant_attendance apa
+                                LEFT JOIN person p ON apa.person_id = p.id
+                                LEFT JOIN organization o ON p.organization_id = o.id
+                                WHERE apa.person_id in (SELECT id FROM person WHERE avinya_type_id IN (37, 10, 96) AND
+                                organization_id in (SELECT id FROM organization WHERE id in (SELECT child_org_id FROM parent_child_organization WHERE parent_org_id IN (SELECT child_org_id from parent_child_organization where parent_org_id = ${parent_organization_id})) AND avinya_type IN (87, 10, 96)))
+                                AND apa.activity_instance_id in (SELECT id FROM activity_instance WHERE activity_id = ${activity_id}) 
+                                AND DATE(apa.sign_in_time) BETWEEN ${from_date} AND ${to_date}
+                                AND TIME_FORMAT(apa.sign_in_time, '%H:%i:%s') > '08:30:59'
+                                ORDER BY DATE(apa.sign_in_time) DESC;`
                         );
                     }
                 }  
             } else {
+                    int|error? avinya_type_id = db_client->queryRow(
+                            `SELECT p.avinya_type_id FROM organization o left join person p on o.id = p.organization_id WHERE o.id = ${organization_id} AND p.avinya_type_id NOT IN (99, 100) ORDER BY p.avinya_type_id LIMIT 1;`
+                        );
+                                    io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
+
+                        if !(avinya_type_id is int) {
+                            io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
+                            return error("AvinyaType ID does not exist");
+                        }
+
                 lock {
                     attendance_records = db_client->query(
                         `SELECT apa.*,p.preferred_name,p.digital_id
-FROM activity_participant_attendance apa
-LEFT JOIN person p ON apa.person_id = p.id
+                        FROM activity_participant_attendance apa
+                        LEFT JOIN person p ON apa.person_id = p.id
                         WHERE person_id in (SELECT id FROM person WHERE organization_id = ${organization_id} AND avinya_type_id=${avinya_type_id}) AND 
                         activity_instance_id in (SELECT id FROM activity_instance WHERE activity_id = ${activity_id}) 
                         AND TIME_FORMAT(sign_in_time, '%H:%i:%s') > '08:30:59'
@@ -4259,7 +4280,7 @@ lock {
                     JOIN activity_instance ai ON a.activity_instance_id = ai.id
                     JOIN organization o ON o.id = p.organization_id
                     WHERE p.avinya_type_id = ${avinya_type_id}
-                        AND o.avinya_type!=95
+                        AND o.avinya_type NOT IN (95, 97, 98)
                         AND ai.activity_id = 1
                         AND a.sign_in_time IS NOT NULL
                         AND NOT EXISTS (
