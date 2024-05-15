@@ -4644,7 +4644,7 @@ lock {
                                     )
                                     AND p.avinya_type_id = ${avinya_type_id}
                                     AND DATE(pa.sign_in_time) BETWEEN ${from_date} AND ${to_date}
-                                GROUP BY DATE(pa.sign_in_time), ts.total_count;`);                                       
+                                GROUP BY DATE(pa.sign_in_time), ts.total_count order by DATE(pa.sign_in_time) asc;`);                                       
                                                       
             } 
             
