@@ -114,6 +114,30 @@ public isolated service class OrganizationData {
         return child_orgs;
     }
 
+    isolated resource function get child_organizations_for_dashboard() returns OrganizationData[]|error? {
+        // Get list of child organizations
+        stream<ParentChildOrganization, error?> child_org_ids;
+        lock {
+            child_org_ids = db_client->query(
+                `SELECT *
+                FROM parent_child_organization
+                WHERE parent_org_id = ${self.organization.id}`
+            );
+        }
+
+        OrganizationData[] child_orgs = [];
+
+        check from ParentChildOrganization pco in child_org_ids
+            do {
+                OrganizationData|error candidate_org = new OrganizationData((), pco.child_org_id);
+                if !(candidate_org is error) {
+                    child_orgs.push(candidate_org);
+                }
+            };
+        check child_org_ids.close();
+        return child_orgs;
+    }
+
     isolated resource function get parent_organizations() returns OrganizationData[]|error? {
         // Get list of child organizations
         stream<ParentChildOrganization, error?> parent_org_ids;
@@ -212,4 +236,29 @@ lock{
 
         return vacanciesData;
     }
+
+    isolated resource function get organization_metadata() returns OrganizationMetaData[]|error? {
+       
+        stream<OrganizationMetaDataDetails, error?> org_meta_data;
+        lock {
+            org_meta_data = db_client->query(
+                `SELECT *
+                FROM organization_metadata
+                WHERE organization_id = ${self.organization.id}`
+            );
+        }
+
+        OrganizationMetaData[] org_meta_data_details = [];
+
+        check from OrganizationMetaDataDetails orgmetdatadetails in org_meta_data
+            do {
+                OrganizationMetaData|error org_meta_data_det = new OrganizationMetaData((),(),orgmetdatadetails);
+                if !(org_meta_data_det is error) {
+                    org_meta_data_details.push(org_meta_data_det);
+                }
+            };
+        check org_meta_data.close();
+        return org_meta_data_details;
+    }
+
 }

@@ -1,5 +1,5 @@
 DATABASE="avinya_db2"
 HOST="localhost"
-PASSWORD="test"
+PASSWORD="Admin@#123"
 PORT=3306
 USER="root"

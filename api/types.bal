@@ -80,6 +80,7 @@ public type Organization record {|
     *LocalizedName;
     int[] child_organizations?;
     int[] parent_organizations?;
+    int[] child_organizations_for_dashboard?;
     int? address_id;
     int? avinya_type;
     int? phone;
@@ -635,4 +636,12 @@ public type DutyRotationMetaDetails record{|
     string? start_date;
     string? end_date;
     int? organization_id;
+|};
+
+public type OrganizationMetaDataDetails record{|
+    readonly string?  record_type = "organization_metadata";
+    int id?;
+    int? organization_id;
+    string? key_name;
+    string? value;
 |};
