@@ -3744,7 +3744,7 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
             `SELECT CAST(COUNT(*) AS DECIMAL) AS total_students
                             FROM person p
                             JOIN organization o ON o.id = p.organization_id
-                            WHERE p.avinya_type_id = ${avinya_type_id} AND p.id != 26 AND o.avinya_type NOT IN (95, 97, 98)
+                            WHERE p.avinya_type_id = ${avinya_type_id} AND p.id != 26
                             AND p.organization_id = ${organization_id};`
         );
         } else {
@@ -3752,7 +3752,7 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
             `SELECT CAST(COUNT(*) AS DECIMAL) AS total_students
                             FROM person p
                             JOIN organization o ON o.id = p.organization_id
-                            WHERE p.avinya_type_id IN (37, 10, 96) AND p.id != 26 AND o.avinya_type NOT IN (95, 97, 98)
+                            WHERE p.avinya_type_id IN (37, 10, 96) AND p.id != 26
                             AND p.organization_id IN (
                                                                     SELECT id
                                                                     FROM organization
@@ -3810,7 +3810,7 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
                                     AND DATE(sign_in_time) BETWEEN ${from_date} AND ${to_date}
                             ) AS subquery
                             LEFT JOIN activity_participant_attendance a ON p.id = a.person_id AND DATE(a.sign_in_time) = subquery.a_date 
-                            WHERE a.person_id IS NULL AND p.avinya_type_id = ${avinya_type_id} AND p.id != 26 AND o.avinya_type NOT IN (95, 97, 98) AND organization_id = ${organization_id}
+                            WHERE a.person_id IS NULL AND p.avinya_type_id = ${avinya_type_id} AND p.id != 26 AND organization_id = ${organization_id}
                             ORDER BY subquery.a_date DESC;`
                     );
                 late_attendance = db_client->query(
@@ -3836,7 +3836,7 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
                         `select COUNT(e.id) AS absent_count_duty FROM person p
                         JOIN organization o ON o.id = p.organization_id 
                         LEFT JOIN evaluation e ON p.id = e.evaluatee_id 
-                        WHERE p.avinya_type_id = ${avinya_type_id} AND p.id != 26 AND o.avinya_type NOT IN (95, 97, 98)
+                        WHERE p.avinya_type_id = ${avinya_type_id} AND p.id != 26
                         AND e.evaluation_criteria_id=110
                         AND DATE(e.created) BETWEEN ${from_date} AND ${to_date}
                         AND p.id IN (SELECT id FROM person WHERE avinya_type_id = ${avinya_type_id} AND organization_id = ${organization_id});`
@@ -4035,8 +4035,12 @@ lock {
         decimal? totalStudent = 1;
         if (<float>days == 0.0) {
             totalStudent = total_students_count;
+            io:println("Time taken fff " + totalStudent.toString());
         } else {
             totalStudent = total_students_count * days;
+            io:println("Time taken ggg " + days.toString());
+                        io:println("Time taken jjjj " + total_students_count.toString());
+
         }
         io:println("Time taken totalStudent " + totalStudent.toString());
         io:println("Time taken total_students_count " + attendance_record.present_count.toString());

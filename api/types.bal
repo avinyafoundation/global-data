@@ -80,6 +80,7 @@ public type Organization record {|
     *LocalizedName;
     int[] child_organizations?;
     int[] parent_organizations?;
+    int[] child_organizations_for_dashboard?;
     int? address_id;
     int? avinya_type;
     int? phone;
