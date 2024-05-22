@@ -613,6 +613,8 @@ public type Inventory record {|
     int? quantity;
     int? quantity_in;
     int? quantity_out;
+    int? resource_property_id;
+    string? resource_property_value;
     string? created;
     string? updated;
 |};
