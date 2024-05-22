@@ -1,7 +1,7 @@
 public isolated service class InventoryData{
     private Inventory inventory;
 
-    isolated function init(int id,Inventory? inventory=null) returns error?{
+    isolated function init(int? id = 0, Inventory? inventory = null) returns error? {
         if(inventory != null){
             self.inventory = inventory.cloneReadOnly();
             return;
@@ -106,6 +106,19 @@ public isolated service class InventoryData{
             return self.inventory.quantity_out;
         }
     }
+
+    isolated resource function get resource_property() returns ResourcePropertyData|error? {
+        int id = 0;
+        lock {
+            id = self.inventory.resource_property_id ?: 0;
+            if( id == 0) {
+                return null; // no point in querying if address id is null
+            } 
+        }
+        return new ResourcePropertyData(id);
+    }
+
+
 
     isolated resource function get created() returns string?|error {
         lock {
