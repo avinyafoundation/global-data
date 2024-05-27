@@ -118,7 +118,26 @@ public isolated service class InventoryData{
         return new ResourcePropertyData(id);
     }
 
+    
+    isolated resource function get name() returns string?|error {
+        lock {
+            return self.inventory.name;
+        }
+    }
 
+
+    isolated resource function get description() returns string?|error {
+        lock {
+            return self.inventory.description;
+        }
+    }
+
+
+    isolated resource function get manufacturer() returns string?|error {
+        lock {
+            return self.inventory.manufacturer;
+        }
+    }
 
     isolated resource function get created() returns string?|error {
         lock {

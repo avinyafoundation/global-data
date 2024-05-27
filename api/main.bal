@@ -4719,59 +4719,53 @@ lock {
     }
 
     isolated resource function get inventory_data_by_organization(int? organization_id,string? date= null) returns InventoryData[]|error? {
+        
         stream<Inventory, error?> inventory_data;
 
         // first check if inventory data for date are already have
-        Inventory|error dateInventoryData =  db_client->queryRow(
+        inventory_data = db_client->query(
             `SELECT I.id,I.avinya_type_id,I.consumable_id,
-                    I.organization_id,I.person_id,I.quantity,I.quantity_in,I.quantity_out,RP.id as resource_property_id,RP.value as resource_property_value
+                    I.organization_id,I.person_id,I.quantity,I.quantity_in,I.quantity_out,RP.id as resource_property_id,RP.value as resource_property_value,
+                    C.name, C.description, C.manufacturer
                     FROM inventory I
-                    INNER JOIN resource_property RP ON I.consumable_id = RP.consumable_id
+                    INNER JOIN consumable C ON I.consumable_id = C.id
+					INNER JOIN resource_property RP ON C.id = RP.consumable_id
                     WHERE I.organization_id = ${organization_id} AND DATE(I.updated) = ${date};`
         );
 
-        // lock {
-        //     inventory_data = db_client->query(
-        //         `SELECT I.id,I.avinya_type_id,I.consumable_id,
-        //             I.organization_id,I.person_id,I.quantity,I.quantity_in,I.quantity_out,RP.id as resource_property_id,RP.value as resource_property_value
-        //             FROM inventory I
-        //             INNER JOIN resource_property RP ON I.consumable_id = RP.consumable_id
-        //             WHERE I.organization_id = ${organization_id} AND DATE(I.updated) = ${date};
-        //         `
-        //     );
-        // }
 
-        if !(dateInventoryData is Inventory) {
-        //if(inventory_data.next() == ()){
+        if (inventory_data.next() == ()) {
 
          lock {
                 inventory_data = db_client->query(
                     `SELECT I.id,I.avinya_type_id,I.consumable_id,
-                        I.organization_id,I.person_id,I.quantity,I.quantity_in,I.quantity_out,RP.id as resource_property_id,RP.value as resource_property_value
+                        I.organization_id,I.person_id,I.quantity,I.quantity_in,I.quantity_out,RP.id as resource_property_id,RP.value as resource_property_value,
+                        C.name,C.description,C.manufacturer
                         FROM inventory I
-                        INNER JOIN resource_property RP ON I.consumable_id = RP.consumable_id
+                        INNER JOIN consumable C ON I.consumable_id = C.id
+                        INNER JOIN resource_property RP ON C.id = RP.consumable_id
                         INNER JOIN (
                         SELECT consumable_id, MAX(updated) as max_updated_at
                         FROM inventory
                         WHERE organization_id = ${organization_id}
                         GROUP BY consumable_id
-                    ) max_updated ON I.consumable_id = max_updated.consumable_id AND I.updated = max_updated.max_updated_at;
+                        ) max_updated ON I.consumable_id = max_updated.consumable_id AND I.updated = max_updated.max_updated_at;
                     `
                 );
+
+                if(inventory_data.next()== ()){
+
+                      inventory_data = db_client->query(
+                            `SELECT I.id,I.avinya_type_id,I.consumable_id,I.organization_id,I.person_id,COALESCE(I.quantity, 0) AS quantity,
+                                COALESCE(I.quantity_in, 0) AS quantity_in,COALESCE(I.quantity_out, 0) AS quantity_out,
+                                RP.id as resource_property_id,RP.value as resource_property_value,
+                                C.name,C.description,C.manufacturer
+                               FROM inventory I
+                                RIGHT JOIN consumable C ON I.consumable_id = C.id
+                                Left JOIN resource_property RP ON C.id = RP.consumable_id;
+                            `);
+                }
             }
-
-        }else{
-
-         lock {
-            inventory_data = db_client->query(
-                `SELECT I.id,I.avinya_type_id,I.consumable_id,
-                    I.organization_id,I.person_id,I.quantity,I.quantity_in,I.quantity_out,RP.id as resource_property_id,RP.value as resource_property_value
-                    FROM inventory I
-                    INNER JOIN resource_property RP ON I.consumable_id = RP.consumable_id
-                    WHERE I.organization_id = ${organization_id} AND DATE(I.updated) = ${date};
-                `
-                );
-           }
 
         }
 
@@ -4785,16 +4779,6 @@ lock {
                     inventoryDatas.push(inventoryData);
                 }
             };
-        
-        if(inventoryDatas.length() == 0){
-            Inventory inventory = {id:(),avinya_type_id: (),consumable_id: (),quantity: 0, 
-                                   quantity_in: 0 , quantity_out:0,asset_id: 0,
-                                   organization_id:0,person_id: 0,created: (),
-                                   resource_property_id: () ,resource_property_value: (),
-                                   updated: () }; 
-            InventoryData|error inventoryData = new InventoryData(0, inventory);
-            inventoryDatas.push(check inventoryData);
-        }
 
         check inventory_data.close();
         return inventoryDatas;
