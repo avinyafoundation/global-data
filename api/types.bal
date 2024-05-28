@@ -608,6 +608,9 @@ public type Inventory record {|
     int? avinya_type_id;
     int? asset_id;
     int? consumable_id;
+    string? name;
+    string? description;
+    string? manufacturer;
     int? organization_id;
     int? person_id;
     int? quantity;
