@@ -89,19 +89,19 @@ public isolated service class InventoryData{
         return new PersonData((),id);
     }
 
-    isolated resource function get quantity() returns int?|error {
+    isolated resource function get quantity() returns decimal?|error {
         lock {
             return self.inventory.quantity;
         }
     }
 
-    isolated resource function get quantity_in() returns int?|error {
+    isolated resource function get quantity_in() returns decimal?|error {
         lock {
             return self.inventory.quantity_in;
         }
     }
 
-    isolated resource function get quantity_out() returns int?|error {
+    isolated resource function get quantity_out() returns decimal?|error {
         lock {
             return self.inventory.quantity_out;
         }

@@ -4723,39 +4723,67 @@ lock {
         stream<Inventory, error?> inventory_data;
 
         // first check if inventory data for date are already have
-        inventory_data = db_client->query(
-            `SELECT I.id,I.avinya_type_id,I.consumable_id,
-                    I.organization_id,I.person_id,I.quantity,I.quantity_in,I.quantity_out,RP.id as resource_property_id,RP.value as resource_property_value,
-                    C.name, C.description, C.manufacturer
-                    FROM inventory I
-                    INNER JOIN consumable C ON I.consumable_id = C.id
-					INNER JOIN resource_property RP ON C.id = RP.consumable_id
-                    WHERE I.organization_id = ${organization_id} AND DATE(I.updated) = ${date};`
+        int|error? check_inventory_data_for_date = check db_client->queryRow(
+                        `SELECT 
+                                COUNT(*) AS data_exists 
+                            FROM 
+                                inventory I
+                                INNER JOIN consumable C ON I.consumable_id = C.id
+                                INNER JOIN resource_property RP ON C.id = RP.consumable_id
+                            WHERE 
+                                I.organization_id = ${organization_id} 
+                                AND DATE(I.updated) = ${date};
+                            `
         );
 
 
-        if (inventory_data.next() == ()) {
+        if (check_inventory_data_for_date == 0){
 
-         lock {
-                inventory_data = db_client->query(
-                    `SELECT I.id,I.avinya_type_id,I.consumable_id,
-                        I.organization_id,I.person_id,I.quantity,I.quantity_in,I.quantity_out,RP.id as resource_property_id,RP.value as resource_property_value,
-                        C.name,C.description,C.manufacturer
-                        FROM inventory I
-                        INNER JOIN consumable C ON I.consumable_id = C.id
-                        INNER JOIN resource_property RP ON C.id = RP.consumable_id
-                        INNER JOIN (
-                        SELECT consumable_id, MAX(updated) as max_updated_at
-                        FROM inventory
-                        WHERE organization_id = ${organization_id}
-                        GROUP BY consumable_id
-                        ) max_updated ON I.consumable_id = max_updated.consumable_id AND I.updated = max_updated.max_updated_at;
-                    `
-                );
-
-                if(inventory_data.next()== ()){
-
-                      inventory_data = db_client->query(
+            int|error? check_least_updated_inventory_data_for_date = check db_client->queryRow(
+                                            `SELECT 
+                                                    CASE 
+                                                        WHEN COUNT(*) > 0 THEN 1 
+                                                        ELSE 0 
+                                                    END AS has_rows
+                                                FROM (
+                                                    SELECT 
+                                                        I.id,
+                                                        I.avinya_type_id,
+                                                        I.consumable_id,
+                                                        I.organization_id,
+                                                        I.person_id,
+                                                        I.quantity,
+                                                        I.quantity_in,
+                                                        I.quantity_out,
+                                                        RP.id AS resource_property_id,
+                                                        RP.value AS resource_property_value,
+                                                        C.name,
+                                                        C.description,
+                                                        C.manufacturer
+                                                    FROM 
+                                                        inventory I
+                                                    INNER JOIN 
+                                                        consumable C ON I.consumable_id = C.id
+                                                    INNER JOIN 
+                                                        resource_property RP ON C.id = RP.consumable_id
+                                                    INNER JOIN (
+                                                        SELECT 
+                                                            consumable_id, 
+                                                            MAX(updated) AS max_updated_at
+                                                        FROM 
+                                                            inventory
+                                                        WHERE 
+                                                            organization_id = ${organization_id}
+                                                        GROUP BY 
+                                                            consumable_id
+                                                    ) max_updated ON I.consumable_id = max_updated.consumable_id 
+                                                        AND I.updated = max_updated.max_updated_at
+                                                ) AS subquery;`);
+                
+               
+                if(check_least_updated_inventory_data_for_date == 0){
+               
+                   inventory_data = db_client->query(
                             `SELECT I.id,I.avinya_type_id,I.consumable_id,I.organization_id,I.person_id,COALESCE(I.quantity, 0) AS quantity,
                                 COALESCE(I.quantity_in, 0) AS quantity_in,COALESCE(I.quantity_out, 0) AS quantity_out,
                                 RP.id as resource_property_id,RP.value as resource_property_value,
@@ -4764,17 +4792,42 @@ lock {
                                 RIGHT JOIN consumable C ON I.consumable_id = C.id
                                 Left JOIN resource_property RP ON C.id = RP.consumable_id;
                             `);
+                }else{
+
+                   inventory_data = db_client->query(
+                        `SELECT I.id,I.avinya_type_id,I.consumable_id,
+                                I.organization_id,I.person_id,I.quantity,I.quantity_in,I.quantity_out,RP.id as resource_property_id,RP.value as resource_property_value,
+                                C.name,C.description,C.manufacturer
+                                FROM inventory I
+                                INNER JOIN consumable C ON I.consumable_id = C.id
+                                INNER JOIN resource_property RP ON C.id = RP.consumable_id
+                                INNER JOIN (
+                                SELECT consumable_id, MAX(updated) as max_updated_at
+                                FROM inventory
+                                WHERE organization_id = ${organization_id}
+                                GROUP BY consumable_id
+                                ) max_updated ON I.consumable_id = max_updated.consumable_id AND I.updated = max_updated.max_updated_at;
+                            `);
+
                 }
-            }
-
+          
+        }else{
+            inventory_data = db_client->query(
+            `SELECT I.id,I.avinya_type_id,I.consumable_id,
+                    I.organization_id,I.person_id,I.quantity,I.quantity_in,I.quantity_out,RP.id as resource_property_id,RP.value as resource_property_value,
+                    C.name, C.description, C.manufacturer
+                    FROM inventory I
+                    INNER JOIN consumable C ON I.consumable_id = C.id
+					INNER JOIN resource_property RP ON C.id = RP.consumable_id
+                    WHERE I.organization_id = ${organization_id} AND DATE(I.updated) = ${date};`);
         }
-
 
         InventoryData[]  inventoryDatas = [];
 
         check from Inventory inventory in inventory_data
             do {
                 InventoryData|error inventoryData = new InventoryData(0,inventory);
+    
                 if !(inventoryData is error) {
                     inventoryDatas.push(inventoryData);
                 }
@@ -4782,6 +4835,52 @@ lock {
 
         check inventory_data.close();
         return inventoryDatas;
+    }
+
+    remote function add_inventories(Inventory[] inventories) returns int|error? {
+
+        int count = 0;
+
+       //access the 0 index inventory object
+        Inventory inventory_object = inventories[0];
+
+        sql:ExecutionResult res = check db_client->execute(
+            `DELETE FROM inventory 
+              WHERE organization_id = ${inventory_object.organization_id} AND DATE(updated) = ${inventory_object.updated};`
+        );
+
+        int? delete_id = res.affectedRowCount;
+        if (delete_id < 0) {
+            return error("Unable to delete  with org id : " + inventory_object.organization_id.toString());
+        }
+
+        foreach Inventory inventory in inventories {
+            sql:ExecutionResult response = check db_client->execute(
+                `INSERT INTO inventory (
+                    avinya_type_id,
+                    consumable_id,
+                    organization_id,
+                    person_id,
+                    quantity,
+                    quantity_in
+                ) VALUES (
+                    ${inventory.avinya_type_id},
+                    ${inventory.consumable_id},
+                    ${inventory.organization_id},
+                    ${inventory.person_id},
+                    ${inventory.quantity},
+                    ${inventory.quantity_in}
+                );`
+            );
+
+            int|string? insert_id = response.lastInsertId;
+            if !(insert_id is int) {
+                return error("Unable to insert inventories");
+            } else {
+                count += 1;
+            }
+        }
+        return count;
     }
 }
 
