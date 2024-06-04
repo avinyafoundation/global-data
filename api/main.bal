@@ -4837,22 +4837,25 @@ lock {
         return inventoryDatas;
     }
 
-    remote function add_inventories(Inventory[] inventories) returns int|error? {
+    remote function consumable_replenishment(Inventory[] inventories) returns InventoryData[]|error? {
 
-        int count = 0;
 
-       //access the 0 index inventory object
-        Inventory inventory_object = inventories[0];
+        foreach Inventory inventory_object in inventories {
+                sql:ExecutionResult res = check db_client->execute(
+                    `DELETE FROM inventory 
+                    WHERE organization_id = ${inventory_object.organization_id}
+                    AND  consumable_id = ${inventory_object.consumable_id}
+                    AND DATE(updated) = ${inventory_object.updated};`
+                );
 
-        sql:ExecutionResult res = check db_client->execute(
-            `DELETE FROM inventory 
-              WHERE organization_id = ${inventory_object.organization_id} AND DATE(updated) = ${inventory_object.updated};`
-        );
+                int? delete_id = res.affectedRowCount;
+                if (delete_id < 0) {
+                    return error("Unable to delete  with org id : " + inventory_object.organization_id.toString());
+                }
 
-        int? delete_id = res.affectedRowCount;
-        if (delete_id < 0) {
-            return error("Unable to delete  with org id : " + inventory_object.organization_id.toString());
         }
+
+        InventoryData[]  newlyAddedInventoryDatas = [];
 
         foreach Inventory inventory in inventories {
             sql:ExecutionResult response = check db_client->execute(
@@ -4862,14 +4865,18 @@ lock {
                     organization_id,
                     person_id,
                     quantity,
-                    quantity_in
+                    quantity_in,
+                    created,
+                    updated
                 ) VALUES (
                     ${inventory.avinya_type_id},
                     ${inventory.consumable_id},
                     ${inventory.organization_id},
                     ${inventory.person_id},
                     ${inventory.quantity},
-                    ${inventory.quantity_in}
+                    ${inventory.quantity_in},
+                    ${inventory.updated},
+                    ${inventory.updated}
                 );`
             );
 
@@ -4877,10 +4884,13 @@ lock {
             if !(insert_id is int) {
                 return error("Unable to insert inventories");
             } else {
-                count += 1;
+                InventoryData|error newlyAddedInventoryData = new InventoryData(insert_id);
+                if !(newlyAddedInventoryData is error) {
+                  newlyAddedInventoryDatas.push(newlyAddedInventoryData);
+                }
             }
         }
-        return count;
+        return newlyAddedInventoryDatas;
     }
 }
 
