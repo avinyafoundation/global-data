@@ -4892,6 +4892,48 @@ lock {
         }
         return newlyAddedInventoryDatas;
     }
+
+    remote function consumable_depletion(Inventory[] inventories) returns InventoryData[]|error? {
+
+        InventoryData[]  inventoryDatas = [];
+
+        foreach Inventory inventory in inventories {
+
+            int id = inventory.id ?: 0;
+
+            if (id == 0) {
+                return error("Unable to update inventory Data");
+            }
+
+            Inventory|error? inventoryRaw = db_client->queryRow(
+                    `SELECT *
+                      FROM inventory
+                      WHERE id = ${inventory.id};`);
+
+            if !(inventoryRaw is Inventory) {
+                return error("Inventory Data does not exist");
+            }
+
+            sql:ExecutionResult|error response = db_client->execute(
+                    `UPDATE inventory SET
+                        quantity_out = ${inventory.quantity_out},
+                        updated = ${inventory.updated}
+                     WHERE id = ${id};`);
+
+             if (response is sql:ExecutionResult) {
+                InventoryData|error inventoryData = new InventoryData(id);
+                    
+                    if !(inventoryData is error) {
+
+                      inventoryDatas.push(inventoryData);
+                    }
+             } else{
+                    return error("Unable to update inventory Data");
+             }
+           
+        }
+        return inventoryDatas;
+    }
 }
 
 isolated function calculateWeekdays(time:Utc toDate, time:Utc fromDate) returns int {
