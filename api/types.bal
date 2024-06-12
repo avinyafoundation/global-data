@@ -613,9 +613,9 @@ public type Inventory record {|
     string? manufacturer;
     int? organization_id;
     int? person_id;
-    int? quantity;
-    int? quantity_in;
-    int? quantity_out;
+    decimal? quantity;
+    decimal? quantity_in;
+    decimal? quantity_out;
     int? resource_property_id;
     string? resource_property_value;
     string? created;
