@@ -4982,6 +4982,112 @@ lock {
         }
         return newlyAddedInventoryDepletionDatas;
     }
+
+    isolated resource function get consumable_weekly_report(int? organization_id, string? from_date = null, string? to_date = null) returns InventoryData[]|error? {
+        
+        stream<Inventory, error?> weekly_consumable_summary_data;
+
+        if(from_date != null && to_date != null){
+         
+           lock {
+
+                weekly_consumable_summary_data = db_client->query(
+                                   `SELECT 
+                                        I.id, 
+                                        I.avinya_type_id, 
+                                        I.consumable_id, 
+                                        I.organization_id, 
+                                        I.person_id, 
+                                        I.quantity, 
+                                        COALESCE(SUM_In.quantity_in_sum, 0.00) AS quantity_in, 
+                                        COALESCE(SUM_Out.quantity_out_sum, 0.00) AS quantity_out, 
+                                        RP.id AS resource_property_id, 
+                                        RP.value AS resource_property_value, 
+                                        C.name, 
+                                        C.description, 
+                                        C.manufacturer,
+                                        DATE(I.updated) AS updated
+                                    FROM 
+                                        inventory I
+                                    INNER JOIN 
+                                        consumable C ON I.consumable_id = C.id
+                                    LEFT JOIN 
+                                        resource_property RP ON C.id = RP.consumable_id
+                                    INNER JOIN (
+                                        SELECT 
+                                            consumable_id, 
+                                            DATE(updated) AS update_date, 
+                                            MIN(updated) AS earliest_update 
+                                        FROM 
+                                            inventory 
+                                        WHERE 
+                                            organization_id = ${organization_id}
+                                            AND DATE(updated) BETWEEN ${from_date} AND ${to_date}
+                                        GROUP BY 
+                                            consumable_id, DATE(updated)
+                                    ) Earliest 
+                                        ON I.consumable_id = Earliest.consumable_id 
+                                        AND DATE(I.updated) = Earliest.update_date 
+                                        AND I.updated = Earliest.earliest_update
+                                    LEFT JOIN (
+                                        SELECT 
+                                            consumable_id, 
+                                            DATE(updated) AS update_date, 
+                                            SUM(quantity_in) AS quantity_in_sum 
+                                        FROM 
+                                            inventory 
+                                        WHERE 
+                                            organization_id = ${organization_id}
+                                            AND quantity_out = 0.00
+                                            AND DATE(updated) BETWEEN ${from_date} AND ${to_date}
+                                        GROUP BY 
+                                            consumable_id, DATE(updated)
+                                    ) SUM_In 
+                                        ON I.consumable_id = SUM_In.consumable_id 
+                                        AND DATE(I.updated) = SUM_In.update_date
+                                    LEFT JOIN (
+                                        SELECT 
+                                            consumable_id, 
+                                            DATE(updated) AS update_date, 
+                                            SUM(quantity_out) AS quantity_out_sum 
+                                        FROM 
+                                            inventory 
+                                        WHERE 
+                                            organization_id = ${organization_id}
+                                            AND quantity_in = 0.00
+                                            AND DATE(updated) BETWEEN ${from_date} AND ${to_date}
+                                        GROUP BY 
+                                            consumable_id, DATE(updated)
+                                    ) SUM_Out 
+                                        ON I.consumable_id = SUM_Out.consumable_id 
+                                        AND DATE(I.updated) = SUM_Out.update_date
+                                    WHERE 
+                                        I.organization_id = ${organization_id}
+                                        AND DATE(I.updated) BETWEEN ${from_date} AND ${to_date}
+                                    ORDER BY 
+                                        I.updated ASC;`);
+            }
+
+            InventoryData[] weeklyConsumableSummaryDatas = [];
+
+            check from Inventory weekly_consumable_summary_record in weekly_consumable_summary_data
+                do {
+                    InventoryData|error weeklyConsumableSummaryData = new InventoryData(0, weekly_consumable_summary_record);
+
+                    if !(weeklyConsumableSummaryData is error) {
+                        weeklyConsumableSummaryDatas.push(weeklyConsumableSummaryData);
+                    }
+                };
+
+            check weekly_consumable_summary_data.close();
+            return weeklyConsumableSummaryDatas;
+
+        }else{
+        return error("Provide non-null values for both 'From Date' and 'To Date'.");
+        }
+
+    }
+
 }
 
 isolated function calculateWeekdays(time:Utc toDate, time:Utc fromDate) returns int {
