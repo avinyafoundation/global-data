@@ -4908,6 +4908,10 @@ lock {
         InventoryData[]  newlyAddedInventoryDatas = [];
 
         foreach Inventory inventory in inventories {
+
+            // Calculate the sum of quantity and quantity_in
+            decimal? totalQuantity = inventory.quantity + inventory.quantity_in;
+
             sql:ExecutionResult response = check db_client->execute(
                 `INSERT INTO inventory (
                     avinya_type_id,
@@ -4923,7 +4927,7 @@ lock {
                     ${inventory.consumable_id},
                     ${inventory.organization_id},
                     ${inventory.person_id},
-                    ${inventory.quantity},
+                    ${totalQuantity},
                     ${inventory.quantity_in},
                     ${inventory.updated},
                     ${inventory.updated}
@@ -4948,6 +4952,10 @@ lock {
         InventoryData[]  newlyAddedInventoryDepletionDatas = [];
 
         foreach Inventory inventory in inventories {
+
+            // Calculate the result of quantity - quantity_out
+            decimal? totalQuantity = inventory.quantity - inventory.quantity_out;
+
             sql:ExecutionResult response = check db_client->execute(
                 `INSERT INTO inventory (
                     avinya_type_id,
@@ -4963,7 +4971,7 @@ lock {
                     ${inventory.consumable_id},
                     ${inventory.organization_id},
                     ${inventory.person_id},
-                    ${inventory.quantity},
+                    ${totalQuantity},
                     ${inventory.quantity_out},
                     ${inventory.updated},
                     ${inventory.updated}
@@ -5088,6 +5096,70 @@ lock {
 
     }
 
+    remote function update_consumable_replenishment(Inventory[] inventories) returns InventoryData[]|error? {
+        
+        
+        InventoryData[]  updatedInventoryDatas = [];
+
+        foreach Inventory inventory in inventories {
+
+            int id = inventory.id ?: 0;
+
+           // Calculate the sum of quantity and quantity_in
+            decimal? totalQuantity = inventory.quantity + inventory.quantity_in;
+
+            sql:ExecutionResult res = check db_client->execute(
+            `UPDATE inventory SET
+                quantity = ${totalQuantity},
+                quantity_in = ${inventory.quantity_in},
+                updated = ${inventory.updated}
+            WHERE id = ${id};`
+            );
+
+            if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+                return error("Unable to update  consumable replenishment record");
+            }else{
+                InventoryData|error updatedInventoryData = new InventoryData(id);
+                if !(updatedInventoryData is error) {
+                    updatedInventoryDatas.push(updatedInventoryData);
+                }
+            }
+
+        }
+        return updatedInventoryDatas;
+    }
+
+    remote function update_consumable_depletion(Inventory[] inventories) returns InventoryData[]|error? {
+
+        InventoryData[] updatedInventoryDatas = [];
+
+        foreach Inventory inventory in inventories {
+
+            int id = inventory.id ?: 0;
+
+            // Calculate the result of quantity - quantity_out
+            decimal? totalQuantity = inventory.quantity - inventory.quantity_out;
+
+            sql:ExecutionResult res = check db_client->execute(
+            `UPDATE inventory SET
+                quantity = ${totalQuantity},
+                quantity_out = ${inventory.quantity_out},
+                updated = ${inventory.updated}
+            WHERE id = ${id};`
+            );
+
+            if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+                return error("Unable to update consumable depletion record");
+            } else {
+                InventoryData|error updatedInventoryData = new InventoryData(id);
+                if !(updatedInventoryData is error) {
+                    updatedInventoryDatas.push(updatedInventoryData);
+                }
+            }
+
+        }
+        return updatedInventoryDatas;
+    }
 }
 
 isolated function calculateWeekdays(time:Utc toDate, time:Utc fromDate) returns int {
