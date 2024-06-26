@@ -4908,6 +4908,10 @@ lock {
         InventoryData[]  newlyAddedInventoryDatas = [];
 
         foreach Inventory inventory in inventories {
+
+            // Calculate the sum of quantity and quantity_in
+            decimal? totalQuantity = inventory.quantity + inventory.quantity_in;
+
             sql:ExecutionResult response = check db_client->execute(
                 `INSERT INTO inventory (
                     avinya_type_id,
@@ -4923,7 +4927,7 @@ lock {
                     ${inventory.consumable_id},
                     ${inventory.organization_id},
                     ${inventory.person_id},
-                    ${inventory.quantity},
+                    ${totalQuantity},
                     ${inventory.quantity_in},
                     ${inventory.updated},
                     ${inventory.updated}
@@ -4948,6 +4952,10 @@ lock {
         InventoryData[]  newlyAddedInventoryDepletionDatas = [];
 
         foreach Inventory inventory in inventories {
+
+            // Calculate the result of quantity - quantity_out
+            decimal? totalQuantity = inventory.quantity - inventory.quantity_out;
+
             sql:ExecutionResult response = check db_client->execute(
                 `INSERT INTO inventory (
                     avinya_type_id,
@@ -4963,7 +4971,7 @@ lock {
                     ${inventory.consumable_id},
                     ${inventory.organization_id},
                     ${inventory.person_id},
-                    ${inventory.quantity},
+                    ${totalQuantity},
                     ${inventory.quantity_out},
                     ${inventory.updated},
                     ${inventory.updated}
@@ -4981,6 +4989,247 @@ lock {
             }
         }
         return newlyAddedInventoryDepletionDatas;
+    }
+
+    isolated resource function get consumable_weekly_report(int? organization_id, string? from_date = null, string? to_date = null) returns InventoryData[]|error? {
+        
+        stream<Inventory, error?> weekly_consumable_summary_data;
+
+        if(from_date != null && to_date != null){
+         
+           lock {
+
+                weekly_consumable_summary_data = db_client->query(
+                                   `SELECT 
+                                        I.id, 
+                                        I.avinya_type_id, 
+                                        I.consumable_id, 
+                                        I.organization_id, 
+                                        I.person_id, 
+                                        I.quantity, 
+                                        COALESCE(SUM_In.quantity_in_sum, 0.00) AS quantity_in, 
+                                        COALESCE(SUM_Out.quantity_out_sum, 0.00) AS quantity_out, 
+                                        RP.id AS resource_property_id, 
+                                        RP.value AS resource_property_value, 
+                                        C.name, 
+                                        C.description, 
+                                        C.manufacturer,
+                                        DATE(I.updated) AS updated
+                                    FROM 
+                                        inventory I
+                                    INNER JOIN 
+                                        consumable C ON I.consumable_id = C.id
+                                    LEFT JOIN 
+                                        resource_property RP ON C.id = RP.consumable_id
+                                    INNER JOIN (
+                                        SELECT 
+                                            consumable_id, 
+                                            DATE(updated) AS update_date, 
+                                            MIN(updated) AS earliest_update 
+                                        FROM 
+                                            inventory 
+                                        WHERE 
+                                            organization_id = ${organization_id}
+                                            AND DATE(updated) BETWEEN ${from_date} AND ${to_date}
+                                        GROUP BY 
+                                            consumable_id, DATE(updated)
+                                    ) Earliest 
+                                        ON I.consumable_id = Earliest.consumable_id 
+                                        AND DATE(I.updated) = Earliest.update_date 
+                                        AND I.updated = Earliest.earliest_update
+                                    LEFT JOIN (
+                                        SELECT 
+                                            consumable_id, 
+                                            DATE(updated) AS update_date, 
+                                            SUM(quantity_in) AS quantity_in_sum 
+                                        FROM 
+                                            inventory 
+                                        WHERE 
+                                            organization_id = ${organization_id}
+                                            AND quantity_out = 0.00
+                                            AND DATE(updated) BETWEEN ${from_date} AND ${to_date}
+                                        GROUP BY 
+                                            consumable_id, DATE(updated)
+                                    ) SUM_In 
+                                        ON I.consumable_id = SUM_In.consumable_id 
+                                        AND DATE(I.updated) = SUM_In.update_date
+                                    LEFT JOIN (
+                                        SELECT 
+                                            consumable_id, 
+                                            DATE(updated) AS update_date, 
+                                            SUM(quantity_out) AS quantity_out_sum 
+                                        FROM 
+                                            inventory 
+                                        WHERE 
+                                            organization_id = ${organization_id}
+                                            AND quantity_in = 0.00
+                                            AND DATE(updated) BETWEEN ${from_date} AND ${to_date}
+                                        GROUP BY 
+                                            consumable_id, DATE(updated)
+                                    ) SUM_Out 
+                                        ON I.consumable_id = SUM_Out.consumable_id 
+                                        AND DATE(I.updated) = SUM_Out.update_date
+                                    WHERE 
+                                        I.organization_id = ${organization_id}
+                                        AND DATE(I.updated) BETWEEN ${from_date} AND ${to_date}
+                                    ORDER BY 
+                                        I.updated ASC;`);
+            }
+
+            InventoryData[] weeklyConsumableSummaryDatas = [];
+
+            check from Inventory weekly_consumable_summary_record in weekly_consumable_summary_data
+                do {
+                    InventoryData|error weeklyConsumableSummaryData = new InventoryData(0, weekly_consumable_summary_record);
+
+                    if !(weeklyConsumableSummaryData is error) {
+                        weeklyConsumableSummaryDatas.push(weeklyConsumableSummaryData);
+                    }
+                };
+
+            check weekly_consumable_summary_data.close();
+            return weeklyConsumableSummaryDatas;
+
+        }else{
+        return error("Provide non-null values for both 'From Date' and 'To Date'.");
+        }
+
+    }
+
+    remote function update_consumable_replenishment(Inventory[] inventories) returns InventoryData[]|error? {
+        
+        
+        InventoryData[]  updatedInventoryDatas = [];
+
+        foreach Inventory inventory in inventories {
+
+            int id = inventory.id ?: 0;
+
+           // Calculate the sum of quantity and quantity_in
+            decimal? totalQuantity = inventory.quantity + inventory.quantity_in;
+
+            sql:ExecutionResult res = check db_client->execute(
+            `UPDATE inventory SET
+                quantity = ${totalQuantity},
+                quantity_in = ${inventory.quantity_in},
+                updated = ${inventory.updated}
+            WHERE id = ${id};`
+            );
+
+            if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+                return error("Unable to update  consumable replenishment record");
+            }else{
+                InventoryData|error updatedInventoryData = new InventoryData(id);
+                if !(updatedInventoryData is error) {
+                    updatedInventoryDatas.push(updatedInventoryData);
+                }
+            }
+
+        }
+        return updatedInventoryDatas;
+    }
+
+    remote function update_consumable_depletion(Inventory[] inventories) returns InventoryData[]|error? {
+
+        InventoryData[] updatedInventoryDatas = [];
+
+        foreach Inventory inventory in inventories {
+
+            int id = inventory.id ?: 0;
+
+            // Calculate the result of quantity - quantity_out
+            decimal? totalQuantity = inventory.quantity - inventory.quantity_out;
+
+            sql:ExecutionResult res = check db_client->execute(
+            `UPDATE inventory SET
+                quantity = ${totalQuantity},
+                quantity_out = ${inventory.quantity_out},
+                updated = ${inventory.updated}
+            WHERE id = ${id};`
+            );
+
+            if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+                return error("Unable to update consumable depletion record");
+            } else {
+                InventoryData|error updatedInventoryData = new InventoryData(id);
+                if !(updatedInventoryData is error) {
+                    updatedInventoryDatas.push(updatedInventoryData);
+                }
+            }
+
+        }
+        return updatedInventoryDatas;
+    }
+
+    isolated resource function get consumable_monthly_report(int? organization_id, int? year, int? month) returns InventoryData[]|error? {
+
+        stream<Inventory, error?> monthly_consumable_summary_data;
+
+        if (year != null && month != null) {
+
+            lock {
+
+                monthly_consumable_summary_data = db_client->query(
+                                    `SELECT 
+                                            C.id AS consumable_id,  
+                                            COALESCE(SUM_In.quantity_in_sum, 0.00) AS quantity_in, 
+                                            COALESCE(SUM_Out.quantity_out_sum, 0.00) AS quantity_out,
+                                            RP.id AS resource_property_id, 
+                                            RP.value AS resource_property_value
+                                        FROM 
+                                            consumable C
+                                        LEFT JOIN 
+                                            resource_property RP ON C.id = RP.consumable_id
+                                        LEFT JOIN (
+                                            SELECT 
+                                                I.consumable_id, 
+                                                SUM(I.quantity_in) AS quantity_in_sum
+                                            FROM 
+                                                inventory I
+                                            WHERE 
+                                                I.organization_id = ${organization_id}
+                                                AND YEAR(I.updated) = ${year}
+                                                AND MONTH(I.updated) = ${month}
+                                                AND I.quantity_out = 0.00
+                                            GROUP BY 
+                                                I.consumable_id
+                                        ) SUM_In ON C.id = SUM_In.consumable_id
+                                        LEFT JOIN (
+                                            SELECT 
+                                                I.consumable_id, 
+                                                SUM(I.quantity_out) AS quantity_out_sum
+                                            FROM 
+                                                inventory I
+                                            WHERE 
+                                                I.organization_id = ${organization_id}
+                                                AND YEAR(I.updated) = ${year}
+                                                AND MONTH(I.updated) = ${month}
+                                                AND I.quantity_in = 0.00
+                                            GROUP BY 
+                                                I.consumable_id
+                                        ) SUM_Out ON C.id = SUM_Out.consumable_id
+                                        ORDER BY 
+                                            C.id;`);
+            }
+
+            InventoryData[] monthlyConsumableSummaryDatas = [];
+
+            check from Inventory monthly_consumable_summary_record in monthly_consumable_summary_data
+                do {
+                    InventoryData|error monthlyConsumableSummaryData = new InventoryData(0, monthly_consumable_summary_record);
+
+                    if !(monthlyConsumableSummaryData is error) {
+                        monthlyConsumableSummaryDatas.push(monthlyConsumableSummaryData);
+                    }
+                };
+
+            check monthly_consumable_summary_data.close();
+            return monthlyConsumableSummaryDatas;
+
+        } else {
+            return error("Provide non-null values for both 'year' and 'month'.");
+        }
+
     }
 }
 
