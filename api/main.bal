@@ -5160,6 +5160,77 @@ lock {
         }
         return updatedInventoryDatas;
     }
+
+    isolated resource function get consumable_monthly_report(int? organization_id, int? year, int? month) returns InventoryData[]|error? {
+
+        stream<Inventory, error?> monthly_consumable_summary_data;
+
+        if (year != null && month != null) {
+
+            lock {
+
+                monthly_consumable_summary_data = db_client->query(
+                                    `SELECT 
+                                            C.id AS consumable_id,  
+                                            COALESCE(SUM_In.quantity_in_sum, 0.00) AS quantity_in, 
+                                            COALESCE(SUM_Out.quantity_out_sum, 0.00) AS quantity_out,
+                                            RP.id AS resource_property_id, 
+                                            RP.value AS resource_property_value
+                                        FROM 
+                                            consumable C
+                                        LEFT JOIN 
+                                            resource_property RP ON C.id = RP.consumable_id
+                                        LEFT JOIN (
+                                            SELECT 
+                                                I.consumable_id, 
+                                                SUM(I.quantity_in) AS quantity_in_sum
+                                            FROM 
+                                                inventory I
+                                            WHERE 
+                                                I.organization_id = ${organization_id}
+                                                AND YEAR(I.updated) = ${year}
+                                                AND MONTH(I.updated) = ${month}
+                                                AND I.quantity_out = 0.00
+                                            GROUP BY 
+                                                I.consumable_id
+                                        ) SUM_In ON C.id = SUM_In.consumable_id
+                                        LEFT JOIN (
+                                            SELECT 
+                                                I.consumable_id, 
+                                                SUM(I.quantity_out) AS quantity_out_sum
+                                            FROM 
+                                                inventory I
+                                            WHERE 
+                                                I.organization_id = ${organization_id}
+                                                AND YEAR(I.updated) = ${year}
+                                                AND MONTH(I.updated) = ${month}
+                                                AND I.quantity_in = 0.00
+                                            GROUP BY 
+                                                I.consumable_id
+                                        ) SUM_Out ON C.id = SUM_Out.consumable_id
+                                        ORDER BY 
+                                            C.id;`);
+            }
+
+            InventoryData[] monthlyConsumableSummaryDatas = [];
+
+            check from Inventory monthly_consumable_summary_record in monthly_consumable_summary_data
+                do {
+                    InventoryData|error monthlyConsumableSummaryData = new InventoryData(0, monthly_consumable_summary_record);
+
+                    if !(monthlyConsumableSummaryData is error) {
+                        monthlyConsumableSummaryDatas.push(monthlyConsumableSummaryData);
+                    }
+                };
+
+            check monthly_consumable_summary_data.close();
+            return monthlyConsumableSummaryDatas;
+
+        } else {
+            return error("Provide non-null values for both 'year' and 'month'.");
+        }
+
+    }
 }
 
 isolated function calculateWeekdays(time:Utc toDate, time:Utc fromDate) returns int {
