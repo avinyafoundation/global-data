@@ -44,7 +44,6 @@ public isolated service class InventoryData{
        
     }
 
-
     isolated resource function get asset() returns AssetData|error? {
         int id = 0;
         lock {
@@ -65,6 +64,12 @@ public isolated service class InventoryData{
             } 
         }
         return new ConsumableData(id);
+    }
+
+     isolated resource function get consumable_id() returns int|error? {
+        lock {
+            return self.inventory.consumable_id ?: 0;
+        }
     }
 
     isolated resource function get organization() returns OrganizationData|error? {
