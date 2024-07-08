@@ -4773,7 +4773,7 @@ lock {
                    inventory_data = db_client->query(
                             `SELECT 
                                     I.id,
-                                    I.avinya_type_id,
+                                    C.avinya_type_id,
                                     C.id AS consumable_id,
                                     I.organization_id,
                                     I.person_id,
@@ -4903,7 +4903,7 @@ lock {
         return inventoryDatas;
     }
 
-    remote function consumable_replenishment(Inventory[] inventories) returns InventoryData[]|error? {
+    remote function consumable_replenishment(int person_id,int organization_id,string date,Inventory[] inventories) returns InventoryData[]|error? {
 
         InventoryData[]  newlyAddedInventoryDatas = [];
 
@@ -4925,12 +4925,12 @@ lock {
                 ) VALUES (
                     ${inventory.avinya_type_id},
                     ${inventory.consumable_id},
-                    ${inventory.organization_id},
-                    ${inventory.person_id},
+                    ${organization_id},
+                    ${person_id},
                     ${totalQuantity},
                     ${inventory.quantity_in},
-                    ${inventory.updated},
-                    ${inventory.updated}
+                    ${date},
+                    ${date}
                 );`
             );
 
@@ -4947,7 +4947,7 @@ lock {
         return newlyAddedInventoryDatas;
     }
 
-    remote function consumable_depletion(Inventory[] inventories) returns InventoryData[]|error? {
+    remote function consumable_depletion(int person_id, int organization_id, string date,Inventory[] inventories) returns InventoryData[]|error? {
 
         InventoryData[]  newlyAddedInventoryDepletionDatas = [];
 
@@ -4969,12 +4969,12 @@ lock {
                 ) VALUES (
                     ${inventory.avinya_type_id},
                     ${inventory.consumable_id},
-                    ${inventory.organization_id},
-                    ${inventory.person_id},
+                    ${organization_id},
+                    ${person_id},
                     ${totalQuantity},
                     ${inventory.quantity_out},
-                    ${inventory.updated},
-                    ${inventory.updated}
+                    ${date},
+                    ${date}
                 );`
             );
 
