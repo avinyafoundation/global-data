@@ -616,6 +616,7 @@ public type Inventory record {|
     decimal? quantity;
     decimal? quantity_in;
     decimal? quantity_out;
+    decimal? prev_quantity;
     int? resource_property_id;
     string? resource_property_value;
     string? created;

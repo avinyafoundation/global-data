@@ -4780,6 +4780,7 @@ lock {
                                     COALESCE(I.quantity, 0.0) AS quantity,
                                     COALESCE(I.quantity_in, 0.0) AS quantity_in,
                                     COALESCE(I.quantity_out, 0.0) AS quantity_out,
+                                    COALESCE(I.prev_quantity, 0.0) AS prev_quantity,
                                     RP.id AS resource_property_id,
                                     RP.value AS resource_property_value,
                                     C.name,
@@ -4810,6 +4811,7 @@ lock {
                                 I.quantity,
                                 I.quantity_in,
                                 I.quantity_out,
+                                I.prev_quantity,
                                 RP.id AS resource_property_id,
                                 RP.value AS resource_property_value,
                                 C.name,
@@ -4856,7 +4858,8 @@ lock {
                                         I.person_id, 
                                         I.quantity, 
                                         I.quantity_in, 
-                                        I.quantity_out, 
+                                        I.quantity_out,
+                                        I.prev_quantity, 
                                         RP.id AS resource_property_id, 
                                         RP.value AS resource_property_value, 
                                         C.name, 
@@ -4920,6 +4923,7 @@ lock {
                     person_id,
                     quantity,
                     quantity_in,
+                    prev_quantity,
                     created,
                     updated
                 ) VALUES (
@@ -4929,6 +4933,7 @@ lock {
                     ${person_id},
                     ${totalQuantity},
                     ${inventory.quantity_in},
+                    ${inventory.prev_quantity},
                     ${date},
                     ${date}
                 );`
@@ -4964,6 +4969,7 @@ lock {
                     person_id,
                     quantity,
                     quantity_out,
+                    prev_quantity,
                     created,
                     updated
                 ) VALUES (
@@ -4973,6 +4979,7 @@ lock {
                     ${person_id},
                     ${totalQuantity},
                     ${inventory.quantity_out},
+                    ${inventory.prev_quantity},
                     ${date},
                     ${date}
                 );`

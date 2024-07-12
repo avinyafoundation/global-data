@@ -112,6 +112,13 @@ public isolated service class InventoryData{
         }
     }
 
+
+    isolated resource function get prev_quantity() returns decimal?|error {
+        lock {
+            return self.inventory.prev_quantity;
+        }
+    }
+
     isolated resource function get resource_property() returns ResourcePropertyData|error? {
         int id = 0;
         lock {
