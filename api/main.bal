@@ -4918,8 +4918,6 @@ lock {
 
         foreach Inventory inventory in inventories {
 
-            // Calculate the sum of quantity and quantity_in
-            decimal? totalQuantity = inventory.quantity + inventory.quantity_in;
 
             sql:ExecutionResult response = check db_client->execute(
                 `INSERT INTO inventory (
@@ -4937,7 +4935,7 @@ lock {
                     ${inventory.consumable_id},
                     ${organization_id},
                     ${person_id},
-                    ${totalQuantity},
+                    ${inventory.quantity},
                     ${inventory.quantity_in},
                     ${inventory.prev_quantity},
                     ${date},
@@ -4964,9 +4962,6 @@ lock {
 
         foreach Inventory inventory in inventories {
 
-            // Calculate the result of quantity - quantity_out
-            decimal? totalQuantity = inventory.quantity - inventory.quantity_out;
-
             sql:ExecutionResult response = check db_client->execute(
                 `INSERT INTO inventory (
                     avinya_type_id,
@@ -4983,7 +4978,7 @@ lock {
                     ${inventory.consumable_id},
                     ${organization_id},
                     ${person_id},
-                    ${totalQuantity},
+                    ${inventory.quantity},
                     ${inventory.quantity_out},
                     ${inventory.prev_quantity},
                     ${date},
@@ -5118,12 +5113,10 @@ lock {
 
             int id = inventory.id ?: 0;
 
-           // Calculate the sum of quantity and quantity_in
-            decimal? totalQuantity = inventory.quantity + inventory.quantity_in;
 
             sql:ExecutionResult res = check db_client->execute(
             `UPDATE inventory SET
-                quantity = ${totalQuantity},
+                quantity = ${inventory.quantity},
                 quantity_in = ${inventory.quantity_in},
                 updated = ${inventory.updated}
             WHERE id = ${id};`
@@ -5150,12 +5143,9 @@ lock {
 
             int id = inventory.id ?: 0;
 
-            // Calculate the result of quantity - quantity_out
-            decimal? totalQuantity = inventory.quantity - inventory.quantity_out;
-
             sql:ExecutionResult res = check db_client->execute(
             `UPDATE inventory SET
-                quantity = ${totalQuantity},
+                quantity = ${inventory.quantity},
                 quantity_out = ${inventory.quantity_out},
                 updated = ${inventory.updated}
             WHERE id = ${id};`
