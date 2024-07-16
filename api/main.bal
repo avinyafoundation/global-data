@@ -4777,6 +4777,8 @@ lock {
                                     C.id AS consumable_id,
                                     I.organization_id,
                                     I.person_id,
+                                    I.created,
+                                    I.updated,
                                     COALESCE(I.quantity, 0.0) AS quantity,
                                     COALESCE(I.quantity_in, 0.0) AS quantity_in,
                                     COALESCE(I.quantity_out, 0.0) AS quantity_out,
@@ -4812,6 +4814,8 @@ lock {
                                 I.quantity_in,
                                 I.quantity_out,
                                 I.prev_quantity,
+                                I.created,
+                                I.updated,
                                 RP.id AS resource_property_id,
                                 RP.value AS resource_property_value,
                                 C.name,
@@ -4859,7 +4863,9 @@ lock {
                                         I.quantity, 
                                         I.quantity_in, 
                                         I.quantity_out,
-                                        I.prev_quantity, 
+                                        I.prev_quantity,
+                                        I.created,
+                                        I.updated, 
                                         RP.id AS resource_property_id, 
                                         RP.value AS resource_property_value, 
                                         C.name, 
@@ -4912,8 +4918,6 @@ lock {
 
         foreach Inventory inventory in inventories {
 
-            // Calculate the sum of quantity and quantity_in
-            decimal? totalQuantity = inventory.quantity + inventory.quantity_in;
 
             sql:ExecutionResult response = check db_client->execute(
                 `INSERT INTO inventory (
@@ -4931,7 +4935,7 @@ lock {
                     ${inventory.consumable_id},
                     ${organization_id},
                     ${person_id},
-                    ${totalQuantity},
+                    ${inventory.quantity},
                     ${inventory.quantity_in},
                     ${inventory.prev_quantity},
                     ${date},
@@ -4958,9 +4962,6 @@ lock {
 
         foreach Inventory inventory in inventories {
 
-            // Calculate the result of quantity - quantity_out
-            decimal? totalQuantity = inventory.quantity - inventory.quantity_out;
-
             sql:ExecutionResult response = check db_client->execute(
                 `INSERT INTO inventory (
                     avinya_type_id,
@@ -4977,7 +4978,7 @@ lock {
                     ${inventory.consumable_id},
                     ${organization_id},
                     ${person_id},
-                    ${totalQuantity},
+                    ${inventory.quantity},
                     ${inventory.quantity_out},
                     ${inventory.prev_quantity},
                     ${date},
@@ -5112,12 +5113,10 @@ lock {
 
             int id = inventory.id ?: 0;
 
-           // Calculate the sum of quantity and quantity_in
-            decimal? totalQuantity = inventory.quantity + inventory.quantity_in;
 
             sql:ExecutionResult res = check db_client->execute(
             `UPDATE inventory SET
-                quantity = ${totalQuantity},
+                quantity = ${inventory.quantity},
                 quantity_in = ${inventory.quantity_in},
                 updated = ${inventory.updated}
             WHERE id = ${id};`
@@ -5144,12 +5143,9 @@ lock {
 
             int id = inventory.id ?: 0;
 
-            // Calculate the result of quantity - quantity_out
-            decimal? totalQuantity = inventory.quantity - inventory.quantity_out;
-
             sql:ExecutionResult res = check db_client->execute(
             `UPDATE inventory SET
-                quantity = ${totalQuantity},
+                quantity = ${inventory.quantity},
                 quantity_out = ${inventory.quantity_out},
                 updated = ${inventory.updated}
             WHERE id = ${id};`
@@ -5175,48 +5171,64 @@ lock {
         if (year != null && month != null) {
 
             lock {
+                
+                string dateStr = string `${year}-${month}-01`;
 
                 monthly_consumable_summary_data = db_client->query(
                                     `SELECT 
-                                            C.id AS consumable_id,  
-                                            COALESCE(SUM_In.quantity_in_sum, 0.00) AS quantity_in, 
-                                            COALESCE(SUM_Out.quantity_out_sum, 0.00) AS quantity_out,
-                                            RP.id AS resource_property_id, 
-                                            RP.value AS resource_property_value
+                                        C.id AS consumable_id,  
+                                        COALESCE(SUM_In.quantity_in_sum, 0.00) AS quantity_in, 
+                                        COALESCE(SUM_Out.quantity_out_sum, 0.00) AS quantity_out,
+                                        RP.id AS resource_property_id, 
+                                        RP.value AS resource_property_value,
+                                        COALESCE(PrevMonthNet.quantity_net, 0.00) AS quantity
+                                    FROM 
+                                        consumable C
+                                    LEFT JOIN 
+                                        resource_property RP ON C.id = RP.consumable_id
+                                    LEFT JOIN (
+                                        SELECT 
+                                            I.consumable_id, 
+                                            SUM(I.quantity_in) AS quantity_in_sum
                                         FROM 
-                                            consumable C
-                                        LEFT JOIN 
-                                            resource_property RP ON C.id = RP.consumable_id
-                                        LEFT JOIN (
-                                            SELECT 
-                                                I.consumable_id, 
-                                                SUM(I.quantity_in) AS quantity_in_sum
-                                            FROM 
-                                                inventory I
-                                            WHERE 
-                                                I.organization_id = ${organization_id}
-                                                AND YEAR(I.updated) = ${year}
-                                                AND MONTH(I.updated) = ${month}
-                                                AND I.quantity_out = 0.00
-                                            GROUP BY 
-                                                I.consumable_id
-                                        ) SUM_In ON C.id = SUM_In.consumable_id
-                                        LEFT JOIN (
-                                            SELECT 
-                                                I.consumable_id, 
-                                                SUM(I.quantity_out) AS quantity_out_sum
-                                            FROM 
-                                                inventory I
-                                            WHERE 
-                                                I.organization_id = ${organization_id}
-                                                AND YEAR(I.updated) = ${year}
-                                                AND MONTH(I.updated) = ${month}
-                                                AND I.quantity_in = 0.00
-                                            GROUP BY 
-                                                I.consumable_id
-                                        ) SUM_Out ON C.id = SUM_Out.consumable_id
-                                        ORDER BY 
-                                            C.id;`);
+                                            inventory I
+                                        WHERE 
+                                            I.organization_id = ${organization_id}
+                                            AND YEAR(I.updated) = ${year}
+                                            AND MONTH(I.updated) = ${month}
+                                            AND I.quantity_out = 0.00
+                                        GROUP BY 
+                                            I.consumable_id
+                                    ) SUM_In ON C.id = SUM_In.consumable_id
+                                    LEFT JOIN (
+                                        SELECT 
+                                            I.consumable_id, 
+                                            SUM(I.quantity_out) AS quantity_out_sum
+                                        FROM 
+                                            inventory I
+                                        WHERE 
+                                            I.organization_id = ${organization_id}
+                                            AND YEAR(I.updated) = ${year}
+                                            AND MONTH(I.updated) = ${month}
+                                            AND I.quantity_in = 0.00
+                                        GROUP BY 
+                                            I.consumable_id
+                                    ) SUM_Out ON C.id = SUM_Out.consumable_id
+                                    LEFT JOIN (
+                                        SELECT 
+                                            I.consumable_id, 
+                                            SUM(I.quantity_in) - SUM(I.quantity_out) AS quantity_net
+                                        FROM 
+                                            inventory I
+                                        WHERE 
+                                            I.organization_id = ${organization_id}
+                                            AND I.updated >= DATE_SUB(DATE(${dateStr}), INTERVAL 1 MONTH)
+                                            AND I.updated < DATE(${dateStr})
+                                        GROUP BY 
+                                            I.consumable_id
+                                    ) PrevMonthNet ON C.id = PrevMonthNet.consumable_id
+                                    ORDER BY 
+                                        C.id;`);
             }
 
             InventoryData[] monthlyConsumableSummaryDatas = [];
