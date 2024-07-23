@@ -4718,6 +4718,538 @@ lock {
       }
     }
 
+    isolated resource function get inventory_data_by_organization(int? organization_id,string? date= null) returns InventoryData[]|error? {
+        
+        stream<Inventory, error?> inventory_data;
+
+        // first check if inventory data for date are already have
+        int|error? check_inventory_data_for_date = check db_client->queryRow(
+                        `SELECT 
+                            CASE 
+                                WHEN (
+                                    SELECT COUNT(DISTINCT I.consumable_id)
+                                    FROM inventory I
+                                    WHERE I.organization_id = ${organization_id} 
+                                    AND DATE(I.updated) = ${date}
+                                ) = (
+                                    SELECT COUNT(*)
+                                    FROM consumable
+                                ) THEN 1
+                                ELSE 0
+                            END AS all_consumables_present;`);
+
+
+        if (check_inventory_data_for_date == 0){
+
+            int|error? check_least_updated_inventory_data_for_date = check db_client->queryRow(
+                                            `SELECT 
+                                                CASE 
+                                                    WHEN (
+                                                        SELECT COUNT(DISTINCT I.consumable_id)
+                                                        FROM inventory I
+                                                        INNER JOIN (
+                                                            SELECT 
+                                                                consumable_id, 
+                                                                MAX(updated) AS max_updated_at
+                                                            FROM 
+                                                                inventory
+                                                            WHERE 
+                                                                organization_id = ${organization_id}
+                                                            GROUP BY 
+                                                                consumable_id
+                                                        ) max_updated ON I.consumable_id = max_updated.consumable_id 
+                                                            AND I.updated = max_updated.max_updated_at
+                                                    ) = (
+                                                        SELECT COUNT(*)
+                                                        FROM consumable
+                                                    ) THEN 1
+                                                    ELSE 0
+                                                END AS all_consumables_present;`);
+                
+               
+                if(check_least_updated_inventory_data_for_date == 0){
+
+               
+                   inventory_data = db_client->query(
+                            `SELECT 
+                                    I.id,
+                                    C.avinya_type_id,
+                                    C.id AS consumable_id,
+                                    I.organization_id,
+                                    I.person_id,
+                                    I.created,
+                                    I.updated,
+                                    COALESCE(I.quantity, 0.0) AS quantity,
+                                    COALESCE(I.quantity_in, 0.0) AS quantity_in,
+                                    COALESCE(I.quantity_out, 0.0) AS quantity_out,
+                                    COALESCE(I.prev_quantity, 0.0) AS prev_quantity,
+                                    RP.id AS resource_property_id,
+                                    RP.value AS resource_property_value,
+                                    C.name,
+                                    C.description,
+                                    C.manufacturer
+                                FROM 
+                                    consumable C
+                                LEFT JOIN 
+                                    (SELECT * FROM inventory WHERE organization_id = ${organization_id}) I 
+                                    ON C.id = I.consumable_id AND I.updated = (
+                                        SELECT MAX(I2.updated)
+                                        FROM inventory I2
+                                        WHERE I2.consumable_id = C.id AND I2.organization_id = ${organization_id}
+                                    )
+                                LEFT JOIN 
+                                    resource_property RP 
+                                    ON C.id = RP.consumable_id;`);
+                }else{
+
+
+                   inventory_data = db_client->query(
+                        `SELECT 
+                                I.id,
+                                I.avinya_type_id,
+                                I.consumable_id,
+                                I.organization_id,
+                                I.person_id,
+                                I.quantity,
+                                I.quantity_in,
+                                I.quantity_out,
+                                I.prev_quantity,
+                                I.created,
+                                I.updated,
+                                RP.id AS resource_property_id,
+                                RP.value AS resource_property_value,
+                                C.name,
+                                C.description,
+                                C.manufacturer
+                            FROM 
+                                consumable C
+                            INNER JOIN 
+                                (
+                                    SELECT 
+                                        I1.*
+                                    FROM 
+                                        inventory I1
+                                    INNER JOIN 
+                                        (
+                                            SELECT 
+                                                consumable_id, 
+                                                MAX(updated) AS max_updated_at
+                                            FROM 
+                                                inventory
+                                            WHERE 
+                                                organization_id = ${organization_id}
+                                            GROUP BY 
+                                                consumable_id
+                                        ) latest_inventory 
+                                        ON I1.consumable_id = latest_inventory.consumable_id 
+                                        AND I1.updated = latest_inventory.max_updated_at
+                                ) I 
+                                ON C.id = I.consumable_id
+                            LEFT JOIN 
+                                resource_property RP 
+                                ON C.id = RP.consumable_id;`);
+                }
+          
+        }else{
+
+
+            inventory_data = db_client->query(
+                                  `SELECT 
+                                        I.id, 
+                                        I.avinya_type_id, 
+                                        I.consumable_id, 
+                                        I.organization_id, 
+                                        I.person_id, 
+                                        I.quantity, 
+                                        I.quantity_in, 
+                                        I.quantity_out,
+                                        I.prev_quantity,
+                                        I.created,
+                                        I.updated, 
+                                        RP.id AS resource_property_id, 
+                                        RP.value AS resource_property_value, 
+                                        C.name, 
+                                        C.description, 
+                                        C.manufacturer
+                                    FROM 
+                                        inventory I
+                                    INNER JOIN 
+                                        consumable C ON I.consumable_id = C.id
+                                    INNER JOIN 
+                                        resource_property RP ON C.id = RP.consumable_id
+                                    INNER JOIN (
+                                        SELECT 
+                                            consumable_id, 
+                                            MAX(updated) AS latest_update 
+                                        FROM 
+                                            inventory 
+                                        WHERE 
+                                            organization_id = ${organization_id}
+                                            AND DATE(updated) = ${date}
+                                        GROUP BY 
+                                            consumable_id
+                                    ) Latest 
+                                        ON I.consumable_id = Latest.consumable_id 
+                                        AND I.updated = Latest.latest_update
+                                    WHERE 
+                                        I.organization_id = ${organization_id}
+                                        AND DATE(I.updated) = ${date};
+                                    `);
+            }
+
+        InventoryData[]  inventoryDatas = [];
+
+        check from Inventory inventory in inventory_data
+            do {
+                InventoryData|error inventoryData = new InventoryData(0,inventory);
+    
+                if !(inventoryData is error) {
+                    inventoryDatas.push(inventoryData);
+                }
+            };
+
+        check inventory_data.close();
+        return inventoryDatas;
+    }
+
+    remote function consumable_replenishment(int person_id,int organization_id,string date,Inventory[] inventories) returns InventoryData[]|error? {
+
+        InventoryData[]  newlyAddedInventoryDatas = [];
+
+        foreach Inventory inventory in inventories {
+
+
+            sql:ExecutionResult response = check db_client->execute(
+                `INSERT INTO inventory (
+                    avinya_type_id,
+                    consumable_id,
+                    organization_id,
+                    person_id,
+                    quantity,
+                    quantity_in,
+                    prev_quantity,
+                    created,
+                    updated
+                ) VALUES (
+                    ${inventory.avinya_type_id},
+                    ${inventory.consumable_id},
+                    ${organization_id},
+                    ${person_id},
+                    ${inventory.quantity},
+                    ${inventory.quantity_in},
+                    ${inventory.prev_quantity},
+                    ${date},
+                    ${date}
+                );`
+            );
+
+            int|string? insert_id = response.lastInsertId;
+            if !(insert_id is int) {
+                return error("Unable to insert inventories");
+            } else {
+                InventoryData|error newlyAddedInventoryData = new InventoryData(insert_id);
+                if !(newlyAddedInventoryData is error) {
+                  newlyAddedInventoryDatas.push(newlyAddedInventoryData);
+                }
+            }
+        }
+        return newlyAddedInventoryDatas;
+    }
+
+    remote function consumable_depletion(int person_id, int organization_id, string date,Inventory[] inventories) returns InventoryData[]|error? {
+
+        InventoryData[]  newlyAddedInventoryDepletionDatas = [];
+
+        foreach Inventory inventory in inventories {
+
+            sql:ExecutionResult response = check db_client->execute(
+                `INSERT INTO inventory (
+                    avinya_type_id,
+                    consumable_id,
+                    organization_id,
+                    person_id,
+                    quantity,
+                    quantity_out,
+                    prev_quantity,
+                    created,
+                    updated
+                ) VALUES (
+                    ${inventory.avinya_type_id},
+                    ${inventory.consumable_id},
+                    ${organization_id},
+                    ${person_id},
+                    ${inventory.quantity},
+                    ${inventory.quantity_out},
+                    ${inventory.prev_quantity},
+                    ${date},
+                    ${date}
+                );`
+            );
+
+            int|string? insert_id = response.lastInsertId;
+            if !(insert_id is int) {
+                return error("Unable to insert inventory depletion data");
+            } else {
+                InventoryData|error newlyAddedInventoryDepletionData = new InventoryData(insert_id);
+                if !(newlyAddedInventoryDepletionData is error) {
+                    newlyAddedInventoryDepletionDatas.push(newlyAddedInventoryDepletionData);
+                }
+            }
+        }
+        return newlyAddedInventoryDepletionDatas;
+    }
+
+    isolated resource function get consumable_weekly_report(int? organization_id, string? from_date = null, string? to_date = null) returns InventoryData[]|error? {
+        
+        stream<Inventory, error?> weekly_consumable_summary_data;
+
+        if(from_date != null && to_date != null){
+         
+           lock {
+
+                weekly_consumable_summary_data = db_client->query(
+                                   `SELECT 
+                                        I.id, 
+                                        I.avinya_type_id, 
+                                        I.consumable_id, 
+                                        I.organization_id, 
+                                        I.person_id, 
+                                        I.prev_quantity, 
+                                        COALESCE(SUM_In.quantity_in_sum, 0.00) AS quantity_in, 
+                                        COALESCE(SUM_Out.quantity_out_sum, 0.00) AS quantity_out, 
+                                        RP.id AS resource_property_id, 
+                                        RP.value AS resource_property_value, 
+                                        C.name, 
+                                        C.description, 
+                                        C.manufacturer,
+                                        DATE(I.updated) AS updated
+                                    FROM 
+                                        inventory I
+                                    INNER JOIN 
+                                        consumable C ON I.consumable_id = C.id
+                                    LEFT JOIN 
+                                        resource_property RP ON C.id = RP.consumable_id
+                                    INNER JOIN (
+                                        SELECT 
+                                            consumable_id, 
+                                            DATE(updated) AS update_date, 
+                                            MIN(updated) AS earliest_update 
+                                        FROM 
+                                            inventory 
+                                        WHERE 
+                                            organization_id = ${organization_id}
+                                            AND DATE(updated) BETWEEN ${from_date} AND ${to_date}
+                                        GROUP BY 
+                                            consumable_id, DATE(updated)
+                                    ) Earliest 
+                                        ON I.consumable_id = Earliest.consumable_id 
+                                        AND DATE(I.updated) = Earliest.update_date 
+                                        AND I.updated = Earliest.earliest_update
+                                    LEFT JOIN (
+                                        SELECT 
+                                            consumable_id, 
+                                            DATE(updated) AS update_date, 
+                                            SUM(quantity_in) AS quantity_in_sum 
+                                        FROM 
+                                            inventory 
+                                        WHERE 
+                                            organization_id = ${organization_id}
+                                            AND quantity_out = 0.00
+                                            AND DATE(updated) BETWEEN ${from_date} AND ${to_date}
+                                        GROUP BY 
+                                            consumable_id, DATE(updated)
+                                    ) SUM_In 
+                                        ON I.consumable_id = SUM_In.consumable_id 
+                                        AND DATE(I.updated) = SUM_In.update_date
+                                    LEFT JOIN (
+                                        SELECT 
+                                            consumable_id, 
+                                            DATE(updated) AS update_date, 
+                                            SUM(quantity_out) AS quantity_out_sum 
+                                        FROM 
+                                            inventory 
+                                        WHERE 
+                                            organization_id = ${organization_id}
+                                            AND quantity_in = 0.00
+                                            AND DATE(updated) BETWEEN ${from_date} AND ${to_date}
+                                        GROUP BY 
+                                            consumable_id, DATE(updated)
+                                    ) SUM_Out 
+                                        ON I.consumable_id = SUM_Out.consumable_id 
+                                        AND DATE(I.updated) = SUM_Out.update_date
+                                    WHERE 
+                                        I.organization_id = ${organization_id}
+                                        AND DATE(I.updated) BETWEEN ${from_date} AND ${to_date}
+                                    ORDER BY 
+                                        I.updated ASC;`);
+            }
+
+            InventoryData[] weeklyConsumableSummaryDatas = [];
+
+            check from Inventory weekly_consumable_summary_record in weekly_consumable_summary_data
+                do {
+                    InventoryData|error weeklyConsumableSummaryData = new InventoryData(0, weekly_consumable_summary_record);
+
+                    if !(weeklyConsumableSummaryData is error) {
+                        weeklyConsumableSummaryDatas.push(weeklyConsumableSummaryData);
+                    }
+                };
+
+            check weekly_consumable_summary_data.close();
+            return weeklyConsumableSummaryDatas;
+
+        }else{
+        return error("Provide non-null values for both 'From Date' and 'To Date'.");
+        }
+
+    }
+
+    remote function update_consumable_replenishment(Inventory[] inventories) returns InventoryData[]|error? {
+        
+        
+        InventoryData[]  updatedInventoryDatas = [];
+
+        foreach Inventory inventory in inventories {
+
+            int id = inventory.id ?: 0;
+
+
+            sql:ExecutionResult res = check db_client->execute(
+            `UPDATE inventory SET
+                quantity = ${inventory.quantity},
+                quantity_in = ${inventory.quantity_in},
+                updated = ${inventory.updated}
+            WHERE id = ${id};`
+            );
+
+            if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+                return error("Unable to update  consumable replenishment record");
+            }else{
+                InventoryData|error updatedInventoryData = new InventoryData(id);
+                if !(updatedInventoryData is error) {
+                    updatedInventoryDatas.push(updatedInventoryData);
+                }
+            }
+
+        }
+        return updatedInventoryDatas;
+    }
+
+    remote function update_consumable_depletion(Inventory[] inventories) returns InventoryData[]|error? {
+
+        InventoryData[] updatedInventoryDatas = [];
+
+        foreach Inventory inventory in inventories {
+
+            int id = inventory.id ?: 0;
+
+            sql:ExecutionResult res = check db_client->execute(
+            `UPDATE inventory SET
+                quantity = ${inventory.quantity},
+                quantity_out = ${inventory.quantity_out},
+                updated = ${inventory.updated}
+            WHERE id = ${id};`
+            );
+
+            if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+                return error("Unable to update consumable depletion record");
+            } else {
+                InventoryData|error updatedInventoryData = new InventoryData(id);
+                if !(updatedInventoryData is error) {
+                    updatedInventoryDatas.push(updatedInventoryData);
+                }
+            }
+
+        }
+        return updatedInventoryDatas;
+    }
+
+    isolated resource function get consumable_monthly_report(int? organization_id, int? year, int? month) returns InventoryData[]|error? {
+
+        stream<Inventory, error?> monthly_consumable_summary_data;
+
+        if (year != null && month != null) {
+
+            lock {
+                
+                string dateStr = string `${year}-${month}-01`;
+
+                monthly_consumable_summary_data = db_client->query(
+                                    `SELECT 
+                                        C.id AS consumable_id,  
+                                        COALESCE(SUM_In.quantity_in_sum, 0.00) AS quantity_in, 
+                                        COALESCE(SUM_Out.quantity_out_sum, 0.00) AS quantity_out,
+                                        RP.id AS resource_property_id, 
+                                        RP.value AS resource_property_value,
+                                        COALESCE(PrevMonthNet.quantity_net, 0.00) AS quantity
+                                    FROM 
+                                        consumable C
+                                    LEFT JOIN 
+                                        resource_property RP ON C.id = RP.consumable_id
+                                    LEFT JOIN (
+                                        SELECT 
+                                            I.consumable_id, 
+                                            SUM(I.quantity_in) AS quantity_in_sum
+                                        FROM 
+                                            inventory I
+                                        WHERE 
+                                            I.organization_id = ${organization_id}
+                                            AND YEAR(I.updated) = ${year}
+                                            AND MONTH(I.updated) = ${month}
+                                            AND I.quantity_out = 0.00
+                                        GROUP BY 
+                                            I.consumable_id
+                                    ) SUM_In ON C.id = SUM_In.consumable_id
+                                    LEFT JOIN (
+                                        SELECT 
+                                            I.consumable_id, 
+                                            SUM(I.quantity_out) AS quantity_out_sum
+                                        FROM 
+                                            inventory I
+                                        WHERE 
+                                            I.organization_id = ${organization_id}
+                                            AND YEAR(I.updated) = ${year}
+                                            AND MONTH(I.updated) = ${month}
+                                            AND I.quantity_in = 0.00
+                                        GROUP BY 
+                                            I.consumable_id
+                                    ) SUM_Out ON C.id = SUM_Out.consumable_id
+                                    LEFT JOIN (
+                                        SELECT 
+                                            I.consumable_id, 
+                                            SUM(I.quantity_in) - SUM(I.quantity_out) AS quantity_net
+                                        FROM 
+                                            inventory I
+                                        WHERE 
+                                            I.organization_id = ${organization_id}
+                                            AND I.updated >= DATE_SUB(DATE(${dateStr}), INTERVAL 1 MONTH)
+                                            AND I.updated < DATE(${dateStr})
+                                        GROUP BY 
+                                            I.consumable_id
+                                    ) PrevMonthNet ON C.id = PrevMonthNet.consumable_id
+                                    ORDER BY 
+                                        C.id;`);
+            }
+
+            InventoryData[] monthlyConsumableSummaryDatas = [];
+
+            check from Inventory monthly_consumable_summary_record in monthly_consumable_summary_data
+                do {
+                    InventoryData|error monthlyConsumableSummaryData = new InventoryData(0, monthly_consumable_summary_record);
+
+                    if !(monthlyConsumableSummaryData is error) {
+                        monthlyConsumableSummaryDatas.push(monthlyConsumableSummaryData);
+                    }
+                };
+
+            check monthly_consumable_summary_data.close();
+            return monthlyConsumableSummaryDatas;
+
+        } else {
+            return error("Provide non-null values for both 'year' and 'month'.");
+        }
+
+    }
 }
 
 isolated function calculateWeekdays(time:Utc toDate, time:Utc fromDate) returns int {

@@ -1,7 +1,7 @@
 public isolated service class InventoryData{
     private Inventory inventory;
 
-    isolated function init(int id,Inventory? inventory=null) returns error?{
+    isolated function init(int? id = 0, Inventory? inventory = null) returns error? {
         if(inventory != null){
             self.inventory = inventory.cloneReadOnly();
             return;
@@ -44,7 +44,6 @@ public isolated service class InventoryData{
        
     }
 
-
     isolated resource function get asset() returns AssetData|error? {
         int id = 0;
         lock {
@@ -65,6 +64,12 @@ public isolated service class InventoryData{
             } 
         }
         return new ConsumableData(id);
+    }
+
+     isolated resource function get consumable_id() returns int|error? {
+        lock {
+            return self.inventory.consumable_id ?: 0;
+        }
     }
 
     isolated resource function get organization() returns OrganizationData|error? {
@@ -89,21 +94,60 @@ public isolated service class InventoryData{
         return new PersonData((),id);
     }
 
-    isolated resource function get quantity() returns int?|error {
+    isolated resource function get quantity() returns decimal?|error {
         lock {
             return self.inventory.quantity;
         }
     }
 
-    isolated resource function get quantity_in() returns int?|error {
+    isolated resource function get quantity_in() returns decimal?|error {
         lock {
             return self.inventory.quantity_in;
         }
     }
 
-    isolated resource function get quantity_out() returns int?|error {
+    isolated resource function get quantity_out() returns decimal?|error {
         lock {
             return self.inventory.quantity_out;
+        }
+    }
+
+
+    isolated resource function get prev_quantity() returns decimal?|error {
+        lock {
+            return self.inventory.prev_quantity;
+        }
+    }
+
+    isolated resource function get resource_property() returns ResourcePropertyData|error? {
+        int id = 0;
+        lock {
+            id = self.inventory.resource_property_id ?: 0;
+            if( id == 0) {
+                return null; // no point in querying if address id is null
+            } 
+        }
+        return new ResourcePropertyData(id);
+    }
+
+    
+    isolated resource function get name() returns string?|error {
+        lock {
+            return self.inventory.name;
+        }
+    }
+
+
+    isolated resource function get description() returns string?|error {
+        lock {
+            return self.inventory.description;
+        }
+    }
+
+
+    isolated resource function get manufacturer() returns string?|error {
+        lock {
+            return self.inventory.manufacturer;
         }
     }
 
