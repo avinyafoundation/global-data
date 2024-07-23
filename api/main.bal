@@ -5014,7 +5014,7 @@ lock {
                                         I.consumable_id, 
                                         I.organization_id, 
                                         I.person_id, 
-                                        I.quantity, 
+                                        I.prev_quantity, 
                                         COALESCE(SUM_In.quantity_in_sum, 0.00) AS quantity_in, 
                                         COALESCE(SUM_Out.quantity_out_sum, 0.00) AS quantity_out, 
                                         RP.id AS resource_property_id, 
