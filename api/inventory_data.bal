@@ -136,7 +136,12 @@ public isolated service class InventoryData{
             return self.inventory.name;
         }
     }
-
+    
+    isolated resource function get month_name() returns string?|error {
+        lock {
+            return self.inventory.month_name;
+        }
+    }
 
     isolated resource function get description() returns string?|error {
         lock {

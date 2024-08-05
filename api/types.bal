@@ -609,6 +609,7 @@ public type Inventory record {|
     int? asset_id;
     int? consumable_id;
     string? name;
+    string? month_name;
     string? description;
     string? manufacturer;
     int? organization_id;
