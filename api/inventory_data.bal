@@ -136,7 +136,12 @@ public isolated service class InventoryData{
             return self.inventory.name;
         }
     }
-
+    
+    isolated resource function get month_name() returns string?|error {
+        lock {
+            return self.inventory.month_name;
+        }
+    }
 
     isolated resource function get description() returns string?|error {
         lock {
@@ -148,6 +153,12 @@ public isolated service class InventoryData{
     isolated resource function get manufacturer() returns string?|error {
         lock {
             return self.inventory.manufacturer;
+        }
+    }
+
+    isolated resource function get is_below_threshold() returns int?|error {
+        lock {
+            return self.inventory.is_below_threshold;
         }
     }
 

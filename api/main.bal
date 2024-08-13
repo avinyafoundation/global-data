@@ -4,7 +4,6 @@ import ballerina/log;
 import ballerina/io;
 import ballerina/time;
 
-
 // @display {
 //     label: "Global Data API",
 //     id: "global-data"
@@ -104,11 +103,11 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
     }
 
     isolated resource function get organizations_by_avinya_type(int? avinya_type) returns OrganizationData[]|error? {
-       
+
         stream<Organization, error?> org_list;
         lock {
             org_list = db_client->query(
-                 `SELECT *
+                `SELECT *
 	             FROM organization
 	             WHERE avinya_type = ${avinya_type}
                 `
@@ -119,7 +118,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         check from Organization organization in org_list
             do {
-                OrganizationData|error organizationData = new OrganizationData((),(), organization);
+                OrganizationData|error organizationData = new OrganizationData((), (), organization);
                 if !(organizationData is error) {
                     organizationListDatas.push(organizationData);
                 }
@@ -146,7 +145,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         check from Person student in studentList
             do {
-                PersonData|error studentData = new PersonData((),(), student);
+                PersonData|error studentData = new PersonData((), (), student);
                 if !(studentData is error) {
                     studentListDatas.push(studentData);
                 }
@@ -168,13 +167,12 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
             WHERE digital_id = ${id};`
         );
 
-        if(personJwtId is Person){
-            return new((),0,personJwtId);
+        if (personJwtId is Person) {
+            return new ((), 0, personJwtId);
         }
         return error("Unable to find person by digital id");
     }
-        
-    
+
     isolated resource function get prospect(string? email, int? phone) returns ProspectData|error? {
         return new (email, phone);
     }
@@ -208,7 +206,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         check from Activity pctiActivity in pctiActivities
             do {
-                ActivityData|error pctiActivityData = new ActivityData((),(),(), pctiActivity);
+                ActivityData|error pctiActivityData = new ActivityData((), (), (), pctiActivity);
                 if !(pctiActivityData is error) {
                     pctiActivityDatas.push(pctiActivityData);
                 }
@@ -217,7 +215,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         check pctiActivities.close();
         return pctiActivityDatas;
     }
-    
+
     // will return notes of a PCTI instance
     isolated resource function get pcti_instance_notes(int pcti_instance_id) returns EvaluationData[]|error? {
         stream<Evaluation, error?> pctiNotes;
@@ -389,14 +387,14 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
     isolated resource function get activity_instances_today(int activity_id) returns ActivityInstanceData[]|error? {
         // first check if activity instances for today are already created
-        ActivityInstance|error todayActitivutyInstance =  db_client->queryRow(
+        ActivityInstance|error todayActitivutyInstance = db_client->queryRow(
             `SELECT *
             FROM activity_instance
             WHERE DATE(start_time) = CURDATE();`
         );
-        
+
         // if not, create them
-        if!(todayActitivutyInstance is ActivityInstance) {
+        if !(todayActitivutyInstance is ActivityInstance) {
             log:printError("No activity instance today");
             log:printInfo("Creating activity instances for today");
 
@@ -424,12 +422,12 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
             // duty participants rotation cycle code block[425 line to 431 line]
             var updateResult = updateDutyParticipantsRotationCycle();
 
-            if(updateResult is error){
+            if (updateResult is error) {
                 log:printError("Error updating Rotation Cycle of duty participants: ", updateResult);
-            }else{
+            } else {
                 log:printInfo("Duty participants Rotation Cycle updated successfully");
-           }
-            
+            }
+
         }
 
         // now move on to finding the activity instances for today for given activity id
@@ -461,7 +459,6 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
         return pctiActivityInstancesTodayData;
     }
-
 
     isolated resource function get activity_instances_future(int activity_id) returns ActivityInstanceData[]|error? {
         stream<ActivityInstance, error?> activityInstancesFuture;
@@ -521,7 +518,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return availableTeachersData;
     }
 
-    isolated resource function get project_tasks(int activity_id) returns ActivityData[]|error?{
+    isolated resource function get project_tasks(int activity_id) returns ActivityData[]|error? {
         stream<Activity, error?> projectTasks;
         lock {
             projectTasks = db_client->query(
@@ -547,8 +544,6 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         check projectTasks.close();
         return projectTasksData;
     }
-
-
 
     isolated resource function get student_applicant(string? jwt_sub_id) returns PersonData|error? {
         AvinyaType avinya_type_raw = check db_client->queryRow(
@@ -637,13 +632,13 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
 
     remote function add_student_applicant(Person person) returns PersonData|error? {
 
-    AvinyaType avinya_type_raw = check db_client->queryRow(
+        AvinyaType avinya_type_raw = check db_client->queryRow(
         `SELECT *
         FROM avinya_type
         WHERE global_type = "applicant" AND  foundation_type = "student";`
     );
 
-    Person|error? applicantRaw = db_client->queryRow(
+        Person|error? applicantRaw = db_client->queryRow(
         `SELECT *
         FROM person
         WHERE (email = ${person.email}  OR
@@ -652,35 +647,35 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         avinya_type_id = ${avinya_type_raw.id};`
     );
 
-    Reference referenceRaw = check db_client->queryRow(
+        Reference referenceRaw = check db_client->queryRow(
         `SELECT *
         FROM reference_number
         WHERE branch_code = ${person.branch_code} AND foundation_type = 'Student';`
     );
 
-    if (applicantRaw is Person) {
-        return error("Applicant already exists. The phone, email, or the social login account you are using is already used by another applicant");
-    }
+        if (applicantRaw is Person) {
+            return error("Applicant already exists. The phone, email, or the social login account you are using is already used by another applicant");
+        }
 
-//     time:Utc currentTime = time:utcNow();
+        //     time:Utc currentTime = time:utcNow();
 
-// string date = time:utcToString(currentTime);
+        // string date = time:utcToString(currentTime);
 
-//     string[] timeArray = regex:split(date, "-");
-//     string year = timeArray[0].substring(2);
+        //     string[] timeArray = regex:split(date, "-");
+        //     string year = timeArray[0].substring(2);
 
-    // Generate the dynamic number with leading zeros
-    int newLastRefNo = referenceRaw.last_reference_no + 1;
-    string dynamicNumberString = padStartWithZeros(newLastRefNo.toString(), 3);
-    string newBatchNo = padStartWithZeros(referenceRaw.batch_no.toString(), 2);
+        // Generate the dynamic number with leading zeros
+        int newLastRefNo = referenceRaw.last_reference_no + 1;
+        string dynamicNumberString = padStartWithZeros(newLastRefNo.toString(), 3);
+        string newBatchNo = padStartWithZeros(referenceRaw.batch_no.toString(), 2);
 
-    string branch_code = person.branch_code.toString();
+        string branch_code = person.branch_code.toString();
 
-    string id_no = string `AF-${branch_code}-${referenceRaw.acedemic_year}-ST${newBatchNo}-${dynamicNumberString}`;
+        string id_no = string `AF-${branch_code}-${referenceRaw.acedemic_year}-ST${newBatchNo}-${dynamicNumberString}`;
 
-io:println(id_no);
+        io:println(id_no);
 
-    sql:ExecutionResult|error res = db_client->execute(
+        sql:ExecutionResult|error res = db_client->execute(
         `INSERT INTO person (
             preferred_name,
             full_name,
@@ -710,7 +705,7 @@ io:println(id_no);
         );`
     );
 
-    // update last_reference_no in reference_number
+        // update last_reference_no in reference_number
         sql:ExecutionResult|error? resUpdate = db_client->execute(
             `UPDATE reference_number
             SET last_reference_no = ${newLastRefNo}
@@ -728,22 +723,21 @@ io:println(id_no);
             return error("Error while updating data", resUpdate);
         }
 
-    if (res is sql:ExecutionResult) {
+        if (res is sql:ExecutionResult) {
 
-        int|string? insert_id = res.lastInsertId;
-        if (!(insert_id is int)) {
-            return error("Unable to insert application");
+            int|string? insert_id = res.lastInsertId;
+            if (!(insert_id is int)) {
+                return error("Unable to insert application");
+            }
+
+            return new ((), insert_id);
         }
 
-        return new ((), insert_id);
+        io:println(res.toString());
+
+        return error("Error while inserting data", res);
+
     }
-
-    io:println(res.toString());
-
-    return error("Error while inserting data", res);
-
-}
-
 
     remote function add_student_applicant_consent(ApplicantConsent applicantConsent) returns ApplicantConsentData|error? {
 
@@ -973,7 +967,6 @@ io:println(id_no);
         }
 
         EvaluationData[] activityEvaluationsData = [];
-        
 
         check from Evaluation evaluation in activityEvaluations
             do {
@@ -1452,7 +1445,7 @@ io:println(id_no);
 
     remote function add_attendance(ActivityParticipantAttendance attendance) returns ActivityParticipantAttendanceData|error? {
         // only today's attendance can be added with this method 
-        ActivityParticipantAttendance|error todayActivityParticipantAttendance =  db_client->queryRow(
+        ActivityParticipantAttendance|error todayActivityParticipantAttendance = db_client->queryRow(
             `SELECT *
             FROM activity_participant_attendance
             WHERE person_id = ${attendance.person_id} and 
@@ -1461,18 +1454,18 @@ io:println(id_no);
         );
         if (todayActivityParticipantAttendance is ActivityParticipantAttendance) {
             if (attendance.sign_in_time != null) {
-                
-            return new (todayActivityParticipantAttendance.id);
+
+                return new (todayActivityParticipantAttendance.id);
             }
             else if (attendance.sign_out_time != null) {
-                todayActivityParticipantAttendance =  db_client->queryRow(
+                todayActivityParticipantAttendance = db_client->queryRow(
                     `SELECT *
                     FROM activity_participant_attendance
                     WHERE person_id = ${attendance.person_id} and 
                     activity_instance_id = ${attendance.activity_instance_id} and
                     DATE(sign_out_time) = CURDATE();`
                 );
-                if(todayActivityParticipantAttendance is ActivityParticipantAttendance ) {
+                if (todayActivityParticipantAttendance is ActivityParticipantAttendance) {
                     return new (todayActivityParticipantAttendance.id);
                 }
             }
@@ -1532,7 +1525,7 @@ io:println(id_no);
 
     isolated resource function get class_attendance_today(int? organization_id, int? activity_id) returns ActivityParticipantAttendanceData[]|error? {
         stream<ActivityParticipantAttendance, error?> attendance_records;
-        
+
         lock {
             attendance_records = db_client->query(
                 `SELECT * 
@@ -1557,7 +1550,7 @@ io:println(id_no);
 
     isolated resource function get person_attendance_today(int? person_id, int? activity_id) returns ActivityParticipantAttendanceData[]|error? {
         stream<ActivityParticipantAttendance, error?> attendance_records;
-        
+
         lock {
             attendance_records = db_client->query(
                 `SELECT * 
@@ -1625,18 +1618,17 @@ io:println(id_no);
 
         time:Utc startTime = time:utcNow();
 
-
         if (result_limit > 0) {
             lock {
                 int|error? avinya_type_id = db_client->queryRow(
             `SELECT p.avinya_type_id FROM organization o left join person p on o.id = p.organization_id WHERE o.id = ${organization_id} AND p.avinya_type_id NOT IN (99, 100) ORDER BY p.avinya_type_id LIMIT 1;`
         );
-                    io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
+                io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
 
-         if !(avinya_type_id is int) {
-            io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
-            return error("AvinyaType ID does not exist");
-        }
+                if !(avinya_type_id is int) {
+                    io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
+                    return error("AvinyaType ID does not exist");
+                }
                 attendance_records = db_client->query(
                     `SELECT * 
                     FROM activity_participant_attendance
@@ -1647,19 +1639,19 @@ io:println(id_no);
                 );
             }
         } else {
-            if(from_date != null && to_date != null){
-                if(organization_id != null){
+            if (from_date != null && to_date != null) {
+                if (organization_id != null) {
                     lock {
                         int|error? avinya_type_id = db_client->queryRow(
             `SELECT p.avinya_type_id FROM organization o left join person p on o.id = p.organization_id WHERE o.id = ${organization_id} AND p.avinya_type_id NOT IN (99, 100) ORDER BY p.avinya_type_id LIMIT 1;`
         );
-                    io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
+                        io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
 
-         if !(avinya_type_id is int) {
-            io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
-            return error("AvinyaType ID does not exist");
-        }
-                    attendance_records = db_client->query(
+                        if !(avinya_type_id is int) {
+                            io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
+                            return error("AvinyaType ID does not exist");
+                        }
+                        attendance_records = db_client->query(
                         `SELECT *
                         FROM activity_participant_attendance
                         WHERE person_id IN (SELECT id FROM person WHERE organization_id = ${organization_id} AND avinya_type_id=${avinya_type_id})
@@ -1667,8 +1659,8 @@ io:println(id_no);
                         AND DATE(sign_in_time) BETWEEN ${from_date} AND ${to_date}
                         ORDER BY created DESC;`
                     );
-                }
-                }else{
+                    }
+                } else {
                     lock {
                         attendance_records = db_client->query(
                             `SELECT *
@@ -1680,7 +1672,7 @@ io:println(id_no);
                             ORDER BY DATE(sign_in_time),created DESC;`
                         );
                     }
-                }  
+                }
             } else {
                 lock {
                     int|error? avinya_type_id = db_client->queryRow(
@@ -1688,10 +1680,10 @@ io:println(id_no);
         );
                     io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
 
-         if !(avinya_type_id is int) {
-            io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
-            return error("AvinyaType ID does not exist");
-        }
+                    if !(avinya_type_id is int) {
+                        io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
+                        return error("AvinyaType ID does not exist");
+                    }
                     attendance_records = db_client->query(
                         `SELECT * 
                         FROM activity_participant_attendance
@@ -1715,7 +1707,7 @@ io:println(id_no);
                 ActivityParticipantAttendanceData|error activityParticipantAttendanceData = new ActivityParticipantAttendanceData(0, attendance_record);
                 if !(activityParticipantAttendanceData is error) {
                     attendnaceDatas.push(activityParticipantAttendanceData);
-                }else{
+                } else {
                     log:printInfo("Error in class_attendance_report = " + activityParticipantAttendanceData.toString());
                 }
             };
@@ -1728,17 +1720,16 @@ io:println(id_no);
 
         time:Utc startTime = time:utcNow();
 
-
         if (result_limit > 0) {
-               int|error? avinya_type_id = db_client->queryRow(
+            int|error? avinya_type_id = db_client->queryRow(
                     `SELECT p.avinya_type_id FROM organization o left join person p on o.id = p.organization_id WHERE o.id = ${organization_id} AND p.avinya_type_id NOT IN (99, 100) ORDER BY p.avinya_type_id LIMIT 1;`
                 );
-                            io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
+            io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
 
-                if !(avinya_type_id is int) {
-                    io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
-                    return error("AvinyaType ID does not exist");
-                }
+            if !(avinya_type_id is int) {
+                io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
+                return error("AvinyaType ID does not exist");
+            }
             lock {
                 attendance_records = db_client->query(
                     `SELECT apa.*,p.preferred_name,p.digital_id
@@ -1753,21 +1744,21 @@ LEFT JOIN person p ON apa.person_id = p.id
                 );
             }
         } else {
-            if(from_date != null && to_date != null){
-                if(organization_id != null){
+            if (from_date != null && to_date != null) {
+                if (organization_id != null) {
 
                     int|error? avinya_type_id = db_client->queryRow(
                             `SELECT p.avinya_type_id FROM organization o left join person p on o.id = p.organization_id WHERE o.id = ${organization_id} AND p.avinya_type_id NOT IN (99, 100) ORDER BY p.avinya_type_id LIMIT 1;`
                         );
-                                    io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
+                    io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
 
-                        if !(avinya_type_id is int) {
-                            io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
-                            return error("AvinyaType ID does not exist");
-                        }
+                    if !(avinya_type_id is int) {
+                        io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
+                        return error("AvinyaType ID does not exist");
+                    }
 
                     lock {
-                    attendance_records = db_client->query(
+                        attendance_records = db_client->query(
                         `SELECT apa.*,p.preferred_name,p.digital_id
 FROM activity_participant_attendance apa
 LEFT JOIN person p ON apa.person_id = p.id
@@ -1777,8 +1768,8 @@ LEFT JOIN person p ON apa.person_id = p.id
                         AND TIME_FORMAT(sign_in_time, '%H:%i:%s') > '08:30:59'
                         ORDER BY created DESC;`
                     );
-                }
-                }else{
+                    }
+                } else {
                     lock {
                         attendance_records = db_client->query(
                             `SELECT apa.*,o.description,p.preferred_name,p.digital_id
@@ -1793,17 +1784,17 @@ LEFT JOIN person p ON apa.person_id = p.id
                                 ORDER BY DATE(apa.sign_in_time) DESC;`
                         );
                     }
-                }  
+                }
             } else {
-                    int|error? avinya_type_id = db_client->queryRow(
+                int|error? avinya_type_id = db_client->queryRow(
                             `SELECT p.avinya_type_id FROM organization o left join person p on o.id = p.organization_id WHERE o.id = ${organization_id} AND p.avinya_type_id NOT IN (99, 100) ORDER BY p.avinya_type_id LIMIT 1;`
                         );
-                                    io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
+                io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
 
-                        if !(avinya_type_id is int) {
-                            io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
-                            return error("AvinyaType ID does not exist");
-                        }
+                if !(avinya_type_id is int) {
+                    io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
+                    return error("AvinyaType ID does not exist");
+                }
 
                 lock {
                     attendance_records = db_client->query(
@@ -1822,7 +1813,7 @@ LEFT JOIN person p ON apa.person_id = p.id
         time:Utc endTime = time:utcNow();
         time:Seconds seconds = time:utcDiffSeconds(endTime, startTime);
 
-        log:printInfo("Time taken to query execution in late_attendance_report in seconds = " + seconds.toString()); 
+        log:printInfo("Time taken to query execution in late_attendance_report in seconds = " + seconds.toString());
 
         ActivityParticipantAttendanceDataForLateAttendance[] attendnaceDatas = [];
 
@@ -2620,34 +2611,34 @@ LEFT JOIN person p ON apa.person_id = p.id
         return new ConsumableData(id);
     }
 
-//     isolated resource function get consumableByUpdate(string updated,int avinya_type_id) returns ConsumableData[]|error {
-//     stream<Consumable, error?> consumables;
-//     lock {
-//         consumables = db_client->query(
-//             `SELECT * 
-//             FROM consumable 
-//             WHERE avinya_type_id = ${avinya_type_id} AND DATE_FORMAT(updated, '%Y-%m-%d %H:%i:%s') LIKE '${updated}%';
-// `
-//         );
-//     }
+    //     isolated resource function get consumableByUpdate(string updated,int avinya_type_id) returns ConsumableData[]|error {
+    //     stream<Consumable, error?> consumables;
+    //     lock {
+    //         consumables = db_client->query(
+    //             `SELECT * 
+    //             FROM consumable 
+    //             WHERE avinya_type_id = ${avinya_type_id} AND DATE_FORMAT(updated, '%Y-%m-%d %H:%i:%s') LIKE '${updated}%';
+    // `
+    //         );
+    //     }
 
-//     ConsumableData[] consumableDatas = [];
+    //     ConsumableData[] consumableDatas = [];
 
-//     check from Consumable consumable in consumables
-//         do {
-//             ConsumableData|error consumableData = new ConsumableData(null, 0, consumable);
-//             if !(consumableData is error) {
-//                 consumableDatas.push(consumableData);
-//             }
-//         };
+    //     check from Consumable consumable in consumables
+    //         do {
+    //             ConsumableData|error consumableData = new ConsumableData(null, 0, consumable);
+    //             if !(consumableData is error) {
+    //                 consumableDatas.push(consumableData);
+    //             }
+    //         };
 
-//     check consumables.close();
-//     return consumableDatas;
-//     }
+    //     check consumables.close();
+    //     return consumableDatas;
+    //     }
 
-        isolated resource function get consumableByUpdate(string? updated, int? avinya_type_id) returns ConsumableData[]|error? {
+    isolated resource function get consumableByUpdate(string? updated, int? avinya_type_id) returns ConsumableData[]|error? {
         stream<Consumable, error?> consumables;
-        string _updated =  (updated == null? "": updated + "%");
+        string _updated = (updated == null ? "" : updated + "%");
         lock {
             consumables = db_client->query(
                 `SELECT * FROM consumable WHERE avinya_type_id = ${avinya_type_id} AND DATE_FORMAT(updated, '%Y-%m-%d %H:%i:%s') LIKE ${_updated};`
@@ -2668,12 +2659,12 @@ LEFT JOIN person p ON apa.person_id = p.id
         return consumableDatas;
     }
 
-    resource function get consumables() returns ConsumableData[]|error {
+    isolated resource function get consumables() returns ConsumableData[]|error? {
         stream<Consumable, error?> consumables;
         lock {
             consumables = db_client->query(
                 `SELECT *
-                FROM consumable`
+                FROM consumable;`
             );
         }
 
@@ -3318,7 +3309,7 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
         }
     }
 
-    resource function get resource_allocations_report(int? organization_id,int? avinya_type_id) returns ResourceAllocationData[]|error {
+    resource function get resource_allocations_report(int? organization_id, int? avinya_type_id) returns ResourceAllocationData[]|error {
         stream<ResourceAllocation, error?> resource_allocations;
         lock {
             resource_allocations = db_client->query(
@@ -3355,10 +3346,9 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
             WHERE person_id = ${dutyparticipant.person_id};`
         );
 
-        if (dutyParticipantRaw is  DutyParticipant) {
+        if (dutyParticipantRaw is DutyParticipant) {
             return error("already person assigned for duty");
         }
-
 
         sql:ExecutionResult res = check db_client->execute(
             `INSERT INTO duty_participant (
@@ -3380,10 +3370,9 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
         return new (insert_id);
     }
 
+    resource function get duty_participants(int? organization_id) returns DutyParticipantData[]|error {
 
-    resource function get duty_participants(int? organization_id) returns DutyParticipantData[]|error{
-
-       Organization child_organization_raw = check db_client->queryRow(
+        Organization child_organization_raw = check db_client->queryRow(
             `SELECT c.*
              FROM parent_child_organization pc
              JOIN organization c ON pc.child_org_id = c.id
@@ -3393,34 +3382,33 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
              AND (om_end.key_name = 'end_date' AND (om_end.value IS NULL OR STR_TO_DATE(om_end.value, '%Y-%m-%d') >= CURDATE()));`
         );
 
-         
-      stream<DutyParticipant,error?> duty_participants;
-      lock {
-           duty_participants = db_client->query(
+        stream<DutyParticipant, error?> duty_participants;
+        lock {
+            duty_participants = db_client->query(
             `SELECT * 
 	         FROM  duty_participant
 	         WHERE person_id IN (SELECT id FROM person 
              WHERE organization_id IN (select child_org_id from parent_child_organization where parent_org_id = ${child_organization_raw.id}));`
-           );
-      }
+            );
+        }
 
-      DutyParticipantData[]  dutyParticipantsDatas = [];
+        DutyParticipantData[] dutyParticipantsDatas = [];
 
-      check from DutyParticipant dutyParticipant in duty_participants
-         do{
-           DutyParticipantData|error dutyParticipantData = new  DutyParticipantData(0,0,0,dutyParticipant);
-           if !(dutyParticipantData is error){
-             dutyParticipantsDatas.push(dutyParticipantData);
-           }
-         };
-      check duty_participants.close();  
-      return dutyParticipantsDatas;
+        check from DutyParticipant dutyParticipant in duty_participants
+            do {
+                DutyParticipantData|error dutyParticipantData = new DutyParticipantData(0, 0, 0, dutyParticipant);
+                if !(dutyParticipantData is error) {
+                    dutyParticipantsDatas.push(dutyParticipantData);
+                }
+            };
+        check duty_participants.close();
+        return dutyParticipantsDatas;
     }
 
     isolated resource function get activities_by_avinya_type(int? avinya_type_id) returns ActivityData[]|error? {
-        
+
         stream<Activity, error?> activitiesByAvinyaType;
-        
+
         lock {
 
             activitiesByAvinyaType = db_client->query(
@@ -3432,9 +3420,9 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
 
         ActivityData[] activityByAvinyaTypeDatas = [];
 
-        check from Activity activityByAvinyaType in  activitiesByAvinyaType
+        check from Activity activityByAvinyaType in activitiesByAvinyaType
             do {
-                ActivityData|error activityByAvinyaTypeData = new ActivityData((),(),(), activityByAvinyaType);
+                ActivityData|error activityByAvinyaTypeData = new ActivityData((), (), (), activityByAvinyaType);
                 if !(activityByAvinyaTypeData is error) {
                     activityByAvinyaTypeDatas.push(activityByAvinyaTypeData);
                 }
@@ -3458,12 +3446,11 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
         return delete_id;
     }
 
-
     remote function update_duty_rotation_metadata(DutyRotationMetaDetails duty_rotation) returns DutyRotationMetaData|error? {
         int id = duty_rotation.id ?: 0;
         if (id == 0) {
             //return error("Unable to update duty rotation raw");
-             log:printError("Unable to update duty rotation raw");
+            log:printError("Unable to update duty rotation raw");
         }
 
         DutyRotationMetaDetails|error? duty_rotation_raw = db_client->queryRow(
@@ -3473,7 +3460,7 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
         );
 
         if !(duty_rotation_raw is DutyRotationMetaDetails) {
-            
+
             sql:ExecutionResult res = check db_client->execute(
             `INSERT INTO duty_rotation_metadata (
                 start_date,
@@ -3484,14 +3471,14 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
                 ${duty_rotation.end_date},
                 ${duty_rotation.organization_id}
              );`
-           );
-           
+            );
+
             io:println(res);
             int|string? insert_id = res.lastInsertId;
             if !(insert_id is int) {
                 return error("Unable to insert duty rotation metadata record");
             }
-           return new(insert_id);
+            return new (insert_id);
         }
         io:println(duty_rotation.start_date);
         io:println(duty_rotation.end_date);
@@ -3502,7 +3489,6 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
                 end_date = ${duty_rotation.end_date}
              WHERE id= ${id} ;`
         );
-
 
         if (res is sql:ExecutionResult) {
             return new (id);
@@ -3519,16 +3505,15 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
             WHERE organization_id = ${organization_id};`
         );
 
-        if(duty_rotation_metadata_raw is DutyRotationMetaDetails){
-            return new(0,0,duty_rotation_metadata_raw);
+        if (duty_rotation_metadata_raw is DutyRotationMetaDetails) {
+            return new (0, 0, duty_rotation_metadata_raw);
         }
         return error("Unable to find duty rotation  data by organization");
     }
 
+    resource function get duty_participants_by_duty_activity_id(int? organization_id, int? duty_activity_id) returns DutyParticipantData[]|error {
 
-    resource function get duty_participants_by_duty_activity_id(int? organization_id,int? duty_activity_id) returns DutyParticipantData[]|error{
-
-       Organization child_organization_raw = check db_client->queryRow(
+        Organization child_organization_raw = check db_client->queryRow(
             `SELECT c.*
              FROM parent_child_organization pc
              JOIN organization c ON pc.child_org_id = c.id
@@ -3538,35 +3523,33 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
              AND (om_end.key_name = 'end_date' AND (om_end.value IS NULL OR STR_TO_DATE(om_end.value, '%Y-%m-%d') >= CURDATE()));`
         );
 
-         
-      stream<DutyParticipant,error?> duty_participants;
-      lock {
-           duty_participants = db_client->query(
+        stream<DutyParticipant, error?> duty_participants;
+        lock {
+            duty_participants = db_client->query(
             `SELECT * 
 	         FROM  duty_participant
 	         WHERE person_id IN (SELECT id FROM person 
              WHERE organization_id IN (select child_org_id from parent_child_organization where parent_org_id = ${child_organization_raw.id}))
              AND activity_id = ${duty_activity_id};`
-           );
-      }
+            );
+        }
 
-      DutyParticipantData[]  dutyParticipantsDatas = [];
+        DutyParticipantData[] dutyParticipantsDatas = [];
 
-      check from DutyParticipant dutyParticipant in duty_participants
-         do{
-           DutyParticipantData|error dutyParticipantData = new  DutyParticipantData(0,0,0,dutyParticipant);
-           if !(dutyParticipantData is error){
-             dutyParticipantsDatas.push(dutyParticipantData);
-           }
-         };
-      check duty_participants.close();  
-      return dutyParticipantsDatas;
+        check from DutyParticipant dutyParticipant in duty_participants
+            do {
+                DutyParticipantData|error dutyParticipantData = new DutyParticipantData(0, 0, 0, dutyParticipant);
+                if !(dutyParticipantData is error) {
+                    dutyParticipantsDatas.push(dutyParticipantData);
+                }
+            };
+        check duty_participants.close();
+        return dutyParticipantsDatas;
     }
-
 
     remote function add_duty_attendance(ActivityParticipantAttendance duty_attendance) returns ActivityParticipantAttendanceData|error? {
         // only today's duty attendance can be added with this method 
-        ActivityParticipantAttendance|error todayDutyParticipantAttendance =  db_client->queryRow(
+        ActivityParticipantAttendance|error todayDutyParticipantAttendance = db_client->queryRow(
             `SELECT *
             FROM activity_participant_attendance
             WHERE person_id = ${duty_attendance.person_id} and 
@@ -3575,19 +3558,19 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
         );
         if (todayDutyParticipantAttendance is ActivityParticipantAttendance) {
             if (duty_attendance.sign_in_time != null) {
-                
-              return new (todayDutyParticipantAttendance.id);
+
+                return new (todayDutyParticipantAttendance.id);
 
             }
             else if (duty_attendance.sign_out_time != null) {
-                todayDutyParticipantAttendance =  db_client->queryRow(
+                todayDutyParticipantAttendance = db_client->queryRow(
                     `SELECT *
                     FROM activity_participant_attendance
                     WHERE person_id = ${duty_attendance.person_id} and 
                     activity_instance_id = ${duty_attendance.activity_instance_id} and
                     DATE(sign_out_time) = CURDATE();`
                 );
-                if(todayDutyParticipantAttendance is ActivityParticipantAttendance ) {
+                if (todayDutyParticipantAttendance is ActivityParticipantAttendance) {
                     return new (todayDutyParticipantAttendance.id);
                 }
             }
@@ -3619,8 +3602,8 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
     }
 
     isolated resource function get duty_attendance_today(int? organization_id, int? activity_id) returns ActivityParticipantAttendanceData[]|error? {
-        
-         Organization child_organization_raw = check db_client->queryRow(
+
+        Organization child_organization_raw = check db_client->queryRow(
             `SELECT c.*
              FROM parent_child_organization pc
              JOIN organization c ON pc.child_org_id = c.id
@@ -3629,9 +3612,9 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
              WHERE pc.parent_org_id = ${organization_id} AND (om_start.key_name = 'start_date' AND STR_TO_DATE(om_start.value, '%Y-%m-%d') <= CURDATE())
              AND (om_end.key_name = 'end_date' AND (om_end.value IS NULL OR STR_TO_DATE(om_end.value, '%Y-%m-%d') >= CURDATE()));`
         );
-             
+
         stream<ActivityParticipantAttendance, error?> duty_attendance_records;
-        
+
         lock {
             duty_attendance_records = db_client->query(
                 `SELECT * 
@@ -3656,25 +3639,24 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
         return dutyAttendanceDatas;
     }
 
-
     isolated resource function get duty_participant(int? person_id) returns DutyParticipantData|error? {
-        
+
         DutyParticipant|error? dutyParticipantRaw = db_client->queryRow(
             `SELECT *
             FROM duty_participant
             WHERE person_id = ${person_id};`
         );
 
-        if !(dutyParticipantRaw is  DutyParticipant) {
+        if !(dutyParticipantRaw is DutyParticipant) {
             return error("duty participant data does not exist");
-        }     
-        
-        return new DutyParticipantData(0,0,person_id);
+        }
+
+        return new DutyParticipantData(0, 0, person_id);
     }
 
     remote function add_duty_evaluation(Evaluation duty_evaluation) returns EvaluationData|error? {
 
-        Evaluation|error todayDutyEvaluation =  db_client->queryRow(
+        Evaluation|error todayDutyEvaluation = db_client->queryRow(
             `SELECT *
             FROM evaluation
             WHERE evaluatee_id = ${duty_evaluation.evaluatee_id} and 
@@ -3682,14 +3664,14 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
             DATE(created) = CURDATE();`
         );
 
-        if(todayDutyEvaluation is Evaluation){
-            if(duty_evaluation.evaluatee_id != null){
+        if (todayDutyEvaluation is Evaluation) {
+            if (duty_evaluation.evaluatee_id != null) {
 
-              return new(todayDutyEvaluation.id);
+                return new (todayDutyEvaluation.id);
 
             }
         }
-        
+
         sql:ExecutionResult res = check db_client->execute(
             `INSERT INTO evaluation (
                 evaluatee_id,
@@ -3710,14 +3692,13 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
             );`
         );
 
-
         int|string? insert_id = res.lastInsertId;
 
         if !(insert_id is int) {
             return error("Unable to insert evaluation");
-        } 
+        }
 
-        return new(insert_id);
+        return new (insert_id);
     }
 
     isolated resource function get attendance_dashboard_data_by_date(int? organization_id, int? parent_organization_id, int? activity_id, string? from_date = null, string? to_date = null) returns AttendanceDashboardDataMain[]|error? {
@@ -3731,15 +3712,15 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
         decimal total_students_count = 0;
 
         if (organization_id != null) {
-              int|error? avinya_type_id = db_client->queryRow(
+            int|error? avinya_type_id = db_client->queryRow(
             `SELECT p.avinya_type_id FROM organization o left join person p on o.id = p.organization_id WHERE o.id = ${organization_id} AND p.avinya_type_id NOT IN (99, 100) ORDER BY p.avinya_type_id LIMIT 1;`
         );
-                    io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
-
-         if !(avinya_type_id is int) {
             io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
-            return error("AvinyaType ID does not exist");
-        }
+
+            if !(avinya_type_id is int) {
+                io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
+                return error("AvinyaType ID does not exist");
+            }
             students_raw = db_client->queryRow(
             `SELECT CAST(COUNT(*) AS DECIMAL) AS total_students
                             FROM person p
@@ -3779,15 +3760,15 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
 
         if (organization_id != null) {
             lock {
-                     int|error? avinya_type_id = db_client->queryRow(
+                int|error? avinya_type_id = db_client->queryRow(
             `SELECT p.avinya_type_id FROM organization o left join person p on o.id = p.organization_id WHERE o.id = ${organization_id} AND p.avinya_type_id NOT IN (99, 100) ORDER BY p.avinya_type_id LIMIT 1;`
         );
-                    io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
+                io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
 
-         if !(avinya_type_id is int) {
-            io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
-            return error("AvinyaType ID does not exist");
-        }
+                if !(avinya_type_id is int) {
+                    io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
+                    return error("AvinyaType ID does not exist");
+                }
                 present_count = db_client->query(
                         `SELECT IFNULL(CAST(SUM(present_count) AS SIGNED), 0) AS present_count
                             FROM (SELECT COUNT(DISTINCT person_id) AS present_count
@@ -3910,7 +3891,7 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
                                                                 )
                             ORDER BY subquery.a_date DESC;`
                     );
-            }   
+            }
             lock {
                 late_attendance = db_client->query(
                             `SELECT COUNT(*) AS late_attendance
@@ -4012,62 +3993,63 @@ AND p.organization_id IN (
                         );
             }
         }
-                AttendanceDashboardDataMain[] dashboardDatas = [];
+        AttendanceDashboardDataMain[] dashboardDatas = [];
 
-decimal days = 1;
+        decimal days = 1;
 
-if (to_date != null && from_date != null) {
-    lock {
-        time:Utc toDate = check time:utcFromString(to_date + "T00:00:00Z");
-        time:Utc fromDate = check time:utcFromString(from_date + "T00:00:00Z");
-        int weekDaysDurationInSeconds = calculateWeekdays(toDate, fromDate);
-        days = <decimal>weekDaysDurationInSeconds;
-        io:println("Time taken days2 " + days.toString());
-        string emailFormattedString = time:utcToEmailString(toDate, "Z");
-        string dayAbbreviation = emailFormattedString.substring(0, 3);
-        io:println(`Email formatted string: ${dayAbbreviation}`);
-    }
-}
+        if (to_date != null && from_date != null) {
+            lock {
+                time:Utc toDate = check time:utcFromString(to_date + "T00:00:00Z");
+                time:Utc fromDate = check time:utcFromString(from_date + "T00:00:00Z");
+                int weekDaysDurationInSeconds = calculateWeekdays(toDate, fromDate);
+                days = <decimal>weekDaysDurationInSeconds;
+                io:println("Time taken days2 " + days.toString());
+                string emailFormattedString = time:utcToEmailString(toDate, "Z");
+                string dayAbbreviation = emailFormattedString.substring(0, 3);
+                io:println(`Email formatted string: ${dayAbbreviation}`);
+            }
+        }
 
-// Process present_count stream
-lock {
-    check from AttendanceDashboardDataForQuery attendance_record in present_count do {
-        decimal? totalStudent = 1;
-        if (<float>days == 0.0) {
-            totalStudent = total_students_count;
-            io:println("Time taken fff " + totalStudent.toString());
-        } else {
-            totalStudent = total_students_count * days;
-            io:println("Time taken ggg " + days.toString());
+        // Process present_count stream
+        lock {
+            check from AttendanceDashboardDataForQuery attendance_record in present_count
+                do {
+                    decimal? totalStudent = 1;
+                    if (<float>days == 0.0) {
+                        totalStudent = total_students_count;
+                        io:println("Time taken fff " + totalStudent.toString());
+                    } else {
+                        totalStudent = total_students_count * days;
+                        io:println("Time taken ggg " + days.toString());
                         io:println("Time taken jjjj " + total_students_count.toString());
 
-        }
-        io:println("Time taken totalStudent " + totalStudent.toString());
-        io:println("Time taken total_students_count " + attendance_record.present_count.toString());
-        decimal? percentage = (attendance_record.present_count * 100) / totalStudent;
-        if (percentage is null) {
-            percentage = 0;
-        }
-        decimal roundedPercentage = 0;
-        if(percentage is decimal) {
-             roundedPercentage = decimal:round(percentage, 2);
-        }
+                    }
+                    io:println("Time taken totalStudent " + totalStudent.toString());
+                    io:println("Time taken total_students_count " + attendance_record.present_count.toString());
+                    decimal? percentage = (attendance_record.present_count * 100) / totalStudent;
+                    if (percentage is null) {
+                        percentage = 0;
+                    }
+                    decimal roundedPercentage = 0;
+                    if (percentage is decimal) {
+                        roundedPercentage = decimal:round(percentage, 2);
+                    }
 
-        AttendanceDashboardData attendanceData = {
-            title: "Daily Attendance",
-            numOfFiles: attendance_record.present_count,
-            svgSrc: "assets/icons/icons8-attendance-48.png",
-            color: "#FFA113",
-            percentage: roundedPercentage
-        };
+                    AttendanceDashboardData attendanceData = {
+                        title: "Daily Attendance",
+                        numOfFiles: attendance_record.present_count,
+                        svgSrc: "assets/icons/icons8-attendance-48.png",
+                        color: "#FFA113",
+                        percentage: roundedPercentage
+                    };
 
-        AttendanceDashboardDataMain dashboardDataMain = {
-            attendance_dashboard_data: attendanceData
-        };
+                    AttendanceDashboardDataMain dashboardDataMain = {
+                        attendance_dashboard_data: attendanceData
+                    };
 
-        dashboardDatas.push(dashboardDataMain);
-    };
-}
+                    dashboardDatas.push(dashboardDataMain);
+                };
+        }
 
         // }
         // Process absent_count stream
@@ -4075,21 +4057,21 @@ lock {
             check from AttendanceDashboardDataForQuery attendance_record in absent_count
                 do {
                     decimal? totalStudent = 1;
-        if (<float>days == 0.0) {
-            totalStudent = total_students_count;
-        } else {
-            totalStudent = total_students_count * days;
-        }
-        io:println("Time taken totalStudent " + totalStudent.toString());
-        io:println("Time taken total_students_count " + attendance_record.present_count.toString());
-        decimal? percentage = (attendance_record.absent_count * 100) / totalStudent;
-        if (percentage is null) {
-            percentage = 0;
-        }
-        decimal roundedPercentage = 0;
-        if(percentage is decimal) {
-             roundedPercentage = decimal:round(percentage, 2);
-        }
+                    if (<float>days == 0.0) {
+                        totalStudent = total_students_count;
+                    } else {
+                        totalStudent = total_students_count * days;
+                    }
+                    io:println("Time taken totalStudent " + totalStudent.toString());
+                    io:println("Time taken total_students_count " + attendance_record.present_count.toString());
+                    decimal? percentage = (attendance_record.absent_count * 100) / totalStudent;
+                    if (percentage is null) {
+                        percentage = 0;
+                    }
+                    decimal roundedPercentage = 0;
+                    if (percentage is decimal) {
+                        roundedPercentage = decimal:round(percentage, 2);
+                    }
                     AttendanceDashboardData attendanceData = {
                         title: "Absent Students",
                         numOfFiles: attendance_record.absent_count, // You need to set the appropriate value
@@ -4110,21 +4092,21 @@ lock {
             check from AttendanceDashboardDataForQuery attendance_record in late_attendance
                 do {
                     decimal? totalStudent = 1;
-        if (<float>days == 0.0) {
-            totalStudent = total_students_count;
-        } else {
-            totalStudent = total_students_count * days;
-        }
-        io:println("Time taken totalStudent " + totalStudent.toString());
-        io:println("Time taken total_students_count " + attendance_record.present_count.toString());
-        decimal? percentage = (attendance_record.late_attendance * 100) / totalStudent;
-        if (percentage is null) {
-            percentage = 0;
-        }
-        decimal roundedPercentage = 0;
-        if(percentage is decimal) {
-             roundedPercentage = decimal:round(percentage, 2);
-        }
+                    if (<float>days == 0.0) {
+                        totalStudent = total_students_count;
+                    } else {
+                        totalStudent = total_students_count * days;
+                    }
+                    io:println("Time taken totalStudent " + totalStudent.toString());
+                    io:println("Time taken total_students_count " + attendance_record.present_count.toString());
+                    decimal? percentage = (attendance_record.late_attendance * 100) / totalStudent;
+                    if (percentage is null) {
+                        percentage = 0;
+                    }
+                    decimal roundedPercentage = 0;
+                    if (percentage is decimal) {
+                        roundedPercentage = decimal:round(percentage, 2);
+                    }
                     log:printInfo("Time Arrival");
                     log:printInfo(attendance_record.late_attendance.toString());
                     AttendanceDashboardData attendanceData = {
@@ -4147,21 +4129,21 @@ lock {
             check from AttendanceDashboardDataForQuery attendance_record in present_count_duty
                 do {
                     decimal? totalStudent = 1;
-        if (<float>days == 0.0) {
-            totalStudent = total_students_count;
-        } else {
-            totalStudent = total_students_count * days;
-        }
-        io:println("Time taken totalStudent " + totalStudent.toString());
-        io:println("Time taken total_students_count " + attendance_record.present_count.toString());
-        decimal? percentage = (attendance_record.present_count_duty * 100) / totalStudent;
-        if (percentage is null) {
-            percentage = 0;
-        }
-        decimal roundedPercentage = 0;
-        if(percentage is decimal) {
-             roundedPercentage = decimal:round(percentage, 2);
-        }
+                    if (<float>days == 0.0) {
+                        totalStudent = total_students_count;
+                    } else {
+                        totalStudent = total_students_count * days;
+                    }
+                    io:println("Time taken totalStudent " + totalStudent.toString());
+                    io:println("Time taken total_students_count " + attendance_record.present_count.toString());
+                    decimal? percentage = (attendance_record.present_count_duty * 100) / totalStudent;
+                    if (percentage is null) {
+                        percentage = 0;
+                    }
+                    decimal roundedPercentage = 0;
+                    if (percentage is decimal) {
+                        roundedPercentage = decimal:round(percentage, 2);
+                    }
                     AttendanceDashboardData attendanceData = {
                         title: "Present for Duty",
                         numOfFiles: attendance_record.present_count_duty, // You need to set the appropriate value
@@ -4181,22 +4163,22 @@ lock {
         lock {
             check from AttendanceDashboardDataForQuery attendance_record in absent_count_duty
                 do {
-                     decimal? totalStudent = 1;
-        if (<float>days == 0.0) {
-            totalStudent = total_students_count;
-        } else {
-            totalStudent = total_students_count * days;
-        }
-        io:println("Time taken totalStudent " + totalStudent.toString());
-        io:println("Time taken total_students_count " + attendance_record.present_count.toString());
-        decimal? percentage = (attendance_record.absent_count_duty * 100) / totalStudent;
-        if (percentage is null) {
-            percentage = 0;
-        }
-        decimal roundedPercentage = 0;
-        if(percentage is decimal) {
-             roundedPercentage = decimal:round(percentage, 2);
-        }
+                    decimal? totalStudent = 1;
+                    if (<float>days == 0.0) {
+                        totalStudent = total_students_count;
+                    } else {
+                        totalStudent = total_students_count * days;
+                    }
+                    io:println("Time taken totalStudent " + totalStudent.toString());
+                    io:println("Time taken total_students_count " + attendance_record.present_count.toString());
+                    decimal? percentage = (attendance_record.absent_count_duty * 100) / totalStudent;
+                    if (percentage is null) {
+                        percentage = 0;
+                    }
+                    decimal roundedPercentage = 0;
+                    if (percentage is decimal) {
+                        roundedPercentage = decimal:round(percentage, 2);
+                    }
                     AttendanceDashboardData attendanceData = {
                         title: "Absent for Duty",
                         numOfFiles: attendance_record.absent_count_duty, // You need to set the appropriate value
@@ -4216,22 +4198,22 @@ lock {
         lock {
             check from AttendanceDashboardDataForQuery attendance_record in late_attendance_duty
                 do {
-                     decimal? totalStudent = 1;
-        if (<float>days == 0.0) {
-            totalStudent = total_students_count;
-        } else {
-            totalStudent = total_students_count * days;
-        }
-        io:println("Time taken totalStudent " + totalStudent.toString());
-        io:println("Time taken total_students_count " + attendance_record.present_count.toString());
-        decimal? percentage = (attendance_record.late_attendance_duty * 100) / totalStudent;
-        if (percentage is null) {
-            percentage = 0;
-        }
-        decimal roundedPercentage = 0;
-        if(percentage is decimal) {
-             roundedPercentage = decimal:round(percentage, 2);
-        }
+                    decimal? totalStudent = 1;
+                    if (<float>days == 0.0) {
+                        totalStudent = total_students_count;
+                    } else {
+                        totalStudent = total_students_count * days;
+                    }
+                    io:println("Time taken totalStudent " + totalStudent.toString());
+                    io:println("Time taken total_students_count " + attendance_record.present_count.toString());
+                    decimal? percentage = (attendance_record.late_attendance_duty * 100) / totalStudent;
+                    if (percentage is null) {
+                        percentage = 0;
+                    }
+                    decimal roundedPercentage = 0;
+                    if (percentage is decimal) {
+                        roundedPercentage = decimal:round(percentage, 2);
+                    }
                     AttendanceDashboardData attendanceData = {
                         title: "Late for Duty",
                         numOfFiles: attendance_record.late_attendance_duty, // You need to set the appropriate value
@@ -4260,24 +4242,24 @@ lock {
     }
 
     isolated resource function get attendance_missed_by_security(int? organization_id, int? parent_organization_id, string? from_date = null, string? to_date = null) returns ActivityParticipantAttendanceMissedBySecurityData[]|error? {
-        
-      stream<ActivityParticipantAttendanceMissedBySecurity, error?> attendance_missed_by_security_records;
 
-      if(from_date != null && to_date != null) {
+        stream<ActivityParticipantAttendanceMissedBySecurity, error?> attendance_missed_by_security_records;
 
-        if(organization_id !=null){
+        if (from_date != null && to_date != null) {
 
-          lock{
-             int|error? avinya_type_id = db_client->queryRow(
+            if (organization_id != null) {
+
+                lock {
+                    int|error? avinya_type_id = db_client->queryRow(
             `SELECT p.avinya_type_id FROM organization o left join person p on o.id = p.organization_id WHERE o.id = ${organization_id} AND p.avinya_type_id NOT IN (99, 100) ORDER BY p.avinya_type_id LIMIT 1;`
         );
                     io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
 
-         if !(avinya_type_id is int) {
-            io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
-            return error("AvinyaType ID does not exist");
-        }
-            attendance_missed_by_security_records = db_client->query(
+                    if !(avinya_type_id is int) {
+                        io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
+                        return error("AvinyaType ID does not exist");
+                    }
+                    attendance_missed_by_security_records = db_client->query(
                 `SELECT DATE(a.sign_in_time) AS sign_in_time,p.preferred_name,p.digital_id,o.description
                     FROM person p
                     JOIN activity_participant_attendance a ON p.id = a.person_id
@@ -4300,12 +4282,12 @@ lock {
                     GROUP BY p.preferred_name,p.digital_id, sign_in_time, ai.id, p.organization_id
                     ORDER BY ai.id DESC;`
                 );
-            } 
-        }else{
+                }
+            } else {
 
-            lock{
+                lock {
 
-               attendance_missed_by_security_records = db_client->query(
+                    attendance_missed_by_security_records = db_client->query(
                 `SELECT DATE(a.sign_in_time) AS sign_in_time,p.preferred_name,p.digital_id,o.description
                     FROM person p
                     JOIN activity_participant_attendance a ON p.id = a.person_id
@@ -4339,36 +4321,35 @@ lock {
                     GROUP BY p.preferred_name,p.digital_id, sign_in_time, ai.id, p.organization_id
                     ORDER BY ai.id DESC;`
                 );
-            } 
-
-        }
-
-        ActivityParticipantAttendanceMissedBySecurityData[] attendanceMissedBySecurityDatas = [];
-
-        check from ActivityParticipantAttendanceMissedBySecurity attendance_missed_by_security_record in  attendance_missed_by_security_records
-            do {
-                ActivityParticipantAttendanceMissedBySecurityData|error attendanceMissedBySecurityData = new ActivityParticipantAttendanceMissedBySecurityData(attendance_missed_by_security_record);
-                if !(attendanceMissedBySecurityData is error) {
-                    attendanceMissedBySecurityDatas.push(attendanceMissedBySecurityData);
                 }
-            };
-        check  attendance_missed_by_security_records.close();
-        return attendanceMissedBySecurityDatas;
 
-      }else{
-        return error("Provide non-null values for both 'From Date' and 'To Date'.");
-      }
+            }
+
+            ActivityParticipantAttendanceMissedBySecurityData[] attendanceMissedBySecurityDatas = [];
+
+            check from ActivityParticipantAttendanceMissedBySecurity attendance_missed_by_security_record in attendance_missed_by_security_records
+                do {
+                    ActivityParticipantAttendanceMissedBySecurityData|error attendanceMissedBySecurityData = new ActivityParticipantAttendanceMissedBySecurityData(attendance_missed_by_security_record);
+                    if !(attendanceMissedBySecurityData is error) {
+                        attendanceMissedBySecurityDatas.push(attendanceMissedBySecurityData);
+                    }
+                };
+            check attendance_missed_by_security_records.close();
+            return attendanceMissedBySecurityDatas;
+
+        } else {
+            return error("Provide non-null values for both 'From Date' and 'To Date'.");
+        }
     }
 
     isolated resource function get daily_students_attendance_by_parent_org(int? parent_organization_id) returns DailyActivityParticipantAttendanceByParentOrgData[]|error? {
-        
-      stream<DailyActivityParticipantAttendanceByParentOrg, error?> daily_activity_participant_attendance_by_parent_org_records;
 
+        stream<DailyActivityParticipantAttendanceByParentOrg, error?> daily_activity_participant_attendance_by_parent_org_records;
 
-        if(parent_organization_id !=null){
+        if (parent_organization_id != null) {
 
-          lock{
-            daily_activity_participant_attendance_by_parent_org_records = db_client->query(
+            lock {
+                daily_activity_participant_attendance_by_parent_org_records = db_client->query(
                 `SELECT 
                     COUNT(pa.person_id) AS present_count, 
                     o.description, 
@@ -4410,96 +4391,95 @@ lock {
                 GROUP BY 
                     p.organization_id, o.description, o.id;`
                 );
-            } 
-        
-        int parentOrg = (parent_organization_id == 2) ? parent_organization_id : 0;  //this is add for bandaragama academy
-
-
-        DailyActivityParticipantAttendanceByParentOrgData[] dailyActivityParticipantAttendanceByParentOrgDatas = [];
-
-        check from DailyActivityParticipantAttendanceByParentOrg daily_activity_participant_attendance_by_parent_org_record in  daily_activity_participant_attendance_by_parent_org_records
-
-         do {
-            
-            if(parentOrg == 2){ // This code block is intended for the Bandaragama Academy.if other academy  add another if code block.
-                                // This code block assigns the SVG source and color values for the six classes at the Bandaragama Academy.
-                
-                string value = daily_activity_participant_attendance_by_parent_org_record.description ?: "";
-
-                if(value == "Dolphins"){
-                    daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/icons/icons8-dolphin-100.png";
-                    daily_activity_participant_attendance_by_parent_org_record.color = "0xFF2196F3";
-                  }
-                if(value == "Bears"){
-
-                    daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/icons/icons8-bear-96.png";
-                    daily_activity_participant_attendance_by_parent_org_record.color = "0xFFE68A00";
-                  }
-                if(value == "Bees"){
-
-                    daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/icons/icons8-bees-64.png";
-                    daily_activity_participant_attendance_by_parent_org_record.color = "0xFF008000";
-                  }
-                if(value == "Eagles"){
-
-                    daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/icons/icons8-eagle-96.png";
-                    daily_activity_participant_attendance_by_parent_org_record.color = "0xFFD32F2F";
-                  }
-                if(value == "Leopards"){
-
-                    daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/icons/icons8-leopard-80.png";
-                    daily_activity_participant_attendance_by_parent_org_record.color = "0xFF800080";
-                  }
-                if(value == "Elephants"){
-
-                    daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/icons/icons8-elephant-100.png";
-                    daily_activity_participant_attendance_by_parent_org_record.color = "0xFFDAA520";
-                  }
-                  if(value == "IT"){
-
-                    daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/icons/icons8-computer-96.png";
-                    daily_activity_participant_attendance_by_parent_org_record.color = "0xFF008000";
-                  }
-                if(value == "CS"){
-
-                    daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/icons/icons8-customer-service-64.png";
-                    daily_activity_participant_attendance_by_parent_org_record.color = "0xFFFF00FF";
-                  }         
-                
             }
 
-                DailyActivityParticipantAttendanceByParentOrgData|error dailyActivityParticipantAttendanceByParentOrgData = new DailyActivityParticipantAttendanceByParentOrgData(daily_activity_participant_attendance_by_parent_org_record);
-                if !(dailyActivityParticipantAttendanceByParentOrgData is error) {
-                    dailyActivityParticipantAttendanceByParentOrgDatas.push(dailyActivityParticipantAttendanceByParentOrgData);
-                }
-            };
-        check  daily_activity_participant_attendance_by_parent_org_records.close();
-        return dailyActivityParticipantAttendanceByParentOrgDatas;
+            int parentOrg = (parent_organization_id == 2) ? parent_organization_id : 0; //this is add for bandaragama academy
 
-      }else{
-        return error("Provide non-null value for parent organization id.");
-      }
+            DailyActivityParticipantAttendanceByParentOrgData[] dailyActivityParticipantAttendanceByParentOrgDatas = [];
+
+            check from DailyActivityParticipantAttendanceByParentOrg daily_activity_participant_attendance_by_parent_org_record in daily_activity_participant_attendance_by_parent_org_records
+
+                do {
+
+                    if (parentOrg == 2) { // This code block is intended for the Bandaragama Academy.if other academy  add another if code block.
+                        // This code block assigns the SVG source and color values for the six classes at the Bandaragama Academy.
+
+                        string value = daily_activity_participant_attendance_by_parent_org_record.description ?: "";
+
+                        if (value == "Dolphins") {
+                            daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/icons/icons8-dolphin-100.png";
+                            daily_activity_participant_attendance_by_parent_org_record.color = "0xFF2196F3";
+                        }
+                        if (value == "Bears") {
+
+                            daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/icons/icons8-bear-96.png";
+                            daily_activity_participant_attendance_by_parent_org_record.color = "0xFFE68A00";
+                        }
+                        if (value == "Bees") {
+
+                            daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/icons/icons8-bees-64.png";
+                            daily_activity_participant_attendance_by_parent_org_record.color = "0xFF008000";
+                        }
+                        if (value == "Eagles") {
+
+                            daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/icons/icons8-eagle-96.png";
+                            daily_activity_participant_attendance_by_parent_org_record.color = "0xFFD32F2F";
+                        }
+                        if (value == "Leopards") {
+
+                            daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/icons/icons8-leopard-80.png";
+                            daily_activity_participant_attendance_by_parent_org_record.color = "0xFF800080";
+                        }
+                        if (value == "Elephants") {
+
+                            daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/icons/icons8-elephant-100.png";
+                            daily_activity_participant_attendance_by_parent_org_record.color = "0xFFDAA520";
+                        }
+                        if (value == "IT") {
+
+                            daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/icons/icons8-computer-96.png";
+                            daily_activity_participant_attendance_by_parent_org_record.color = "0xFF008000";
+                        }
+                        if (value == "CS") {
+
+                            daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/icons/icons8-customer-service-64.png";
+                            daily_activity_participant_attendance_by_parent_org_record.color = "0xFFFF00FF";
+                        }
+
+                    }
+
+                    DailyActivityParticipantAttendanceByParentOrgData|error dailyActivityParticipantAttendanceByParentOrgData = new DailyActivityParticipantAttendanceByParentOrgData(daily_activity_participant_attendance_by_parent_org_record);
+                    if !(dailyActivityParticipantAttendanceByParentOrgData is error) {
+                        dailyActivityParticipantAttendanceByParentOrgDatas.push(dailyActivityParticipantAttendanceByParentOrgData);
+                    }
+                };
+            check daily_activity_participant_attendance_by_parent_org_records.close();
+            return dailyActivityParticipantAttendanceByParentOrgDatas;
+
+        } else {
+            return error("Provide non-null value for parent organization id.");
+        }
     }
 
     isolated resource function get total_attendance_count_by_date(int? organization_id, int? parent_organization_id, string? from_date = null, string? to_date = null) returns TotalActivityParticipantAttendanceCountByDateData[]|error? {
-        
-      stream<TotalActivityParticipantAttendanceCountByDate, error?> total_attendance_count_by_date_records;
 
-      if(from_date != null && to_date != null) {
+        stream<TotalActivityParticipantAttendanceCountByDate, error?> total_attendance_count_by_date_records;
 
-        if(organization_id !=null){
+        if (from_date != null && to_date != null) {
 
-          lock{
-              int|error? avinya_type_id = db_client->queryRow(
+            if (organization_id != null) {
+
+                lock {
+                    int|error? avinya_type_id = db_client->queryRow(
             `SELECT p.avinya_type_id FROM organization o left join person p on o.id = p.organization_id WHERE o.id = ${organization_id} AND p.avinya_type_id NOT IN (99, 100) ORDER BY p.avinya_type_id LIMIT 1;`
         );
                     io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
 
-         if !(avinya_type_id is int) {
-            io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
-            return error("AvinyaType ID does not exist");
-        }
-            total_attendance_count_by_date_records = db_client->query(
+                    if !(avinya_type_id is int) {
+                        io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
+                        return error("AvinyaType ID does not exist");
+                    }
+                    total_attendance_count_by_date_records = db_client->query(
                 `SELECT 
                         attendance_date,
                         COUNT(DISTINCT person_id) AS daily_total
@@ -4529,12 +4509,12 @@ lock {
                     ORDER BY 
                         attendance_date DESC;`
                 );
-            } 
-        }else{
+                }
+            } else {
 
-            lock{
+                lock {
 
-               total_attendance_count_by_date_records = db_client->query(
+                    total_attendance_count_by_date_records = db_client->query(
                 `SELECT 
                         attendance_date,
                         COUNT(DISTINCT person_id) AS daily_total
@@ -4580,37 +4560,36 @@ lock {
                     ORDER BY 
                         attendance_date DESC;`
                 );
-            } 
-
-        }
-
-        TotalActivityParticipantAttendanceCountByDateData[] attendanceCountByDateDatas = [];
-
-        check from TotalActivityParticipantAttendanceCountByDate attendance_count_by_date_record in  total_attendance_count_by_date_records
-            do {
-                TotalActivityParticipantAttendanceCountByDateData|error attendanceCountByDateData = new TotalActivityParticipantAttendanceCountByDateData(attendance_count_by_date_record);
-                if !(attendanceCountByDateData is error) {
-                    attendanceCountByDateDatas.push(attendanceCountByDateData);
                 }
-            };
-        check  total_attendance_count_by_date_records.close();
-        return attendanceCountByDateDatas;
 
-      }else{
-        return error("Provide non-null values for both 'From Date' and 'To Date'.");
-      }
+            }
+
+            TotalActivityParticipantAttendanceCountByDateData[] attendanceCountByDateDatas = [];
+
+            check from TotalActivityParticipantAttendanceCountByDate attendance_count_by_date_record in total_attendance_count_by_date_records
+                do {
+                    TotalActivityParticipantAttendanceCountByDateData|error attendanceCountByDateData = new TotalActivityParticipantAttendanceCountByDateData(attendance_count_by_date_record);
+                    if !(attendanceCountByDateData is error) {
+                        attendanceCountByDateDatas.push(attendanceCountByDateData);
+                    }
+                };
+            check total_attendance_count_by_date_records.close();
+            return attendanceCountByDateDatas;
+
+        } else {
+            return error("Provide non-null values for both 'From Date' and 'To Date'.");
+        }
     }
 
-    isolated resource function get daily_attendance_summary_report(int? organization_id,int? avinya_type_id,string? from_date = null, string? to_date = null) returns DailyActivityParticipantAttendanceSummaryReportData[]|error? {
-        
-      stream<ActivityParticipantAttendanceSummaryReport, error?> daily_attendance_summary_report_records;
+    isolated resource function get daily_attendance_summary_report(int? organization_id, int? avinya_type_id, string? from_date = null, string? to_date = null) returns DailyActivityParticipantAttendanceSummaryReportData[]|error? {
 
+        stream<ActivityParticipantAttendanceSummaryReport, error?> daily_attendance_summary_report_records;
 
-      if(from_date != null && to_date != null) {
+        if (from_date != null && to_date != null) {
 
-          lock{
-            
-            daily_attendance_summary_report_records = db_client->query(
+            lock {
+
+                daily_attendance_summary_report_records = db_client->query(
                                 `SELECT
                                     DATE(pa.sign_in_time) AS sign_in_date,
                                     COUNT(pa.person_id) AS present_count,
@@ -4644,82 +4623,80 @@ lock {
                                     )
                                     AND p.avinya_type_id = ${avinya_type_id}
                                     AND DATE(pa.sign_in_time) BETWEEN ${from_date} AND ${to_date}
-                                GROUP BY DATE(pa.sign_in_time), ts.total_count order by DATE(pa.sign_in_time) asc;`);                                       
-                                                      
-            } 
-            
+                                GROUP BY DATE(pa.sign_in_time), ts.total_count order by DATE(pa.sign_in_time) asc;`);
+
+            }
+
             DailyActivityParticipantAttendanceSummaryReportData[] attendanceSummaryReportDatas = [];
             decimal? present_attendance_percentage = 0.0;
             decimal? late_attendance_percentage = 0.0;
 
-            check from ActivityParticipantAttendanceSummaryReport attendance_summary_report_record in  daily_attendance_summary_report_records
-            
-            do {
-                
-                int? present_count = attendance_summary_report_record.present_count;
+            check from ActivityParticipantAttendanceSummaryReport attendance_summary_report_record in daily_attendance_summary_report_records
 
-                int? late_count  = attendance_summary_report_record.late_count;
+                do {
 
-                int? total_count   = attendance_summary_report_record.total_count;
-                
-                
-              if(total_count > 0){  
-                
-                present_attendance_percentage = (present_count * 100) / total_count;
-                
-                late_attendance_percentage = (late_count * 100) / total_count;
-              
-              }else{
-                present_attendance_percentage = 0;
-                
-                late_attendance_percentage = 0;
-              
-              }
-                
-                
-                // if (present_attendance_percentage is null) {
-                //     present_attendance_percentage = 0;
-                // }
-                // if(late_attendance_percentage is null){
-                //     late_attendance_percentage = 0;
-                // }
-                
-                decimal roundedPresentAttendancePercentage = 0;
-                decimal roundedLateAttendancePercentage = 0;
+                    int? present_count = attendance_summary_report_record.present_count;
 
-                if(present_attendance_percentage is decimal) {
-                    roundedPresentAttendancePercentage = decimal:round(present_attendance_percentage, 2);
-                }
-                
-                if(late_attendance_percentage is decimal ){
-                    roundedLateAttendancePercentage = decimal:round(late_attendance_percentage, 2);
-                }
+                    int? late_count = attendance_summary_report_record.late_count;
 
-                ActivityParticipantAttendanceSummaryReport attendanceSummaryData = {
-                    sign_in_date : attendance_summary_report_record.sign_in_date,
-                    present_count : present_count,
-                    late_count : late_count,
-                    total_count : total_count,
-                    present_attendance_percentage:roundedPresentAttendancePercentage,
-                    late_attendance_percentage:roundedLateAttendancePercentage
+                    int? total_count = attendance_summary_report_record.total_count;
+
+                    if (total_count > 0) {
+
+                        present_attendance_percentage = (present_count * 100) / total_count;
+
+                        late_attendance_percentage = (late_count * 100) / total_count;
+
+                    } else {
+                        present_attendance_percentage = 0;
+
+                        late_attendance_percentage = 0;
+
+                    }
+
+                    // if (present_attendance_percentage is null) {
+                    //     present_attendance_percentage = 0;
+                    // }
+                    // if(late_attendance_percentage is null){
+                    //     late_attendance_percentage = 0;
+                    // }
+
+                    decimal roundedPresentAttendancePercentage = 0;
+                    decimal roundedLateAttendancePercentage = 0;
+
+                    if (present_attendance_percentage is decimal) {
+                        roundedPresentAttendancePercentage = decimal:round(present_attendance_percentage, 2);
+                    }
+
+                    if (late_attendance_percentage is decimal) {
+                        roundedLateAttendancePercentage = decimal:round(late_attendance_percentage, 2);
+                    }
+
+                    ActivityParticipantAttendanceSummaryReport attendanceSummaryData = {
+                        sign_in_date: attendance_summary_report_record.sign_in_date,
+                        present_count: present_count,
+                        late_count: late_count,
+                        total_count: total_count,
+                        present_attendance_percentage: roundedPresentAttendancePercentage,
+                        late_attendance_percentage: roundedLateAttendancePercentage
+                    };
+
+                    DailyActivityParticipantAttendanceSummaryReportData|error dailyAttendanceSummaryReportData = new DailyActivityParticipantAttendanceSummaryReportData(attendanceSummaryData);
+
+                    if !(dailyAttendanceSummaryReportData is error) {
+                        attendanceSummaryReportDatas.push(dailyAttendanceSummaryReportData);
+                    }
                 };
-                    
-                DailyActivityParticipantAttendanceSummaryReportData|error dailyAttendanceSummaryReportData = new DailyActivityParticipantAttendanceSummaryReportData(attendanceSummaryData);
-                
-                if !(dailyAttendanceSummaryReportData is error) {
-                    attendanceSummaryReportDatas.push(dailyAttendanceSummaryReportData);
-                }
-            };
-            check  daily_attendance_summary_report_records.close();
+            check daily_attendance_summary_report_records.close();
             return attendanceSummaryReportDatas;
 
-      }else{
-        return error("Provide non-null values for both 'From Date' and 'To Date'.");
-      }
+        } else {
+            return error("Provide non-null values for both 'From Date' and 'To Date'.");
+        }
     }
 
-    isolated resource function get inventory_data_by_organization(int? organization_id,string? date= null) returns InventoryData[]|error? {
-        
+    isolated resource function get inventory_data_by_organization(int? organization_id, string? date = null) returns InventoryData[]|error? {
+
         stream<Inventory, error?> inventory_data;
 
         // first check if inventory data for date are already have
@@ -4738,8 +4715,7 @@ lock {
                                 ELSE 0
                             END AS all_consumables_present;`);
 
-
-        if (check_inventory_data_for_date == 0){
+        if (check_inventory_data_for_date == 0) {
 
             int|error? check_least_updated_inventory_data_for_date = check db_client->queryRow(
                                             `SELECT 
@@ -4765,12 +4741,11 @@ lock {
                                                     ) THEN 1
                                                     ELSE 0
                                                 END AS all_consumables_present;`);
-                
-               
-                if(check_least_updated_inventory_data_for_date == 0){
 
-               
-                   inventory_data = db_client->query(
+            if (check_least_updated_inventory_data_for_date == 0) {
+
+
+                inventory_data = db_client->query(
                             `SELECT 
                                     I.id,
                                     C.avinya_type_id,
@@ -4787,7 +4762,11 @@ lock {
                                     RP.value AS resource_property_value,
                                     C.name,
                                     C.description,
-                                    C.manufacturer
+                                    C.manufacturer,
+                                    CASE 
+                                        WHEN COALESCE(I.quantity, 0.0) < COALESCE(C.threshold, 0.0) THEN 1
+                                        ELSE 0
+                                    END AS is_below_threshold
                                 FROM 
                                     consumable C
                                 LEFT JOIN 
@@ -4799,85 +4778,95 @@ lock {
                                     )
                                 LEFT JOIN 
                                     resource_property RP 
-                                    ON C.id = RP.consumable_id;`);
-                }else{
+                                    ON C.id = RP.consumable_id;
+                                `);
+            } else {
 
 
-                   inventory_data = db_client->query(
+                inventory_data = db_client->query(
                         `SELECT 
-                                I.id,
-                                I.avinya_type_id,
-                                I.consumable_id,
-                                I.organization_id,
-                                I.person_id,
-                                I.quantity,
-                                I.quantity_in,
-                                I.quantity_out,
-                                I.prev_quantity,
-                                I.created,
-                                I.updated,
-                                RP.id AS resource_property_id,
-                                RP.value AS resource_property_value,
-                                C.name,
-                                C.description,
-                                C.manufacturer
-                            FROM 
-                                consumable C
-                            INNER JOIN 
-                                (
-                                    SELECT 
-                                        I1.*
-                                    FROM 
-                                        inventory I1
-                                    INNER JOIN 
-                                        (
-                                            SELECT 
-                                                consumable_id, 
-                                                MAX(updated) AS max_updated_at
-                                            FROM 
-                                                inventory
-                                            WHERE 
-                                                organization_id = ${organization_id}
-                                            GROUP BY 
-                                                consumable_id
-                                        ) latest_inventory 
-                                        ON I1.consumable_id = latest_inventory.consumable_id 
-                                        AND I1.updated = latest_inventory.max_updated_at
-                                ) I 
-                                ON C.id = I.consumable_id
-                            LEFT JOIN 
-                                resource_property RP 
-                                ON C.id = RP.consumable_id;`);
-                }
-          
-        }else{
+                            I.id,
+                            I.avinya_type_id,
+                            I.consumable_id,
+                            I.organization_id,
+                            I.person_id,
+                            I.quantity,
+                            I.quantity_in,
+                            I.quantity_out,
+                            I.prev_quantity,
+                            I.created,
+                            I.updated,
+                            RP.id AS resource_property_id,
+                            RP.value AS resource_property_value,
+                            C.name,
+                            C.description,
+                            C.manufacturer,
+                            CASE 
+                                WHEN COALESCE(I.quantity, 0.0) < COALESCE(C.threshold, 0.0) THEN 1
+                                ELSE 0
+                            END AS is_below_threshold
+                        FROM 
+                            consumable C
+                        INNER JOIN 
+                            (
+                                SELECT 
+                                    I1.*
+                                FROM 
+                                    inventory I1
+                                INNER JOIN 
+                                    (
+                                        SELECT 
+                                            consumable_id, 
+                                            MAX(updated) AS max_updated_at
+                                        FROM 
+                                            inventory
+                                        WHERE 
+                                            organization_id = ${organization_id}
+                                        GROUP BY 
+                                            consumable_id
+                                    ) latest_inventory 
+                                    ON I1.consumable_id = latest_inventory.consumable_id 
+                                    AND I1.updated = latest_inventory.max_updated_at
+                            ) I 
+                            ON C.id = I.consumable_id
+                        LEFT JOIN 
+                            resource_property RP 
+                            ON C.id = RP.consumable_id;
+                        `);
+            }
 
+        } else {
 
             inventory_data = db_client->query(
-                                  `SELECT 
-                                        I.id, 
-                                        I.avinya_type_id, 
-                                        I.consumable_id, 
-                                        I.organization_id, 
-                                        I.person_id, 
-                                        I.quantity, 
-                                        I.quantity_in, 
-                                        I.quantity_out,
-                                        I.prev_quantity,
-                                        I.created,
-                                        I.updated, 
-                                        RP.id AS resource_property_id, 
-                                        RP.value AS resource_property_value, 
-                                        C.name, 
-                                        C.description, 
-                                        C.manufacturer
-                                    FROM 
-                                        inventory I
-                                    INNER JOIN 
-                                        consumable C ON I.consumable_id = C.id
-                                    INNER JOIN 
-                                        resource_property RP ON C.id = RP.consumable_id
-                                    INNER JOIN (
+                                `SELECT 
+                                    I.id, 
+                                    I.avinya_type_id, 
+                                    I.consumable_id, 
+                                    I.organization_id, 
+                                    I.person_id, 
+                                    I.quantity, 
+                                    I.quantity_in, 
+                                    I.quantity_out,
+                                    I.prev_quantity,
+                                    I.created,
+                                    I.updated, 
+                                    RP.id AS resource_property_id, 
+                                    RP.value AS resource_property_value, 
+                                    C.name, 
+                                    C.description, 
+                                    C.manufacturer,
+                                    CASE 
+                                        WHEN COALESCE(I.quantity, 0.0) < COALESCE(C.threshold, 0.0) THEN 1
+                                        ELSE 0
+                                    END AS is_below_threshold
+                                FROM 
+                                    inventory I
+                                INNER JOIN 
+                                    consumable C ON I.consumable_id = C.id
+                                INNER JOIN 
+                                    resource_property RP ON C.id = RP.consumable_id
+                                INNER JOIN 
+                                    (
                                         SELECT 
                                             consumable_id, 
                                             MAX(updated) AS latest_update 
@@ -4889,20 +4878,20 @@ lock {
                                         GROUP BY 
                                             consumable_id
                                     ) Latest 
-                                        ON I.consumable_id = Latest.consumable_id 
-                                        AND I.updated = Latest.latest_update
-                                    WHERE 
-                                        I.organization_id = ${organization_id}
-                                        AND DATE(I.updated) = ${date};
-                                    `);
-            }
+                                    ON I.consumable_id = Latest.consumable_id 
+                                    AND I.updated = Latest.latest_update
+                                WHERE 
+                                    I.organization_id = ${organization_id}
+                                    AND DATE(I.updated) = ${date};
+                                `);
+        }
 
-        InventoryData[]  inventoryDatas = [];
+        InventoryData[] inventoryDatas = [];
 
         check from Inventory inventory in inventory_data
             do {
-                InventoryData|error inventoryData = new InventoryData(0,inventory);
-    
+                InventoryData|error inventoryData = new InventoryData(0, inventory);
+
                 if !(inventoryData is error) {
                     inventoryDatas.push(inventoryData);
                 }
@@ -4912,12 +4901,11 @@ lock {
         return inventoryDatas;
     }
 
-    remote function consumable_replenishment(int person_id,int organization_id,string date,Inventory[] inventories) returns InventoryData[]|error? {
+    remote function consumable_replenishment(int person_id, int organization_id, string date, Inventory[] inventories) returns InventoryData[]|error? {
 
-        InventoryData[]  newlyAddedInventoryDatas = [];
+        InventoryData[] newlyAddedInventoryDatas = [];
 
         foreach Inventory inventory in inventories {
-
 
             sql:ExecutionResult response = check db_client->execute(
                 `INSERT INTO inventory (
@@ -4949,16 +4937,16 @@ lock {
             } else {
                 InventoryData|error newlyAddedInventoryData = new InventoryData(insert_id);
                 if !(newlyAddedInventoryData is error) {
-                  newlyAddedInventoryDatas.push(newlyAddedInventoryData);
+                    newlyAddedInventoryDatas.push(newlyAddedInventoryData);
                 }
             }
         }
         return newlyAddedInventoryDatas;
     }
 
-    remote function consumable_depletion(int person_id, int organization_id, string date,Inventory[] inventories) returns InventoryData[]|error? {
+    remote function consumable_depletion(int person_id, int organization_id, string date, Inventory[] inventories) returns InventoryData[]|error? {
 
-        InventoryData[]  newlyAddedInventoryDepletionDatas = [];
+        InventoryData[] newlyAddedInventoryDepletionDatas = [];
 
         foreach Inventory inventory in inventories {
 
@@ -5000,15 +4988,15 @@ lock {
     }
 
     isolated resource function get consumable_weekly_report(int? organization_id, string? from_date = null, string? to_date = null) returns InventoryData[]|error? {
-        
+
         stream<Inventory, error?> weekly_consumable_summary_data;
 
-        if(from_date != null && to_date != null){
-         
-           lock {
+        if (from_date != null && to_date != null) {
+
+            lock {
 
                 weekly_consumable_summary_data = db_client->query(
-                                   `SELECT 
+                                    `SELECT 
                                         I.id, 
                                         I.avinya_type_id, 
                                         I.consumable_id, 
@@ -5098,21 +5086,19 @@ lock {
             check weekly_consumable_summary_data.close();
             return weeklyConsumableSummaryDatas;
 
-        }else{
-        return error("Provide non-null values for both 'From Date' and 'To Date'.");
+        } else {
+            return error("Provide non-null values for both 'From Date' and 'To Date'.");
         }
 
     }
 
     remote function update_consumable_replenishment(Inventory[] inventories) returns InventoryData[]|error? {
-        
-        
-        InventoryData[]  updatedInventoryDatas = [];
+
+        InventoryData[] updatedInventoryDatas = [];
 
         foreach Inventory inventory in inventories {
 
             int id = inventory.id ?: 0;
-
 
             sql:ExecutionResult res = check db_client->execute(
             `UPDATE inventory SET
@@ -5124,7 +5110,7 @@ lock {
 
             if (res.affectedRowCount == sql:EXECUTION_FAILED) {
                 return error("Unable to update  consumable replenishment record");
-            }else{
+            } else {
                 InventoryData|error updatedInventoryData = new InventoryData(id);
                 if !(updatedInventoryData is error) {
                     updatedInventoryDatas.push(updatedInventoryData);
@@ -5171,7 +5157,7 @@ lock {
         if (year != null && month != null) {
 
             lock {
-                
+
                 string dateStr = string `${year}-${month}-01`;
 
                 monthly_consumable_summary_data = db_client->query(
@@ -5250,6 +5236,109 @@ lock {
         }
 
     }
+
+    isolated resource function get consumable_yearly_report(int? organization_id, int? consumable_id, int? year) returns InventoryData[]|error? {
+
+        stream<Inventory, error?> yearly_consumable_summary_data;
+
+        if (year != null && consumable_id != null) {
+
+            lock {
+
+                yearly_consumable_summary_data = db_client->query(
+                                    `SELECT 
+                                        C.id AS consumable_id,
+                                        CASE M.month
+                                            WHEN 1 THEN 'January'
+                                            WHEN 2 THEN 'February'
+                                            WHEN 3 THEN 'March'
+                                            WHEN 4 THEN 'April'
+                                            WHEN 5 THEN 'May'
+                                            WHEN 6 THEN 'June'
+                                            WHEN 7 THEN 'July'
+                                            WHEN 8 THEN 'August'
+                                            WHEN 9 THEN 'September'
+                                            WHEN 10 THEN 'October'
+                                            WHEN 11 THEN 'November'
+                                            WHEN 12 THEN 'December'
+                                        END AS month_name,
+                                        COALESCE(SUM_In.quantity_in_sum, 0.00) AS quantity_in, 
+                                        COALESCE(SUM_Out.quantity_out_sum, 0.00) AS quantity_out,
+                                        RP.id AS resource_property_id, 
+                                        RP.value AS resource_property_value
+                                    FROM 
+                                        consumable C
+                                    LEFT JOIN 
+                                        resource_property RP ON C.id = RP.consumable_id
+                                    JOIN (
+                                        SELECT 1 AS month UNION ALL
+                                        SELECT 2 AS month UNION ALL
+                                        SELECT 3 AS month UNION ALL
+                                        SELECT 4 AS month UNION ALL
+                                        SELECT 5 AS month UNION ALL
+                                        SELECT 6 AS month UNION ALL
+                                        SELECT 7 AS month UNION ALL
+                                        SELECT 8 AS month UNION ALL
+                                        SELECT 9 AS month UNION ALL
+                                        SELECT 10 AS month UNION ALL
+                                        SELECT 11 AS month UNION ALL
+                                        SELECT 12 AS month
+                                    ) M ON 1=1
+                                    LEFT JOIN (
+                                        SELECT 
+                                            I.consumable_id, 
+                                            MONTH(I.updated) AS month,
+                                            SUM(I.quantity_in) AS quantity_in_sum
+                                        FROM 
+                                            inventory I
+                                        WHERE 
+                                            I.organization_id = ${organization_id}
+                                            AND I.consumable_id = ${consumable_id}
+                                            AND YEAR(I.updated) = ${year}
+                                            AND I.quantity_out = 0.00
+                                        GROUP BY 
+                                            I.consumable_id, MONTH(I.updated)
+                                    ) SUM_In ON C.id = SUM_In.consumable_id AND M.month = SUM_In.month
+                                    LEFT JOIN (
+                                        SELECT 
+                                            I.consumable_id, 
+                                            MONTH(I.updated) AS month,
+                                            SUM(I.quantity_out) AS quantity_out_sum
+                                        FROM 
+                                            inventory I
+                                        WHERE 
+                                            I.organization_id = ${organization_id}
+                                            AND I.consumable_id = ${consumable_id}
+                                            AND YEAR(I.updated) = ${year}
+                                            AND I.quantity_in = 0.00
+                                        GROUP BY 
+                                            I.consumable_id, MONTH(I.updated)
+                                    ) SUM_Out ON C.id = SUM_Out.consumable_id AND M.month = SUM_Out.month
+                                    WHERE 
+                                        C.id = ${consumable_id}
+                                    ORDER BY 
+                                        C.id, M.month;`);
+            }
+
+            InventoryData[] yearlyConsumableSummaryDatas = [];
+
+            check from Inventory yearly_consumable_summary_data_record in yearly_consumable_summary_data
+                do {
+                    InventoryData|error yearlyConsumableSummaryData = new InventoryData(0, yearly_consumable_summary_data_record);
+
+                    if !(yearlyConsumableSummaryData is error) {
+                        yearlyConsumableSummaryDatas.push(yearlyConsumableSummaryData);
+                    }
+                };
+
+            check yearly_consumable_summary_data.close();
+            return yearlyConsumableSummaryDatas;
+
+        } else {
+            return error("Provide non-null values for both 'year' and 'consumable_id'.");
+        }
+
+    }
 }
 
 isolated function calculateWeekdays(time:Utc toDate, time:Utc fromDate) returns int {
@@ -5263,11 +5352,11 @@ isolated function calculateWeekdays(time:Utc toDate, time:Utc fromDate) returns 
         }
         currentDate = time:utcAddSeconds(currentDate, 86400);
     }
-   
+
     return weekdays;
 }
 
-  function padStartWithZeros(string str, int len) returns string {
+function padStartWithZeros(string str, int len) returns string {
     int strLen = str.length();
     if (strLen >= len) {
         return str;
@@ -5281,56 +5370,51 @@ isolated function calculateWeekdays(time:Utc toDate, time:Utc fromDate) returns 
     return paddedStr + str;
 }
 
-isolated function updateDutyParticipantsRotationCycle() returns error?{
+isolated function updateDutyParticipantsRotationCycle() returns error? {
 
-   stream<DutyRotationMetaDetails,error?> duty_rotation_raw;
+    stream<DutyRotationMetaDetails, error?> duty_rotation_raw;
 
-    lock{
-       
-       duty_rotation_raw =   db_client->query(
+    lock {
+
+        duty_rotation_raw = db_client->query(
                 `SELECT *
             FROM duty_rotation_metadata
             WHERE CURDATE() > DATE(end_date);`
             );
     }
 
-    check from DutyRotationMetaDetails duty_rotation_meta_data in  duty_rotation_raw
-       do{ 
+    check from DutyRotationMetaDetails duty_rotation_meta_data in duty_rotation_raw
+        do {
 
-        string start_date = <string>duty_rotation_meta_data.start_date;
-        string end_date  = <string>duty_rotation_meta_data.end_date;
+            string start_date = <string>duty_rotation_meta_data.start_date;
+            string end_date = <string>duty_rotation_meta_data.end_date;
 
+            time:Utc start_date_in_utc = check time:utcFromString(start_date);
+            time:Utc end_date_in_utc = check time:utcFromString(end_date);
 
-        time:Utc start_date_in_utc = check time:utcFromString(start_date);
-        time:Utc end_date_in_utc = check time:utcFromString(end_date);
+            time:Seconds difference_in_seconds = time:utcDiffSeconds(end_date_in_utc, start_date_in_utc);
 
+            // calculate starting date
+            time:Utc next_starting_date = time:utcAddSeconds(end_date_in_utc, 259200); // 3 days = 259200 seconds
 
-        time:Seconds difference_in_seconds  = time:utcDiffSeconds(end_date_in_utc,start_date_in_utc);
+            // calculate  ending date
+            time:Utc next_ending_date = time:utcAddSeconds(next_starting_date, difference_in_seconds);
 
+            string utcStringOfNextStartingDate = time:utcToString(next_starting_date);
+            string utcStringOfNextEndingDate = time:utcToString(next_ending_date);
 
-        // calculate starting date
-        time:Utc next_starting_date = time:utcAddSeconds(end_date_in_utc,259200); // 3 days = 259200 seconds
-
-        // calculate  ending date
-        time:Utc next_ending_date = time:utcAddSeconds(next_starting_date,difference_in_seconds);
-
-       
-        string utcStringOfNextStartingDate = time:utcToString(next_starting_date);
-        string utcStringOfNextEndingDate = time:utcToString(next_ending_date);
-
-
-        sql:ExecutionResult res = check db_client->execute(
+            sql:ExecutionResult res = check db_client->execute(
                                 `UPDATE duty_rotation_metadata SET
                                 start_date = ${utcStringOfNextStartingDate},
                                 end_date = ${utcStringOfNextEndingDate}               
                                 WHERE organization_id = ${duty_rotation_meta_data.organization_id};`
                             );
-        //log:printInfo("=====================");
-        if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+            //log:printInfo("=====================");
+            if (res.affectedRowCount == sql:EXECUTION_FAILED) {
                 return error("Execution failed.unable to update duty rotation meta data raw");
-        }
-       
-       Organization child_organization_raw = check db_client->queryRow(
+            }
+
+            Organization child_organization_raw = check db_client->queryRow(
             `SELECT c.*
              FROM parent_child_organization pc
              JOIN organization c ON pc.child_org_id = c.id
@@ -5340,83 +5424,80 @@ isolated function updateDutyParticipantsRotationCycle() returns error?{
              AND (om_end.key_name = 'end_date' AND (om_end.value IS NULL OR STR_TO_DATE(om_end.value, '%Y-%m-%d') >= CURDATE()));`
         );
 
-        stream<DutyParticipant,error?> duty_participants;
-        lock {
-           duty_participants = db_client->query(
+            stream<DutyParticipant, error?> duty_participants;
+            lock {
+                duty_participants = db_client->query(
             `SELECT * 
 	         FROM  duty_participant
 	         WHERE person_id IN (SELECT id FROM person 
              WHERE organization_id IN (select child_org_id from parent_child_organization where parent_org_id = ${child_organization_raw.id}));`
-           );
-        }
+            );
+            }
 
-        DutyParticipant[] dutyParticipantsArray = [];
-        check from DutyParticipant dutyParticipant in duty_participants
-         do{
-           dutyParticipantsArray.push(dutyParticipant);
-         };
+            DutyParticipant[] dutyParticipantsArray = [];
+            check from DutyParticipant dutyParticipant in duty_participants
+                do {
+                    dutyParticipantsArray.push(dutyParticipant);
+                };
 
-        var updateResult = updateDutyParticipantsWorkRotation(dutyParticipantsArray);
-        
-          if(updateResult is error){
-            log:printError("Error update Rotation Cycle of duty participants: ", updateResult);
-          }else{
-            log:printInfo("Duty participants Rotation Cycle updated successfully");
-          }
+            var updateResult = updateDutyParticipantsWorkRotation(dutyParticipantsArray);
 
-    };
+            if (updateResult is error) {
+                log:printError("Error update Rotation Cycle of duty participants: ", updateResult);
+            } else {
+                log:printInfo("Duty participants Rotation Cycle updated successfully");
+            }
+
+        };
 }
 
-isolated function updateDutyParticipantsWorkRotation(DutyParticipant[] dutyParticipantsArray) returns error?{
+isolated function updateDutyParticipantsWorkRotation(DutyParticipant[] dutyParticipantsArray) returns error? {
 
     stream<Activity, error?> dynamicDutyActivities;
-           int?[] dynamicDutyActivitiesArray = [];
+    int?[] dynamicDutyActivitiesArray = [];
 
-            dynamicDutyActivities = db_client->query(
+    dynamicDutyActivities = db_client->query(
                 ` SELECT *
                 FROM activity
                 WHERE avinya_type_id = "91" AND description = "dynamic"
                 ORDER BY id ASC ;`
             );
 
-            check from Activity dutyActivities in  dynamicDutyActivities
-              do{
-                  dynamicDutyActivitiesArray.push(dutyActivities.id);
-                  io:println(dutyActivities.id);
+    check from Activity dutyActivities in dynamicDutyActivities
+        do {
+            dynamicDutyActivitiesArray.push(dutyActivities.id);
+            io:println(dutyActivities.id);
 
-              };
-                 
-           foreach DutyParticipant activityObject in dutyParticipantsArray{
+        };
 
-              if(activityObject.role == "member"){
+    foreach DutyParticipant activityObject in dutyParticipantsArray {
 
-                     int? currentIndex = dynamicDutyActivitiesArray.indexOf(activityObject.activity_id);
-                     int? nextIndex = (currentIndex + 1) % dynamicDutyActivitiesArray.length();
-        
-                 if(currentIndex != null && nextIndex !=null){
+        if (activityObject.role == "member") {
 
-                     
-                     activityObject.activity_id = dynamicDutyActivitiesArray[nextIndex];
-                     
+            int? currentIndex = dynamicDutyActivitiesArray.indexOf(activityObject.activity_id);
+            int? nextIndex = (currentIndex + 1) % dynamicDutyActivitiesArray.length();
 
+            if (currentIndex != null && nextIndex != null) {
 
-                       int id = activityObject.id ?: 0;
-                       if (id == 0) {
-                            return error("Unable to update duty participant raw");
-                        }
+                activityObject.activity_id = dynamicDutyActivitiesArray[nextIndex];
 
-                      sql:ExecutionResult res = check db_client->execute(
+                int id = activityObject.id ?: 0;
+                if (id == 0) {
+                    return error("Unable to update duty participant raw");
+                }
+
+                sql:ExecutionResult res = check db_client->execute(
                                 `UPDATE duty_participant SET
                                 activity_id = ${activityObject.activity_id}               
                                 WHERE id = ${id};`
                             );
 
-                      if (res.affectedRowCount == sql:EXECUTION_FAILED) {
-                            return error("Execution failed.unable to update duty participant raw");
-                        }
-
-                   }
+                if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+                    return error("Execution failed.unable to update duty participant raw");
                 }
-            }     
+
+            }
+        }
+    }
 
 }
