@@ -556,6 +556,7 @@ public type Consumable record {|
     string? manufacturer;
     string? model;
     string? serial_number;
+    decimal? threshold;
     string? created;
     string? updated;
 |};
@@ -609,6 +610,7 @@ public type Inventory record {|
     int? asset_id;
     int? consumable_id;
     string? name;
+    string? month_name;
     string? description;
     string? manufacturer;
     int? organization_id;
@@ -619,6 +621,7 @@ public type Inventory record {|
     decimal? prev_quantity;
     int? resource_property_id;
     string? resource_property_value;
+    int? is_below_threshold;
     string? created;
     string? updated;
 |};
