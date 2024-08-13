@@ -156,6 +156,12 @@ public isolated service class InventoryData{
         }
     }
 
+    isolated resource function get is_below_threshold() returns int?|error {
+        lock {
+            return self.inventory.is_below_threshold;
+        }
+    }
+
     isolated resource function get created() returns string?|error {
         lock {
             return self.inventory.created;
