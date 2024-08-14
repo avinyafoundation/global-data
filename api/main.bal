@@ -4901,6 +4901,7 @@ AND p.organization_id IN (
         return inventoryDatas;
     }
 
+
     remote function consumable_replenishment(int person_id, int organization_id, string date, Inventory[] inventories) returns InventoryData[]|error? {
 
         InventoryData[] newlyAddedInventoryDatas = [];
