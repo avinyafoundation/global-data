@@ -73,6 +73,12 @@ public isolated service class ConsumableData{
         }
     }
 
+    isolated resource function get threshold() returns decimal?|error {
+        lock {
+            return self.consumable.threshold;
+        }
+    }
+
     isolated resource function get created() returns string?|error {
         lock {
             return self.consumable.created;

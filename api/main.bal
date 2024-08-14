@@ -8,7 +8,6 @@ import ballerina/time;
 //     label: "Global Data API",
 //     id: "global-data"
 // }
-
 service graphql:Service /graphql on new graphql:Listener(4000) {
     resource function get geo() returns GeoData {
         return new ();
@@ -2660,12 +2659,12 @@ LEFT JOIN person p ON apa.person_id = p.id
         return consumableDatas;
     }
 
-    resource function get consumables() returns ConsumableData[]|error {
+    isolated resource function get consumables() returns ConsumableData[]|error? {
         stream<Consumable, error?> consumables;
         lock {
             consumables = db_client->query(
                 `SELECT *
-                FROM consumable`
+                FROM consumable;`
             );
         }
 
@@ -4745,6 +4744,7 @@ AND p.organization_id IN (
 
             if (check_least_updated_inventory_data_for_date == 0) {
 
+
                 inventory_data = db_client->query(
                             `SELECT 
                                     I.id,
@@ -4762,7 +4762,11 @@ AND p.organization_id IN (
                                     RP.value AS resource_property_value,
                                     C.name,
                                     C.description,
-                                    C.manufacturer
+                                    C.manufacturer,
+                                    CASE 
+                                        WHEN COALESCE(I.quantity, 0.0) < COALESCE(C.threshold, 0.0) THEN 1
+                                        ELSE 0
+                                    END AS is_below_threshold
                                 FROM 
                                     consumable C
                                 LEFT JOIN 
@@ -4774,83 +4778,95 @@ AND p.organization_id IN (
                                     )
                                 LEFT JOIN 
                                     resource_property RP 
-                                    ON C.id = RP.consumable_id;`);
+                                    ON C.id = RP.consumable_id;
+                                `);
             } else {
+
 
                 inventory_data = db_client->query(
                         `SELECT 
-                                I.id,
-                                I.avinya_type_id,
-                                I.consumable_id,
-                                I.organization_id,
-                                I.person_id,
-                                I.quantity,
-                                I.quantity_in,
-                                I.quantity_out,
-                                I.prev_quantity,
-                                I.created,
-                                I.updated,
-                                RP.id AS resource_property_id,
-                                RP.value AS resource_property_value,
-                                C.name,
-                                C.description,
-                                C.manufacturer
-                            FROM 
-                                consumable C
-                            INNER JOIN 
-                                (
-                                    SELECT 
-                                        I1.*
-                                    FROM 
-                                        inventory I1
-                                    INNER JOIN 
-                                        (
-                                            SELECT 
-                                                consumable_id, 
-                                                MAX(updated) AS max_updated_at
-                                            FROM 
-                                                inventory
-                                            WHERE 
-                                                organization_id = ${organization_id}
-                                            GROUP BY 
-                                                consumable_id
-                                        ) latest_inventory 
-                                        ON I1.consumable_id = latest_inventory.consumable_id 
-                                        AND I1.updated = latest_inventory.max_updated_at
-                                ) I 
-                                ON C.id = I.consumable_id
-                            LEFT JOIN 
-                                resource_property RP 
-                                ON C.id = RP.consumable_id;`);
+                            I.id,
+                            I.avinya_type_id,
+                            I.consumable_id,
+                            I.organization_id,
+                            I.person_id,
+                            I.quantity,
+                            I.quantity_in,
+                            I.quantity_out,
+                            I.prev_quantity,
+                            I.created,
+                            I.updated,
+                            RP.id AS resource_property_id,
+                            RP.value AS resource_property_value,
+                            C.name,
+                            C.description,
+                            C.manufacturer,
+                            CASE 
+                                WHEN COALESCE(I.quantity, 0.0) < COALESCE(C.threshold, 0.0) THEN 1
+                                ELSE 0
+                            END AS is_below_threshold
+                        FROM 
+                            consumable C
+                        INNER JOIN 
+                            (
+                                SELECT 
+                                    I1.*
+                                FROM 
+                                    inventory I1
+                                INNER JOIN 
+                                    (
+                                        SELECT 
+                                            consumable_id, 
+                                            MAX(updated) AS max_updated_at
+                                        FROM 
+                                            inventory
+                                        WHERE 
+                                            organization_id = ${organization_id}
+                                        GROUP BY 
+                                            consumable_id
+                                    ) latest_inventory 
+                                    ON I1.consumable_id = latest_inventory.consumable_id 
+                                    AND I1.updated = latest_inventory.max_updated_at
+                            ) I 
+                            ON C.id = I.consumable_id
+                        LEFT JOIN 
+                            resource_property RP 
+                            ON C.id = RP.consumable_id;
+                        `);
             }
 
         } else {
 
             inventory_data = db_client->query(
                                 `SELECT 
-                                        I.id, 
-                                        I.avinya_type_id, 
-                                        I.consumable_id, 
-                                        I.organization_id, 
-                                        I.person_id, 
-                                        I.quantity, 
-                                        I.quantity_in, 
-                                        I.quantity_out,
-                                        I.prev_quantity,
-                                        I.created,
-                                        I.updated, 
-                                        RP.id AS resource_property_id, 
-                                        RP.value AS resource_property_value, 
-                                        C.name, 
-                                        C.description, 
-                                        C.manufacturer
-                                    FROM 
-                                        inventory I
-                                    INNER JOIN 
-                                        consumable C ON I.consumable_id = C.id
-                                    INNER JOIN 
-                                        resource_property RP ON C.id = RP.consumable_id
-                                    INNER JOIN (
+                                    I.id, 
+                                    I.avinya_type_id, 
+                                    I.consumable_id, 
+                                    I.organization_id, 
+                                    I.person_id, 
+                                    I.quantity, 
+                                    I.quantity_in, 
+                                    I.quantity_out,
+                                    I.prev_quantity,
+                                    I.created,
+                                    I.updated, 
+                                    RP.id AS resource_property_id, 
+                                    RP.value AS resource_property_value, 
+                                    C.name, 
+                                    C.description, 
+                                    C.manufacturer,
+                                    CASE 
+                                        WHEN COALESCE(I.quantity, 0.0) < COALESCE(C.threshold, 0.0) THEN 1
+                                        ELSE 0
+                                    END AS is_below_threshold
+                                FROM 
+                                    inventory I
+                                INNER JOIN 
+                                    consumable C ON I.consumable_id = C.id
+                                INNER JOIN 
+                                    resource_property RP ON C.id = RP.consumable_id
+                                INNER JOIN 
+                                    (
                                         SELECT 
                                             consumable_id, 
                                             MAX(updated) AS latest_update 
@@ -4862,12 +4878,12 @@ AND p.organization_id IN (
                                         GROUP BY 
                                             consumable_id
                                     ) Latest 
-                                        ON I.consumable_id = Latest.consumable_id 
-                                        AND I.updated = Latest.latest_update
-                                    WHERE 
-                                        I.organization_id = ${organization_id}
-                                        AND DATE(I.updated) = ${date};
-                                    `);
+                                    ON I.consumable_id = Latest.consumable_id 
+                                    AND I.updated = Latest.latest_update
+                                WHERE 
+                                    I.organization_id = ${organization_id}
+                                    AND DATE(I.updated) = ${date};
+                                `);
         }
 
         InventoryData[] inventoryDatas = [];
@@ -4884,6 +4900,7 @@ AND p.organization_id IN (
         check inventory_data.close();
         return inventoryDatas;
     }
+
 
     remote function consumable_replenishment(int person_id, int organization_id, string date, Inventory[] inventories) returns InventoryData[]|error? {
 
@@ -5217,6 +5234,109 @@ AND p.organization_id IN (
 
         } else {
             return error("Provide non-null values for both 'year' and 'month'.");
+        }
+
+    }
+
+    isolated resource function get consumable_yearly_report(int? organization_id, int? consumable_id, int? year) returns InventoryData[]|error? {
+
+        stream<Inventory, error?> yearly_consumable_summary_data;
+
+        if (year != null && consumable_id != null) {
+
+            lock {
+
+                yearly_consumable_summary_data = db_client->query(
+                                    `SELECT 
+                                        C.id AS consumable_id,
+                                        CASE M.month
+                                            WHEN 1 THEN 'January'
+                                            WHEN 2 THEN 'February'
+                                            WHEN 3 THEN 'March'
+                                            WHEN 4 THEN 'April'
+                                            WHEN 5 THEN 'May'
+                                            WHEN 6 THEN 'June'
+                                            WHEN 7 THEN 'July'
+                                            WHEN 8 THEN 'August'
+                                            WHEN 9 THEN 'September'
+                                            WHEN 10 THEN 'October'
+                                            WHEN 11 THEN 'November'
+                                            WHEN 12 THEN 'December'
+                                        END AS month_name,
+                                        COALESCE(SUM_In.quantity_in_sum, 0.00) AS quantity_in, 
+                                        COALESCE(SUM_Out.quantity_out_sum, 0.00) AS quantity_out,
+                                        RP.id AS resource_property_id, 
+                                        RP.value AS resource_property_value
+                                    FROM 
+                                        consumable C
+                                    LEFT JOIN 
+                                        resource_property RP ON C.id = RP.consumable_id
+                                    JOIN (
+                                        SELECT 1 AS month UNION ALL
+                                        SELECT 2 AS month UNION ALL
+                                        SELECT 3 AS month UNION ALL
+                                        SELECT 4 AS month UNION ALL
+                                        SELECT 5 AS month UNION ALL
+                                        SELECT 6 AS month UNION ALL
+                                        SELECT 7 AS month UNION ALL
+                                        SELECT 8 AS month UNION ALL
+                                        SELECT 9 AS month UNION ALL
+                                        SELECT 10 AS month UNION ALL
+                                        SELECT 11 AS month UNION ALL
+                                        SELECT 12 AS month
+                                    ) M ON 1=1
+                                    LEFT JOIN (
+                                        SELECT 
+                                            I.consumable_id, 
+                                            MONTH(I.updated) AS month,
+                                            SUM(I.quantity_in) AS quantity_in_sum
+                                        FROM 
+                                            inventory I
+                                        WHERE 
+                                            I.organization_id = ${organization_id}
+                                            AND I.consumable_id = ${consumable_id}
+                                            AND YEAR(I.updated) = ${year}
+                                            AND I.quantity_out = 0.00
+                                        GROUP BY 
+                                            I.consumable_id, MONTH(I.updated)
+                                    ) SUM_In ON C.id = SUM_In.consumable_id AND M.month = SUM_In.month
+                                    LEFT JOIN (
+                                        SELECT 
+                                            I.consumable_id, 
+                                            MONTH(I.updated) AS month,
+                                            SUM(I.quantity_out) AS quantity_out_sum
+                                        FROM 
+                                            inventory I
+                                        WHERE 
+                                            I.organization_id = ${organization_id}
+                                            AND I.consumable_id = ${consumable_id}
+                                            AND YEAR(I.updated) = ${year}
+                                            AND I.quantity_in = 0.00
+                                        GROUP BY 
+                                            I.consumable_id, MONTH(I.updated)
+                                    ) SUM_Out ON C.id = SUM_Out.consumable_id AND M.month = SUM_Out.month
+                                    WHERE 
+                                        C.id = ${consumable_id}
+                                    ORDER BY 
+                                        C.id, M.month;`);
+            }
+
+            InventoryData[] yearlyConsumableSummaryDatas = [];
+
+            check from Inventory yearly_consumable_summary_data_record in yearly_consumable_summary_data
+                do {
+                    InventoryData|error yearlyConsumableSummaryData = new InventoryData(0, yearly_consumable_summary_data_record);
+
+                    if !(yearlyConsumableSummaryData is error) {
+                        yearlyConsumableSummaryDatas.push(yearlyConsumableSummaryData);
+                    }
+                };
+
+            check yearly_consumable_summary_data.close();
+            return yearlyConsumableSummaryDatas;
+
+        } else {
+            return error("Provide non-null values for both 'year' and 'consumable_id'.");
         }
 
     }
