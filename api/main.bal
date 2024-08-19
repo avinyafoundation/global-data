@@ -4744,7 +4744,6 @@ AND p.organization_id IN (
 
             if (check_least_updated_inventory_data_for_date == 0) {
 
-
                 inventory_data = db_client->query(
                             `SELECT 
                                     I.id,
@@ -4781,7 +4780,6 @@ AND p.organization_id IN (
                                     ON C.id = RP.consumable_id;
                                 `);
             } else {
-
 
                 inventory_data = db_client->query(
                         `SELECT 
@@ -4901,7 +4899,6 @@ AND p.organization_id IN (
         return inventoryDatas;
     }
 
-
     remote function consumable_replenishment(int person_id, int organization_id, string date, Inventory[] inventories) returns InventoryData[]|error? {
 
         InventoryData[] newlyAddedInventoryDatas = [];
@@ -4988,7 +4985,7 @@ AND p.organization_id IN (
         return newlyAddedInventoryDepletionDatas;
     }
 
-    isolated resource function get consumable_weekly_report(int? organization_id, string? from_date = null, string? to_date = null) returns InventoryData[]|error? {
+    isolated resource function get consumable_weekly_report(int? organization_id, string? from_date = "", string? to_date = "") returns InventoryData[]|error? {
 
         stream<Inventory, error?> weekly_consumable_summary_data;
 
