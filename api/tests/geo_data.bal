@@ -6,7 +6,7 @@ graphql:Client test_client = check new ("http://localhost:4000/graphql");
 @test:Config {}
 public function testGetProvince() {
     // Attempt to get geo information for Dehiwala
-    json|error? a = test_client->executeWithType(string `
+    json|error? a = test_client->execute(string `
         query test($name:String!) {
             geo {
                 city(name: $name) {
@@ -25,17 +25,17 @@ public function testGetProvince() {
     // Verify output
     test:assertEquals(a,
         {
-            "data": {
-                "geo": {
-                    "city": {
-                        "name": {"name_en": "Dehiwala"},
-                        "district": {
-                            "name": {"name_en": "Colombo"},
-                            "province": {"name": {"name_en": "Western"}}
-                        }
+        "data": {
+            "geo": {
+                "city": {
+                    "name": {"name_en": "Dehiwala"},
+                    "district": {
+                        "name": {"name_en": "Colombo"},
+                        "province": {"name": {"name_en": "Western"}}
                     }
                 }
             }
         }
+    }
     );
 }
