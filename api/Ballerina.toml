@@ -2,7 +2,7 @@
 org = "avinyafoundation"
 name = "global_data_api"
 version = "2.1.0"
-distribution = "2201.5.0"
+distribution = "2201.8.7"
 
 [build-options]
 observabilityIncluded = true

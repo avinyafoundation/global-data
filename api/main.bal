@@ -8,7 +8,7 @@ import ballerina/time;
 //     label: "Global Data API",
 //     id: "global-data"
 // }
-service graphql:Service /graphql on new graphql:Listener(4000) {
+service /graphql on new graphql:Listener(4000) {
     resource function get geo() returns GeoData {
         return new ();
     }
@@ -1574,7 +1574,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return attendnaceDatas;
     }
 
-    isolated resource function get person_attendance_report(int? person_id, int? activity_id, int? result_limit = -1) returns ActivityParticipantAttendanceData[]|error? {
+    isolated resource function get person_attendance_report(int? person_id, int? activity_id, int? result_limit = 0) returns ActivityParticipantAttendanceData[]|error? {
         stream<ActivityParticipantAttendance, error?> attendance_records;
 
         if (result_limit > 0) {
@@ -1613,7 +1613,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return attendnaceDatas;
     }
 
-    isolated resource function get class_attendance_report(int? organization_id, int? parent_organization_id, int? activity_id, int? result_limit = -1, string? from_date = null, string? to_date = null) returns ActivityParticipantAttendanceData[]|error? {
+    isolated resource function get class_attendance_report(int? organization_id, int? parent_organization_id, int? activity_id, int? result_limit = 0, string? from_date = "", string? to_date = "") returns ActivityParticipantAttendanceData[]|error? {
         stream<ActivityParticipantAttendance, error?> attendance_records;
 
         time:Utc startTime = time:utcNow();
@@ -1715,7 +1715,7 @@ service graphql:Service /graphql on new graphql:Listener(4000) {
         return attendnaceDatas;
     }
 
-    isolated resource function get late_attendance_report(int? organization_id, int? parent_organization_id, int? activity_id, int? result_limit = -1, string? from_date = null, string? to_date = null) returns ActivityParticipantAttendanceDataForLateAttendance[]|error? {
+    isolated resource function get late_attendance_report(int? organization_id, int? parent_organization_id, int? activity_id, int? result_limit = 0, string? from_date = "", string? to_date = "") returns ActivityParticipantAttendanceDataForLateAttendance[]|error? {
         stream<ActivityParticipantAttendanceForLateAttendance, error?> attendance_records;
 
         time:Utc startTime = time:utcNow();
@@ -3701,7 +3701,7 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
         return new (insert_id);
     }
 
-    isolated resource function get attendance_dashboard_data_by_date(int? organization_id, int? parent_organization_id, int? activity_id, string? from_date = null, string? to_date = null) returns AttendanceDashboardDataMain[]|error? {
+    isolated resource function get attendance_dashboard_data_by_date(int? organization_id, int? parent_organization_id, int? activity_id, string? from_date = "", string? to_date = "") returns AttendanceDashboardDataMain[]|error? {
         stream<AttendanceDashboardDataForQuery, error?> present_count;
         stream<AttendanceDashboardDataForQuery, error?> absent_count;
         stream<AttendanceDashboardDataForQuery, error?> late_attendance;
@@ -4241,7 +4241,7 @@ AND p.organization_id IN (
         return dashboardDatas;
     }
 
-    isolated resource function get attendance_missed_by_security(int? organization_id, int? parent_organization_id, string? from_date = null, string? to_date = null) returns ActivityParticipantAttendanceMissedBySecurityData[]|error? {
+    isolated resource function get attendance_missed_by_security(int? organization_id, int? parent_organization_id, string? from_date = "", string? to_date = "") returns ActivityParticipantAttendanceMissedBySecurityData[]|error? {
 
         stream<ActivityParticipantAttendanceMissedBySecurity, error?> attendance_missed_by_security_records;
 
@@ -4461,7 +4461,7 @@ AND p.organization_id IN (
         }
     }
 
-    isolated resource function get total_attendance_count_by_date(int? organization_id, int? parent_organization_id, string? from_date = null, string? to_date = null) returns TotalActivityParticipantAttendanceCountByDateData[]|error? {
+    isolated resource function get total_attendance_count_by_date(int? organization_id, int? parent_organization_id, string? from_date = "", string? to_date = "") returns TotalActivityParticipantAttendanceCountByDateData[]|error? {
 
         stream<TotalActivityParticipantAttendanceCountByDate, error?> total_attendance_count_by_date_records;
 
@@ -4581,7 +4581,7 @@ AND p.organization_id IN (
         }
     }
 
-    isolated resource function get daily_attendance_summary_report(int? organization_id, int? avinya_type_id, string? from_date = null, string? to_date = null) returns DailyActivityParticipantAttendanceSummaryReportData[]|error? {
+    isolated resource function get daily_attendance_summary_report(int? organization_id, int? avinya_type_id, string? from_date = "", string? to_date = "") returns DailyActivityParticipantAttendanceSummaryReportData[]|error? {
 
         stream<ActivityParticipantAttendanceSummaryReport, error?> daily_attendance_summary_report_records;
 
@@ -4695,7 +4695,7 @@ AND p.organization_id IN (
         }
     }
 
-    isolated resource function get inventory_data_by_organization(int? organization_id, string? date = null) returns InventoryData[]|error? {
+    isolated resource function get inventory_data_by_organization(int? organization_id, string? date = "") returns InventoryData[]|error? {
 
         stream<Inventory, error?> inventory_data;
 
@@ -4744,7 +4744,6 @@ AND p.organization_id IN (
 
             if (check_least_updated_inventory_data_for_date == 0) {
 
-
                 inventory_data = db_client->query(
                             `SELECT 
                                     I.id,
@@ -4781,7 +4780,6 @@ AND p.organization_id IN (
                                     ON C.id = RP.consumable_id;
                                 `);
             } else {
-
 
                 inventory_data = db_client->query(
                         `SELECT 
@@ -4988,7 +4986,7 @@ AND p.organization_id IN (
         return newlyAddedInventoryDepletionDatas;
     }
 
-    isolated resource function get consumable_weekly_report(int? organization_id, string? from_date = null, string? to_date = null) returns InventoryData[]|error? {
+    isolated resource function get consumable_weekly_report(int? organization_id, string? from_date = "", string? to_date = "") returns InventoryData[]|error? {
 
         stream<Inventory, error?> weekly_consumable_summary_data;
 
