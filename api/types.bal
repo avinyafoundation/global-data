@@ -654,3 +654,34 @@ public type OrganizationMetaDataDetails record{|
     string? key_name;
     string? value;
 |};
+
+public type Vehicle record{|
+    readonly string?  record_type = "vehicle";
+    int id?;
+    string? vehicle_number;
+    int? organization_id;
+    int? person_id;
+    string? created;
+    string? updated;
+|};
+
+public type VehicleReasonMetadata record{|
+    readonly string?  record_type = "vehicle_reason_metadata";
+    int id?;
+    string? reason;
+    string? created;
+|};
+
+public type VehicleFuelConsumption record{|
+    readonly string? record_type = "vehicle_fuel_consumption";
+    int id?;
+    int? vehicle_id;
+    string? date_time;
+    int? reason_id;
+    string? starting_meter;
+    string? ending_meter;
+    string? distance;
+    string? comment;
+    string? created;
+    string? updated;
+|};
