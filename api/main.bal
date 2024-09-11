@@ -5338,162 +5338,162 @@ AND p.organization_id IN (
 
     }
 
-    remote function add_vehicle_fuel_consumption(VehicleFuelConsumption vehicle_fuel_consumption) returns VehicleFuelConsumptionData|error? {
+    // remote function add_vehicle_fuel_consumption(VehicleFuelConsumption vehicle_fuel_consumption) returns VehicleFuelConsumptionData|error? {
 
-        sql:ExecutionResult res = check db_client->execute(
-            `INSERT INTO vehicle_fuel_consumption (
-                vehicle_id,
-                date_time,
-                reason_id,
-                starting_meter,
-                ending_meter,
-                distance,
-                comment
-            ) VALUES (
-                ${vehicle_fuel_consumption.vehicle_id},
-                ${vehicle_fuel_consumption.date_time},
-                ${vehicle_fuel_consumption.reason_id},
-                ${vehicle_fuel_consumption.starting_meter},
-                ${vehicle_fuel_consumption.ending_meter},
-                ${vehicle_fuel_consumption.distance},
-                ${vehicle_fuel_consumption.comment}
-            );`
-        );
+    //     sql:ExecutionResult res = check db_client->execute(
+    //         `INSERT INTO vehicle_fuel_consumption (
+    //             vehicle_id,
+    //             date_time,
+    //             reason_id,
+    //             starting_meter,
+    //             ending_meter,
+    //             distance,
+    //             comment
+    //         ) VALUES (
+    //             ${vehicle_fuel_consumption.vehicle_id},
+    //             ${vehicle_fuel_consumption.date_time},
+    //             ${vehicle_fuel_consumption.reason_id},
+    //             ${vehicle_fuel_consumption.starting_meter},
+    //             ${vehicle_fuel_consumption.ending_meter},
+    //             ${vehicle_fuel_consumption.distance},
+    //             ${vehicle_fuel_consumption.comment}
+    //         );`
+    //     );
 
-        int|string? insert_id = res.lastInsertId;
-        if !(insert_id is int) {
-            return error("Unable to insert Vehicle Fuel Consumption record");
-        }
+    //     int|string? insert_id = res.lastInsertId;
+    //     if !(insert_id is int) {
+    //         return error("Unable to insert Vehicle Fuel Consumption record");
+    //     }
 
-        return new (insert_id);
-    }
+    //     return new (insert_id);
+    // }
 
-    isolated resource function get vehicle_fuel_consumption_by_date(int? organization_id, string? date = "") returns VehicleFuelConsumptionData[]|error? {
-        stream<VehicleFuelConsumption, error?> vehicle_fuel_consumption_data;
+    // isolated resource function get vehicle_fuel_consumption_by_date(int? organization_id, string? date = "") returns VehicleFuelConsumptionData[]|error? {
+    //     stream<VehicleFuelConsumption, error?> vehicle_fuel_consumption_data;
 
-        if (organization_id != null && date != null) {
+    //     if (organization_id != null && date != null) {
 
-            lock {
-                vehicle_fuel_consumption_data = db_client->query(
-                    `SELECT vfc.id,vfc.vehicle_id,vfc.date_time,vfc.reason_id,vfc.starting_meter,vfc.ending_meter,vfc.distance,vfc.comment,vfc.created,vfc.updated
-                        FROM  vehicle_fuel_consumption vfc
-                        INNER JOIN vehicle v ON vfc.vehicle_id = v.id
-                        where v.organization_id = ${organization_id} and DATE(vfc.date_time) = ${date};`);
-            }
+    //         lock {
+    //             vehicle_fuel_consumption_data = db_client->query(
+    //                 `SELECT vfc.id,vfc.vehicle_id,vfc.date_time,vfc.reason_id,vfc.starting_meter,vfc.ending_meter,vfc.distance,vfc.comment,vfc.created,vfc.updated
+    //                     FROM  vehicle_fuel_consumption vfc
+    //                     INNER JOIN vehicle v ON vfc.vehicle_id = v.id
+    //                     where v.organization_id = ${organization_id} and DATE(vfc.date_time) = ${date};`);
+    //         }
 
-            VehicleFuelConsumptionData[] vehicleFuelConsumptionDatas = [];
+    //         VehicleFuelConsumptionData[] vehicleFuelConsumptionDatas = [];
 
-            check from VehicleFuelConsumption vehicle_fuel_consumption_data_record in vehicle_fuel_consumption_data
-                do {
-                    VehicleFuelConsumptionData|error vehicleFuelConsumptionData = new VehicleFuelConsumptionData(0, vehicle_fuel_consumption_data_record);
-                    if !(vehicleFuelConsumptionData is error) {
-                        vehicleFuelConsumptionDatas.push(vehicleFuelConsumptionData);
-                    }
-                };
+    //         check from VehicleFuelConsumption vehicle_fuel_consumption_data_record in vehicle_fuel_consumption_data
+    //             do {
+    //                 VehicleFuelConsumptionData|error vehicleFuelConsumptionData = new VehicleFuelConsumptionData(0, vehicle_fuel_consumption_data_record);
+    //                 if !(vehicleFuelConsumptionData is error) {
+    //                     vehicleFuelConsumptionDatas.push(vehicleFuelConsumptionData);
+    //                 }
+    //             };
 
-            check vehicle_fuel_consumption_data.close();
-            return vehicleFuelConsumptionDatas;
+    //         check vehicle_fuel_consumption_data.close();
+    //         return vehicleFuelConsumptionDatas;
 
-        } else {
-            return error("Provide non-null values for both 'organization_id' and 'date'.");
-        }
+    //     } else {
+    //         return error("Provide non-null values for both 'organization_id' and 'date'.");
+    //     }
 
-    }
-    isolated resource function get vehicle_fuel_consumption_by_id(int? id) returns VehicleFuelConsumptionData|error? {
-        if (id != null) {
-            return new (id);
-        } else {
-            return error("Provide non-null value for id.");
-        }
-    }
+    // }
+    // isolated resource function get vehicle_fuel_consumption_by_id(int? id) returns VehicleFuelConsumptionData|error? {
+    //     if (id != null) {
+    //         return new (id);
+    //     } else {
+    //         return error("Provide non-null value for id.");
+    //     }
+    // }
 
-    remote function update_vehicle_fuel_consumption(VehicleFuelConsumption vehicle_fuel_consumption) returns VehicleFuelConsumptionData|error? {
-        int id = vehicle_fuel_consumption.id ?: 0;
-        if (id == 0) {
-            return error("Unable to update Vehicle Fuel Consumption record");
-        }
+    // remote function update_vehicle_fuel_consumption(VehicleFuelConsumption vehicle_fuel_consumption) returns VehicleFuelConsumptionData|error? {
+    //     int id = vehicle_fuel_consumption.id ?: 0;
+    //     if (id == 0) {
+    //         return error("Unable to update Vehicle Fuel Consumption record");
+    //     }
 
-        sql:ExecutionResult res = check db_client->execute(
-            `UPDATE vehicle_fuel_consumption SET
-                vehicle_id = ${vehicle_fuel_consumption.vehicle_id},
-                date_time = ${vehicle_fuel_consumption.date_time},
-                reason_id = ${vehicle_fuel_consumption.reason_id},
-                starting_meter = ${vehicle_fuel_consumption.starting_meter},
-                ending_meter = ${vehicle_fuel_consumption.ending_meter},
-                distance = ${vehicle_fuel_consumption.distance},
-                comment = ${vehicle_fuel_consumption.comment}
-            WHERE id = ${id};`
-        );
+    //     sql:ExecutionResult res = check db_client->execute(
+    //         `UPDATE vehicle_fuel_consumption SET
+    //             vehicle_id = ${vehicle_fuel_consumption.vehicle_id},
+    //             date_time = ${vehicle_fuel_consumption.date_time},
+    //             reason_id = ${vehicle_fuel_consumption.reason_id},
+    //             starting_meter = ${vehicle_fuel_consumption.starting_meter},
+    //             ending_meter = ${vehicle_fuel_consumption.ending_meter},
+    //             distance = ${vehicle_fuel_consumption.distance},
+    //             comment = ${vehicle_fuel_consumption.comment}
+    //         WHERE id = ${id};`
+    //     );
 
-        if (res.affectedRowCount == sql:EXECUTION_FAILED) {
-            return error("Unable to update Vehicle Fuel Consumption record");
-        }
+    //     if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+    //         return error("Unable to update Vehicle Fuel Consumption record");
+    //     }
 
-        return new (id);
-    }
+    //     return new (id);
+    // }
 
-    remote function delete_vehicle_fuel_consumption_by_id(int? id) returns int?|error? {
+    // remote function delete_vehicle_fuel_consumption_by_id(int? id) returns int?|error? {
 
-        sql:ExecutionResult res = check db_client->execute(
-            `DELETE FROM vehicle_fuel_consumption WHERE id = ${id};`
-        );
+    //     sql:ExecutionResult res = check db_client->execute(
+    //         `DELETE FROM vehicle_fuel_consumption WHERE id = ${id};`
+    //     );
 
-        int? delete_id = res.affectedRowCount;
-        io:println(delete_id);
-        if (delete_id <= 0) {
-            return error("Unable to delete vehicle_fuel_consumption with id: " + id.toString());
-        }
+    //     int? delete_id = res.affectedRowCount;
+    //     io:println(delete_id);
+    //     if (delete_id <= 0) {
+    //         return error("Unable to delete vehicle_fuel_consumption with id: " + id.toString());
+    //     }
 
-        return delete_id;
+    //     return delete_id;
 
-    }
+    // }
 
-    isolated resource function get vehicles(int? organization_id) returns VehicleData[]|error? {
-        stream<Vehicle, error?> vehicles_data;
+    // isolated resource function get vehicles(int? organization_id) returns VehicleData[]|error? {
+    //     stream<Vehicle, error?> vehicles_data;
 
-        lock {
-                vehicles_data = db_client->query(
-                    `SELECT id,vehicle_number,person_id
-                        from vehicle
-                        where organization_id = ${organization_id};`);
-        }
+    //     lock {
+    //             vehicles_data = db_client->query(
+    //                 `SELECT id,vehicle_number,person_id
+    //                     from vehicle
+    //                     where organization_id = ${organization_id};`);
+    //     }
 
-            VehicleData[] vehicleDatas = [];
+    //         VehicleData[] vehicleDatas = [];
 
-            check from Vehicle vehicle_data_record in vehicles_data
-                do {
-                    VehicleData|error vehicleData = new VehicleData(0,0,vehicle_data_record);
-                    if !(vehicleData is error) {
-                        vehicleDatas.push(vehicleData);
-                    }
-                };
+    //         check from Vehicle vehicle_data_record in vehicles_data
+    //             do {
+    //                 VehicleData|error vehicleData = new VehicleData(0,0,vehicle_data_record);
+    //                 if !(vehicleData is error) {
+    //                     vehicleDatas.push(vehicleData);
+    //                 }
+    //             };
 
-            check vehicles_data.close();
-            return vehicleDatas;
-    }
+    //         check vehicles_data.close();
+    //         return vehicleDatas;
+    // }
 
-    isolated resource function get vehicle_reasons() returns VehicleReasonMetaData[]|error? {
-        stream<VehicleReasonMetadata, error?> vehicle_reasons_data;
+    // isolated resource function get vehicle_reasons() returns VehicleReasonMetaData[]|error? {
+    //     stream<VehicleReasonMetadata, error?> vehicle_reasons_data;
 
-        lock {
-                vehicle_reasons_data = db_client->query(
-                    `SELECT id,reason
-                        from vehicle_reason_metadata;`);
-        }
+    //     lock {
+    //             vehicle_reasons_data = db_client->query(
+    //                 `SELECT id,reason
+    //                     from vehicle_reason_metadata;`);
+    //     }
 
-            VehicleReasonMetaData[] vehicleReasonDatas = [];
+    //         VehicleReasonMetaData[] vehicleReasonDatas = [];
 
-            check from VehicleReasonMetadata vehicle_reason_data_record in vehicle_reasons_data
-                do {
-                    VehicleReasonMetaData|error vehicleReasonData = new VehicleReasonMetaData(0,vehicle_reason_data_record);
-                    if !(vehicleReasonData is error) {
-                        vehicleReasonDatas.push(vehicleReasonData);
-                    }
-                };
+    //         check from VehicleReasonMetadata vehicle_reason_data_record in vehicle_reasons_data
+    //             do {
+    //                 VehicleReasonMetaData|error vehicleReasonData = new VehicleReasonMetaData(0,vehicle_reason_data_record);
+    //                 if !(vehicleReasonData is error) {
+    //                     vehicleReasonDatas.push(vehicleReasonData);
+    //                 }
+    //             };
 
-            check vehicle_reasons_data.close();
-            return vehicleReasonDatas;
-    }
+    //         check vehicle_reasons_data.close();
+    //         return vehicleReasonDatas;
+    // }
 
 }
 
