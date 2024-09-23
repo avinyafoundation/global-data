@@ -5495,6 +5495,44 @@ AND p.organization_id IN (
     //         return vehicleReasonDatas;
     // }
 
+
+    isolated resource function get persons(int? organization_id,int? avinya_type_id) returns PersonData[]|error? {
+        stream<Person, error?> persons_data;
+
+     if(organization_id !=null && avinya_type_id !=null){
+
+        lock {
+                persons_data = db_client->query(
+                    `SELECT *
+                        from person p
+                        where 
+                        p.avinya_type_id = ${avinya_type_id} and
+                        p.organization_id IN(
+                            Select child_org_id
+                            from parent_child_organization pco
+                            where pco.parent_org_id = ${organization_id}
+                        );`);
+        }
+     
+
+            PersonData[] personDatas = [];
+
+            check from Person person_data_record in persons_data
+                do {
+                    PersonData|error personData = new PersonData(null,0,person_data_record);
+                    if !(personData is error) {
+                        personDatas.push(personData);
+                    }
+                };
+
+            check persons_data.close();
+            return personDatas;
+     }else {
+            return error("Provide non-null values for both 'organization_id' and 'avinya_type_id'.");
+      }
+
+    }
+    
 }
 
 isolated function calculateWeekdays(time:Utc toDate, time:Utc fromDate) returns int {
