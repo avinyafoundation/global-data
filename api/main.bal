@@ -5532,6 +5532,14 @@ AND p.organization_id IN (
       }
 
     }
+
+    isolated resource function get person_by_id(int? id) returns PersonData|error? {
+        if (id != null) {
+            return new (null,id);
+        } else {
+            return error("Provide non-null value for id.");
+        }
+    }
     
 }
 
