@@ -87,7 +87,14 @@ public isolated service class ProvinceData {
 public isolated  service class DistrictData {
     private District district;
 
-    isolated function init(string? name, int? district_id) returns error? {
+    isolated function init(string? name, int? district_id,District? district = null) returns error? {
+
+        if (district != null) {
+            self.district = district.cloneReadOnly();
+            return;
+        }
+
+
         District district_raw = check db_client->queryRow(
             `SELECT *
             FROM district

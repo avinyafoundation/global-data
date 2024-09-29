@@ -5495,13 +5495,12 @@ AND p.organization_id IN (
     //         return vehicleReasonDatas;
     // }
 
-
-    isolated resource function get persons(int? organization_id,int? avinya_type_id) returns PersonData[]|error? {
+    isolated resource function get persons(int? organization_id, int? avinya_type_id) returns PersonData[]|error? {
         stream<Person, error?> persons_data;
 
-     if(organization_id !=null && avinya_type_id !=null){
+        if (organization_id != null && avinya_type_id != null) {
 
-        lock {
+            lock {
                 persons_data = db_client->query(
                     `SELECT *
                         from person p
@@ -5512,14 +5511,13 @@ AND p.organization_id IN (
                             from parent_child_organization pco
                             where pco.parent_org_id = ${organization_id}
                         );`);
-        }
-     
+            }
 
             PersonData[] personDatas = [];
 
             check from Person person_data_record in persons_data
                 do {
-                    PersonData|error personData = new PersonData(null,0,person_data_record);
+                    PersonData|error personData = new PersonData(null, 0, person_data_record);
                     if !(personData is error) {
                         personDatas.push(personData);
                     }
@@ -5527,20 +5525,231 @@ AND p.organization_id IN (
 
             check persons_data.close();
             return personDatas;
-     }else {
+        } else {
             return error("Provide non-null values for both 'organization_id' and 'avinya_type_id'.");
-      }
+        }
 
     }
 
     isolated resource function get person_by_id(int? id) returns PersonData|error? {
         if (id != null) {
-            return new (null,id);
+            return new (null, id);
         } else {
             return error("Provide non-null value for id.");
         }
     }
-    
+
+    remote function update_person(Person person,Address? permanent_address,Address? mailing_address) returns PersonData|error? {
+
+        //starting the transaction
+        boolean first_db_transaction_fail = false;
+        boolean second_db_transaction_fail = false;
+        boolean third_db_transaction_fail = false;
+
+        sql:ExecutionResult  permanent_address_res;
+        sql:ExecutionResult  mailing_address_res;
+
+        int|string? permanent_address_insert_id=null;
+        int|string? mailing_address_insert_id=null;
+
+        transaction {
+
+            int permanent_address_id = permanent_address?.id ?: 0;
+
+            Address|error? permanent_address_raw = db_client->queryRow(
+                                                    `SELECT *
+                                                    FROM address
+                                                    WHERE id = ${permanent_address_id};`
+                                                    );
+
+            if (permanent_address_raw is Address) {
+                io:println("Permanent Address is already exists!");
+
+                permanent_address_res = check db_client->execute(
+                    `UPDATE address SET
+                        street_address = ${permanent_address?.street_address},
+                        phone = ${permanent_address?.phone},
+                        city_id = ${permanent_address?.city_id}
+                    WHERE id = ${permanent_address_id};`);
+
+                permanent_address_insert_id = permanent_address_id;
+        
+                if (permanent_address_res.affectedRowCount ==  sql:EXECUTION_FAILED){
+                    first_db_transaction_fail = true;
+                    io:println("Unable to update permanent address record");
+                }
+            
+           }else{
+
+               permanent_address_res = check db_client->execute(
+                    `INSERT INTO address(
+                            street_address,
+                            phone,
+                            city_id
+                    ) VALUES(
+                        ${permanent_address?.street_address},
+                        ${permanent_address?.phone},
+                        ${permanent_address?.city_id}
+                    );`
+               );
+
+               permanent_address_insert_id = permanent_address_res.lastInsertId;
+
+               if !(permanent_address_insert_id is int) {
+                    first_db_transaction_fail = true;
+                   io:println("Unable to insert permanent address");
+                }
+           }
+
+            int mailing_address_id = mailing_address?.id ?: 0;
+
+             Address|error? mailing_address_raw = db_client->queryRow(
+                                                    `SELECT *
+                                                    FROM address
+                                                    WHERE id = ${mailing_address_id};`
+                                                    );
+
+            if (mailing_address_raw is Address) {
+
+                io:println("Mailing Address is already exists!");
+
+               mailing_address_res = check db_client->execute(
+                    `UPDATE address SET
+                        street_address = ${mailing_address?.street_address},
+                        phone = ${mailing_address?.phone},
+                        city_id = ${mailing_address?.city_id}
+                    WHERE id = ${mailing_address_id};`);
+
+               mailing_address_insert_id = mailing_address_id;
+
+               if (mailing_address_res.affectedRowCount ==  sql:EXECUTION_FAILED){
+                    second_db_transaction_fail = true;
+                    io:println("Unable to update mailing address record");
+               }
+
+            }else{
+
+                mailing_address_res = check db_client->execute(
+                    `INSERT INTO address(
+                            street_address,
+                            phone,
+                            city_id
+                    ) VALUES(
+                        ${mailing_address?.street_address},
+                        ${mailing_address?.phone},
+                        ${mailing_address?.city_id}
+                    );`
+               );
+
+                mailing_address_insert_id = mailing_address_res.lastInsertId;
+
+                if !(mailing_address_insert_id is int) {
+                    second_db_transaction_fail = true;
+                    io:println("Unable to insert mailing address");
+                }
+
+            }
+
+            int person_id = person.id ?: 0;
+
+            sql:ExecutionResult update_person_res = check db_client->execute(
+                                                `UPDATE person SET
+                                                    preferred_name = ${person.preferred_name},
+                                                    full_name = ${person.full_name},
+                                                    date_of_birth = ${person.date_of_birth},
+                                                    sex = ${person.sex},
+                                                    asgardeo_id = ${person.asgardeo_id},
+                                                    jwt_sub_id = ${person.jwt_sub_id},
+                                                    jwt_email = ${person.jwt_email},
+                                                    permanent_address_id = ${permanent_address_insert_id},
+                                                    mailing_address_id = ${mailing_address_insert_id},
+                                                    phone = ${person.phone},
+                                                    organization_id = ${person.organization_id},
+                                                    avinya_type_id = ${person.avinya_type_id},
+                                                    notes = ${person.notes},
+                                                    nic_no = ${person.nic_no},
+                                                    passport_no = ${person.passport_no},
+                                                    id_no = ${person.id_no},
+                                                    email = ${person.email},
+                                                    street_address = ${person.street_address},
+                                                    digital_id = ${person.digital_id},
+                                                    avinya_phone = ${person.avinya_phone},
+                                                    bank_name = ${person.bank_name},
+                                                    bank_account_number = ${person.bank_account_number},
+                                                    bank_account_name = ${person.bank_account_name},
+                                                    academy_org_id = ${person.academy_org_id},
+                                                    bank_branch = ${person.bank_branch},
+                                                    updated_by = ${person.updated_by}
+                                                WHERE id = ${person_id};`);
+
+            if (update_person_res.affectedRowCount ==  sql:EXECUTION_FAILED){
+                    third_db_transaction_fail = true;
+                    io:println("Unable to update person record");
+            }
+
+            if (first_db_transaction_fail ||
+                second_db_transaction_fail || 
+                third_db_transaction_fail) {
+
+                rollback;
+                return error("Transaction rollback successfully!");
+            }else{
+
+            // Commit the transaction if three updates are successful
+            check commit;
+            io:println("Transaction committed successfully!");
+            return new (null,person_id);
+            }
+        }
+
+    }
+
+    isolated resource function get districts() returns DistrictData[]|error? {
+        stream<District, error?> districts_data;
+
+        lock {
+                districts_data = db_client->query(
+                    `SELECT *
+                        from district;`);
+        }
+
+            DistrictData[] districtDatas = [];
+
+            check from District district_data_record in districts_data
+                do {
+                    DistrictData|error districtData = new DistrictData(null,0,district_data_record);
+                    if !(districtData is error) {
+                        districtDatas.push(districtData);
+                    }
+                };
+
+            check districts_data.close();
+            return districtDatas;
+    }
+
+    isolated resource function get all_organizations() returns OrganizationData[]|error? {
+        stream<Organization, error?> organizations_data;
+
+        lock {
+                organizations_data = db_client->query(
+                    `SELECT *
+                        from organization;`);
+        }
+
+            OrganizationData[] organizationDatas = [];
+
+            check from Organization organization_data_record in organizations_data
+                do {
+                    OrganizationData|error organizationData = new OrganizationData(null,0,organization_data_record);
+                    if !(organizationData is error) {
+                        organizationDatas.push(organizationData);
+                    }
+                };
+
+            check organizations_data.close();
+            return organizationDatas;
+    }
+
 }
 
 isolated function calculateWeekdays(time:Utc toDate, time:Utc fromDate) returns int {
