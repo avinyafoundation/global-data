@@ -46,7 +46,7 @@ public type City record {|
 public type Address record {
     readonly string? record_type = "address";
     int id?;
-    *LocalizedName;
+    //*LocalizedName;
     string street_address;
     int? phone;
     int city_id;
@@ -129,6 +129,8 @@ public type Person record {|
     int? academy_org_id;
     string? academy_org_name;
     string? branch_code;
+    int? created_by;
+    int? updated_by;
 |};
 
 type ParentChildStudent record {|
