@@ -50,6 +50,7 @@ public type Address record {
     string street_address;
     int? phone;
     int city_id;
+    City? city;
 };
 
 public type AvinyaType record {|
