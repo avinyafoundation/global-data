@@ -5498,9 +5498,8 @@ AND p.organization_id IN (
     isolated resource function get persons(int? organization_id, int? avinya_type_id) returns PersonData[]|error? {
         stream<Person, error?> persons_data;
 
-        if (organization_id != null && avinya_type_id != null) {
-
-            lock {
+       if(organization_id != null && organization_id != -1 && avinya_type_id !=null){
+           lock {
                 persons_data = db_client->query(
                     `SELECT *
                         from person p
@@ -5513,6 +5512,22 @@ AND p.organization_id IN (
                         );`);
             }
 
+       } else if (organization_id != null && organization_id ==-1 && avinya_type_id != null) {
+
+            lock {
+                persons_data = db_client->query(
+                    `SELECT *
+                        from person p
+                        where 
+                        p.avinya_type_id = ${avinya_type_id} and
+                        p.organization_id IN(
+                            Select child_org_id
+                            from parent_child_organization pco
+                        );`);
+            }
+       } else {
+            return error("Provide non-null values for both 'organization_id' and 'avinya_type_id'.");
+        }
             PersonData[] personDatas = [];
 
             check from Person person_data_record in persons_data
@@ -5525,9 +5540,6 @@ AND p.organization_id IN (
 
             check persons_data.close();
             return personDatas;
-        } else {
-            return error("Provide non-null values for both 'organization_id' and 'avinya_type_id'.");
-        }
 
     }
 
@@ -5555,6 +5567,7 @@ AND p.organization_id IN (
         transaction {
 
             int permanent_address_id = permanent_address?.id ?: 0;
+            City permanent_address_city = <City>permanent_address?.city;
 
             Address|error? permanent_address_raw = db_client->queryRow(
                                                     `SELECT *
@@ -5569,7 +5582,7 @@ AND p.organization_id IN (
                     `UPDATE address SET
                         street_address = ${permanent_address?.street_address},
                         phone = ${permanent_address?.phone},
-                        city_id = ${permanent_address?.city_id}
+                        city_id = ${permanent_address_city.id}
                     WHERE id = ${permanent_address_id};`);
 
                 permanent_address_insert_id = permanent_address_id;
@@ -5589,7 +5602,7 @@ AND p.organization_id IN (
                     ) VALUES(
                         ${permanent_address?.street_address},
                         ${permanent_address?.phone},
-                        ${permanent_address?.city_id}
+                        ${permanent_address_city.id}
                     );`
                );
 
@@ -5602,6 +5615,7 @@ AND p.organization_id IN (
            }
 
             int mailing_address_id = mailing_address?.id ?: 0;
+            City mailing_address_city = <City>mailing_address?.city;
 
              Address|error? mailing_address_raw = db_client->queryRow(
                                                     `SELECT *
@@ -5617,7 +5631,7 @@ AND p.organization_id IN (
                     `UPDATE address SET
                         street_address = ${mailing_address?.street_address},
                         phone = ${mailing_address?.phone},
-                        city_id = ${mailing_address?.city_id}
+                        city_id = ${mailing_address_city.id}
                     WHERE id = ${mailing_address_id};`);
 
                mailing_address_insert_id = mailing_address_id;
@@ -5637,7 +5651,7 @@ AND p.organization_id IN (
                     ) VALUES(
                         ${mailing_address?.street_address},
                         ${mailing_address?.phone},
-                        ${mailing_address?.city_id}
+                        ${mailing_address_city.id}
                     );`
                );
 
