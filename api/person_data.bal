@@ -289,4 +289,16 @@ public isolated service class PersonData {
         }
     }
 
+    isolated resource function get created_by() returns int? {
+        lock {
+                return self.person.created_by;
+        }
+    }
+
+    isolated resource function get updated_by() returns int? {
+        lock {
+            return self.person.updated_by;
+        }
+    }
+
 }
