@@ -5551,7 +5551,8 @@ AND p.organization_id IN (
         }
     }
 
-    remote function update_person(Person person,Address? permanent_address,Address? mailing_address) returns PersonData|error? {
+    remote function update_person(Person person,Address? permanent_address,City? permanent_address_city,Address? mailing_address,City? mailing_address_city) returns PersonData|error? {
+
 
         //starting the transaction
         boolean first_db_transaction_fail = false;
@@ -5566,8 +5567,8 @@ AND p.organization_id IN (
 
         transaction {
 
+
             int permanent_address_id = permanent_address?.id ?: 0;
-            City permanent_address_city = <City>permanent_address?.city;
 
             Address|error? permanent_address_raw = db_client->queryRow(
                                                     `SELECT *
@@ -5578,11 +5579,14 @@ AND p.organization_id IN (
             if (permanent_address_raw is Address) {
                 io:println("Permanent Address is already exists!");
 
+            if(permanent_address != null && permanent_address?.street_address != null &&
+               permanent_address_city !=null && permanent_address_city?.id !=null) {
+
                 permanent_address_res = check db_client->execute(
                     `UPDATE address SET
                         street_address = ${permanent_address?.street_address},
                         phone = ${permanent_address?.phone},
-                        city_id = ${permanent_address_city.id}
+                        city_id = ${permanent_address_city?.id}
                     WHERE id = ${permanent_address_id};`);
 
                 permanent_address_insert_id = permanent_address_id;
@@ -5591,8 +5595,12 @@ AND p.organization_id IN (
                     first_db_transaction_fail = true;
                     io:println("Unable to update permanent address record");
                 }
+            }  
             
            }else{
+
+            if(permanent_address != null && permanent_address?.street_address != null &&
+               permanent_address_city !=null && permanent_address_city?.id !=null){
 
                permanent_address_res = check db_client->execute(
                     `INSERT INTO address(
@@ -5602,9 +5610,10 @@ AND p.organization_id IN (
                     ) VALUES(
                         ${permanent_address?.street_address},
                         ${permanent_address?.phone},
-                        ${permanent_address_city.id}
+                        ${permanent_address_city?.id}
                     );`
                );
+            
 
                permanent_address_insert_id = permanent_address_res.lastInsertId;
 
@@ -5612,10 +5621,10 @@ AND p.organization_id IN (
                     first_db_transaction_fail = true;
                    io:println("Unable to insert permanent address");
                 }
+            }
            }
 
             int mailing_address_id = mailing_address?.id ?: 0;
-            City mailing_address_city = <City>mailing_address?.city;
 
              Address|error? mailing_address_raw = db_client->queryRow(
                                                     `SELECT *
@@ -5626,12 +5635,15 @@ AND p.organization_id IN (
             if (mailing_address_raw is Address) {
 
                 io:println("Mailing Address is already exists!");
+            
+            if(mailing_address != null && mailing_address?.street_address != null &&
+               mailing_address_city !=null && mailing_address_city?.id !=null) {
 
                mailing_address_res = check db_client->execute(
                     `UPDATE address SET
                         street_address = ${mailing_address?.street_address},
                         phone = ${mailing_address?.phone},
-                        city_id = ${mailing_address_city.id}
+                        city_id = ${mailing_address_city?.id}
                     WHERE id = ${mailing_address_id};`);
 
                mailing_address_insert_id = mailing_address_id;
@@ -5640,8 +5652,12 @@ AND p.organization_id IN (
                     second_db_transaction_fail = true;
                     io:println("Unable to update mailing address record");
                }
+            }
 
             }else{
+
+             if(mailing_address != null && mailing_address?.street_address != null &&
+               mailing_address_city !=null && mailing_address_city?.id !=null) {
 
                 mailing_address_res = check db_client->execute(
                     `INSERT INTO address(
@@ -5651,7 +5667,7 @@ AND p.organization_id IN (
                     ) VALUES(
                         ${mailing_address?.street_address},
                         ${mailing_address?.phone},
-                        ${mailing_address_city.id}
+                        ${mailing_address_city?.id}
                     );`
                );
 
@@ -5661,6 +5677,7 @@ AND p.organization_id IN (
                     second_db_transaction_fail = true;
                     io:println("Unable to insert mailing address");
                 }
+             }
 
             }
 
@@ -5706,7 +5723,7 @@ AND p.organization_id IN (
                 third_db_transaction_fail) {
 
                 rollback;
-                return error("Transaction rollback successfully!");
+                return error("Transaction rollback");
             }else{
 
             // Commit the transaction if three updates are successful
@@ -5897,7 +5914,7 @@ isolated function updateDutyParticipantsWorkRotation(DutyParticipant[] dutyParti
 
     foreach DutyParticipant activityObject in dutyParticipantsArray {
 
-        if (activityObject.role == "member") {
+        //if (activityObject.role == "member") {
 
             int? currentIndex = dynamicDutyActivitiesArray.indexOf(activityObject.activity_id);
             int? nextIndex = (currentIndex + 1) % dynamicDutyActivitiesArray.length();
@@ -5922,7 +5939,7 @@ isolated function updateDutyParticipantsWorkRotation(DutyParticipant[] dutyParti
                 }
 
             }
-        }
+        //}
     }
 
 }
