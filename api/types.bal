@@ -8,14 +8,14 @@
 # + name_ta - Name in Tamil, தமிழ்
 # + name_si - Name in Sinhala, සිංහල
 public type LocalizedName record {
-    string name_en;
+    string? name_en;
     string? name_ta;
     string? name_si;
 };
 
 type GeospatialInformation record {|
-    decimal latitude;
-    decimal longitude;
+    decimal? latitude;
+    decimal? longitude;
 |};
 
 public type Province record {|
@@ -47,9 +47,9 @@ public type Address record {
     readonly string? record_type = "address";
     int id?;
     //*LocalizedName;
-    string street_address;
+    string? street_address;
     int? phone;
-    int city_id;
+    int? city_id;
     City? city;
 };
 

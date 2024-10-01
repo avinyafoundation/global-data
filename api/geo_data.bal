@@ -215,7 +215,7 @@ public isolated service class AddressData {
         }
     }
 
-    isolated resource function get street_address() returns string {
+    isolated resource function get street_address() returns string? {
         lock {
             return self.address.street_address;
         }
