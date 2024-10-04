@@ -289,6 +289,13 @@ public isolated service class PersonData {
         }
     }
 
+
+    isolated resource function get current_job() returns string? {
+        lock {
+            return self.person.current_job;
+        }
+    }
+
     isolated resource function get created_by() returns int? {
         lock {
                 return self.person.created_by;

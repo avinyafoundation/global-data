@@ -130,6 +130,7 @@ public type Person record {|
     int? academy_org_id;
     string? academy_org_name;
     string? branch_code;
+    string? current_job;
     int? created_by;
     int? updated_by;
 |};
