@@ -5755,8 +5755,7 @@ AND p.organization_id IN (
             }
 
 
-            if (mailing_address != null && mailing_address?.street_address != null &&
-                mailing_address_city != null && mailing_address_city?.id != null) {
+            if (mailing_address != null && mailing_address_city != null ) {
 
                 sql:ExecutionResult mailing_address_res = check db_client->execute(
                     `INSERT INTO address(
