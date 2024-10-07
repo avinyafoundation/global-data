@@ -5519,11 +5519,7 @@ AND p.organization_id IN (
                     `SELECT *
                         from person p
                         where 
-                        p.avinya_type_id = ${avinya_type_id} and
-                        p.organization_id IN(
-                            Select child_org_id
-                            from parent_child_organization pco
-                        );`);
+                        p.avinya_type_id = ${avinya_type_id};`);
             }
         } else {
             return error("Provide non-null values for both 'organization_id' and 'avinya_type_id'.");
@@ -5577,7 +5573,7 @@ AND p.organization_id IN (
             if (permanent_address_raw is Address) {
                 io:println("Permanent Address is already exists!");
 
-                if (permanent_address != null && permanent_address_city != null ) {
+                if (permanent_address != null && permanent_address_city != null) {
 
                     permanent_address_res = check db_client->execute(
                     `UPDATE address SET
@@ -5594,10 +5590,9 @@ AND p.organization_id IN (
                     }
                 }
 
-
             } else {
 
-                if (permanent_address != null && permanent_address_city != null ) {
+                if (permanent_address != null && permanent_address_city != null) {
 
                     permanent_address_res = check db_client->execute(
                     `INSERT INTO address(
@@ -5738,7 +5733,6 @@ AND p.organization_id IN (
         boolean third_db_transaction_fail = false;
 
         int|string? mailing_address_insert_id = null;
-   
 
         transaction {
 
@@ -5750,12 +5744,11 @@ AND p.organization_id IN (
                                     );
 
             if (personRaw is Person) {
-             first_db_transaction_fail = true;
-             io:println("Person already exists.");
+                first_db_transaction_fail = true;
+                io:println("Person already exists.");
             }
 
-
-            if (mailing_address != null && mailing_address_city != null ) {
+            if (mailing_address != null && mailing_address_city != null) {
 
                 sql:ExecutionResult mailing_address_res = check db_client->execute(
                     `INSERT INTO address(
@@ -5824,7 +5817,7 @@ AND p.organization_id IN (
                                                   ${person.created_by}
                                                 );`);
 
-          int|string?  insert_person_id = insert_person_res.lastInsertId;
+            int|string? insert_person_id = insert_person_res.lastInsertId;
 
             if !(insert_person_id is int) {
                 third_db_transaction_fail = true;
@@ -5842,7 +5835,7 @@ AND p.organization_id IN (
                 // Commit the transaction if three updates are successful
                 check commit;
                 io:println("Transaction committed successfully!");
-                return new (null,<int?>insert_person_id);
+                return new (null, <int?>insert_person_id);
             }
         }
 
