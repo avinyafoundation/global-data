@@ -5564,6 +5564,8 @@ AND p.organization_id IN (
         int|string? permanent_address_insert_id = null;
         int|string? mailing_address_insert_id = null;
 
+        string message = "";
+
         transaction {
 
             int permanent_address_id = permanent_address?.id ?: 0;
@@ -5591,6 +5593,7 @@ AND p.organization_id IN (
                     if (permanent_address_res.affectedRowCount == sql:EXECUTION_FAILED) {
                         first_db_transaction_fail = true;
                         io:println("Unable to update permanent address record");
+                        message = "Unable to update permanent address record";
                     }
                 }
 
@@ -5616,6 +5619,7 @@ AND p.organization_id IN (
                     if !(permanent_address_insert_id is int) {
                         first_db_transaction_fail = true;
                         io:println("Unable to insert permanent address");
+                        message = "Unable to insert permanent address";
                     }
                 }
             }
@@ -5646,6 +5650,7 @@ AND p.organization_id IN (
                     if (mailing_address_res.affectedRowCount == sql:EXECUTION_FAILED) {
                         second_db_transaction_fail = true;
                         io:println("Unable to update mailing address record");
+                        message = "Unable to update mailing address record";
                     }
                 }
 
@@ -5670,6 +5675,7 @@ AND p.organization_id IN (
                     if !(mailing_address_insert_id is int) {
                         second_db_transaction_fail = true;
                         io:println("Unable to insert mailing address");
+                        message = "Unable to insert mailing address";
                     }
                 }
 
@@ -5711,6 +5717,7 @@ AND p.organization_id IN (
             if (update_person_res.affectedRowCount == sql:EXECUTION_FAILED) {
                 third_db_transaction_fail = true;
                 io:println("Unable to update person record");
+                message = "Unable to update person record";
             }
 
             if (first_db_transaction_fail ||
@@ -5718,7 +5725,7 @@ AND p.organization_id IN (
                 third_db_transaction_fail) {
 
                 rollback;
-                return error("Transaction rollback");
+                return error(message);
             } else {
 
                 // Commit the transaction if three updates are successful
@@ -5739,6 +5746,7 @@ AND p.organization_id IN (
 
         int|string? mailing_address_insert_id = null;
    
+        string message = "";
 
         transaction {
 
@@ -5752,6 +5760,7 @@ AND p.organization_id IN (
             if (personRaw is Person) {
              first_db_transaction_fail = true;
              io:println("Person already exists.");
+             message="Person already exists.";
             }
 
 
@@ -5774,6 +5783,7 @@ AND p.organization_id IN (
                 if !(mailing_address_insert_id is int) {
                     second_db_transaction_fail = true;
                     io:println("Unable to insert mailing address");
+                    message = "Unable to insert mailing address";
                 }
             }
 
@@ -5829,6 +5839,7 @@ AND p.organization_id IN (
             if !(insert_person_id is int) {
                 third_db_transaction_fail = true;
                 io:println("Unable to insert person");
+                message = "Unable to insert person";
             }
 
             if (first_db_transaction_fail ||
@@ -5836,7 +5847,7 @@ AND p.organization_id IN (
                 third_db_transaction_fail) {
 
                 rollback;
-                return error("Transaction rollback");
+                return error(message);
             } else {
 
                 // Commit the transaction if three updates are successful
