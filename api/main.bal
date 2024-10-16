@@ -5876,6 +5876,35 @@ AND p.organization_id IN (
         return districtDatas;
     }
 
+    isolated resource function get cities(int? district_id) returns CityData[]|error? {
+        stream<City, error?> cities_data;
+
+      if(district_id !=null && district_id != 0 && district_id > 0){
+
+        lock {
+            cities_data = db_client->query(
+                    `SELECT *
+                        from city
+                     where district_id=${district_id};`);
+        }
+
+        CityData[] cityDatas = [];
+
+        check from City city_data_record in cities_data
+            do {
+                CityData|error cityData = new CityData(null, 0,city_data_record);
+                if !(cityData is error) {
+                    cityDatas.push(cityData);
+                }
+            };
+
+        check cities_data.close();
+        return cityDatas;
+      }else{
+        return error("Provide valid value for district_id.");
+      }
+    }
+
     isolated resource function get all_organizations() returns OrganizationData[]|error? {
         stream<Organization, error?> organizations_data;
 
