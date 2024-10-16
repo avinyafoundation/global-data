@@ -160,7 +160,13 @@ public isolated  service class DistrictData {
 public isolated service class CityData {
     private City city;
 
-    isolated function init(string? name, int? city_id) returns error? {
+    isolated function init(string? name, int? city_id,City? city = null) returns error? {
+
+        if (city != null) {
+            self.city = city.cloneReadOnly();
+            return;
+        }
+
         City city_raw = check db_client->queryRow(
             `SELECT *
             FROM city
