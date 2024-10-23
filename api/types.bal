@@ -689,3 +689,24 @@ public type VehicleFuelConsumption record{|
     string? created;
     string? updated;
 |};
+
+public type CalendarMetadata record {|
+    readonly string? record_type = "calendar_metadata";
+    int id?;
+    int? organization_id;
+    decimal? monthly_payment_amount;
+|};
+
+public type MonthlyLeaveDates record {|
+    readonly string? record_type = "monthly_leave_dates";
+    int id?;
+    int? year;
+    int? month;
+    int? total_days_in_month;
+    int? organization_id;
+    int[] leave_dates_list;
+    string? leave_dates;
+    decimal? daily_amount;
+    string? created;
+    string? updated;
+|};
