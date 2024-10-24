@@ -15,6 +15,7 @@ dependencies = [
 	{org = "ballerina", name = "graphql"},
 	{org = "ballerina", name = "io"},
 	{org = "ballerina", name = "log"},
+	{org = "ballerina", name = "regex"},
 	{org = "ballerina", name = "sql"},
 	{org = "ballerina", name = "test"},
 	{org = "ballerina", name = "time"},
@@ -311,6 +312,18 @@ version = "1.8.0"
 dependencies = [
 	{org = "ballerina", name = "io"},
 	{org = "ballerina", name = "jballerina.java"}
+]
+
+[[package]]
+org = "ballerina"
+name = "regex"
+version = "1.4.3"
+dependencies = [
+	{org = "ballerina", name = "jballerina.java"},
+	{org = "ballerina", name = "lang.string"}
+]
+modules = [
+	{org = "ballerina", packageName = "regex", moduleName = "regex"}
 ]
 
 [[package]]
