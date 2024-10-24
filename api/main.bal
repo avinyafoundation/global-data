@@ -5941,25 +5941,22 @@ AND p.organization_id IN (
             organization_id = ${monthly_leave_dates.organization_id};`
         );
 
-        if ( monthlyLeaveDatesRaw is MonthlyLeaveDates) {
+        if (monthlyLeaveDatesRaw is MonthlyLeaveDates) {
             return error("A record for this organization id already exists for the same year and month.");
         }
-
 
         int[] leaveDates = monthly_leave_dates.leave_dates_list;
 
         foreach int date in leaveDates {
             leaveDatesString = leaveDatesString + date.toString() + ",";
-            totalLeaveDates = totalLeaveDates+1;
+            totalLeaveDates = totalLeaveDates + 1;
         }
 
-        if(leaveDatesString.length() > 0){
-            leaveDatesString = leaveDatesString.substring(0,leaveDatesString.length()-1);
+        if (leaveDatesString.length() > 0) {
+            leaveDatesString = leaveDatesString.substring(0, leaveDatesString.length() - 1);
         }
-
 
         int? totalSchoolDays = monthly_leave_dates.total_days_in_month - totalLeaveDates;
-
 
         CalendarMetadata|error? monthlyPaymentAmount = check db_client->queryRow(
             `SELECT *
@@ -5968,9 +5965,8 @@ AND p.organization_id IN (
         );
 
         if (monthlyPaymentAmount is CalendarMetadata) {
-            dailyAmount = monthlyPaymentAmount.monthly_payment_amount/totalSchoolDays ?: 0.0;
+            dailyAmount = monthlyPaymentAmount.monthly_payment_amount / totalSchoolDays ?: 0.0;
         }
-
 
         sql:ExecutionResult res = check db_client->execute(
             `INSERT INTO monthly_leave_dates (
@@ -5997,7 +5993,7 @@ AND p.organization_id IN (
     }
 
     remote function update_monthly_leave_dates(MonthlyLeaveDates monthly_leave_dates) returns MonthlyLeaveDatesData|error? {
-        
+
         int id = monthly_leave_dates.id ?: 0;
         if (id == 0) {
             return error("Unable to update Monthly Leave Dates record");
@@ -6011,16 +6007,14 @@ AND p.organization_id IN (
 
         foreach int date in leaveDates {
             leaveDatesString = leaveDatesString + date.toString() + ",";
-            totalLeaveDates = totalLeaveDates+1;
+            totalLeaveDates = totalLeaveDates + 1;
         }
 
-        if(leaveDatesString.length() > 0){
-            leaveDatesString = leaveDatesString.substring(0,leaveDatesString.length()-1);
+        if (leaveDatesString.length() > 0) {
+            leaveDatesString = leaveDatesString.substring(0, leaveDatesString.length() - 1);
         }
-
 
         int? totalSchoolDays = monthly_leave_dates.total_days_in_month - totalLeaveDates;
-
 
         CalendarMetadata|error? monthlyPaymentAmount = check db_client->queryRow(
             `SELECT *
@@ -6029,7 +6023,7 @@ AND p.organization_id IN (
         );
 
         if (monthlyPaymentAmount is CalendarMetadata) {
-            dailyAmount = monthlyPaymentAmount.monthly_payment_amount/totalSchoolDays ?: 0.0;
+            dailyAmount = monthlyPaymentAmount.monthly_payment_amount / totalSchoolDays ?: 0.0;
         }
 
         sql:ExecutionResult res = check db_client->execute(
@@ -6049,12 +6043,23 @@ AND p.organization_id IN (
         return new (id);
     }
 
-    isolated resource function get monthly_leave_dates_record_by_id(int? id) returns MonthlyLeaveDatesData|error? {
-        if (id != null) {
-            return new (id);
-        } else {
-            return error("Provide non-null value for id.");
+    isolated resource function get monthly_leave_dates_record_by_id(int organization_id, int year, int month) returns MonthlyLeaveDatesData|error? {
+        if ((organization_id is int) && (year is int) && (month is int)) {
+
+         MonthlyLeaveDates|error? monthly_leave_dates_raw = db_client->queryRow(
+            `SELECT *
+            FROM monthly_leave_dates
+            WHERE organization_id = ${organization_id} and 
+            year = ${year} and month = ${month} ;`);
+
+          if (monthly_leave_dates_raw is MonthlyLeaveDates) {
+            return new (0,monthly_leave_dates_raw);
+          }
+
         }
+        
+        return error("Provide not null value for organization_id and year and month.");
+        
     }
 
 }
