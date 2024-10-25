@@ -6054,12 +6054,23 @@ AND p.organization_id IN (
 
           if (monthly_leave_dates_raw is MonthlyLeaveDates) {
             return new (0,monthly_leave_dates_raw);
+          }else{
+            // Return a new empty MonthlyLeaveDates object if no record is found
+            MonthlyLeaveDates emptyLeaveDates = {
+               id: null,
+               year: null,
+               month: null,
+               organization_id: null,
+               leave_dates_list: [],
+               daily_amount: null,
+               created: null,
+               updated: null,
+               total_days_in_month: null,
+               leave_dates: null
+            };
+            return new(0,emptyLeaveDates);
           }
-
         }
-        
-        return error("Provide not null value for organization_id and year and month.");
-        
     }
 
 }
