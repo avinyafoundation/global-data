@@ -5879,30 +5879,30 @@ AND p.organization_id IN (
     isolated resource function get cities(int? district_id) returns CityData[]|error? {
         stream<City, error?> cities_data;
 
-      if(district_id !=null && district_id != 0 && district_id > 0){
+        if (district_id != null && district_id != 0 && district_id > 0) {
 
-        lock {
-            cities_data = db_client->query(
+            lock {
+                cities_data = db_client->query(
                     `SELECT *
                         from city
                      where district_id=${district_id};`);
+            }
+
+            CityData[] cityDatas = [];
+
+            check from City city_data_record in cities_data
+                do {
+                    CityData|error cityData = new CityData(null, 0, city_data_record);
+                    if !(cityData is error) {
+                        cityDatas.push(cityData);
+                    }
+                };
+
+            check cities_data.close();
+            return cityDatas;
+        } else {
+            return error("Provide valid value for district_id.");
         }
-
-        CityData[] cityDatas = [];
-
-        check from City city_data_record in cities_data
-            do {
-                CityData|error cityData = new CityData(null, 0,city_data_record);
-                if !(cityData is error) {
-                    cityDatas.push(cityData);
-                }
-            };
-
-        check cities_data.close();
-        return cityDatas;
-      }else{
-        return error("Provide valid value for district_id.");
-      }
     }
 
     isolated resource function get all_organizations() returns OrganizationData[]|error? {
@@ -5926,6 +5926,151 @@ AND p.organization_id IN (
 
         check organizations_data.close();
         return organizationDatas;
+    }
+
+    remote function add_monthly_leave_dates(MonthlyLeaveDates monthly_leave_dates) returns MonthlyLeaveDatesData|error? {
+
+        string leaveDatesString = "";
+        int totalLeaveDates = 0;
+        decimal dailyAmount = 0.0;
+
+        MonthlyLeaveDates|error? monthlyLeaveDatesRaw = db_client->queryRow(
+            `SELECT *
+            FROM monthly_leave_dates
+            WHERE year = ${monthly_leave_dates.year} and month = ${monthly_leave_dates.month} and
+            organization_id = ${monthly_leave_dates.organization_id};`
+        );
+
+        if (monthlyLeaveDatesRaw is MonthlyLeaveDates) {
+            return error("A record for this organization id already exists for the same year and month.");
+        }
+
+        int[] leaveDates = monthly_leave_dates.leave_dates_list;
+
+        foreach int date in leaveDates {
+            leaveDatesString = leaveDatesString + date.toString() + ",";
+            totalLeaveDates = totalLeaveDates + 1;
+        }
+
+        if (leaveDatesString.length() > 0) {
+            leaveDatesString = leaveDatesString.substring(0, leaveDatesString.length() - 1);
+        }
+
+        int? totalSchoolDays = monthly_leave_dates.total_days_in_month - totalLeaveDates;
+
+        CalendarMetadata|error? monthlyPaymentAmount = check db_client->queryRow(
+            `SELECT *
+            FROM calendar_metadata
+            WHERE organization_id = ${monthly_leave_dates.organization_id};`
+        );
+
+        if (monthlyPaymentAmount is CalendarMetadata) {
+            dailyAmount = monthlyPaymentAmount.monthly_payment_amount / totalSchoolDays ?: 0.0;
+        }
+
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO monthly_leave_dates (
+                year,
+                month,
+                organization_id,
+                leave_dates,
+                daily_amount
+            ) VALUES (
+                ${monthly_leave_dates.year},
+                ${monthly_leave_dates.month},
+                ${monthly_leave_dates.organization_id},
+                ${leaveDatesString},
+                ${dailyAmount}
+            );`
+        );
+
+        int|string? insert_id = res.lastInsertId;
+        if !(insert_id is int) {
+            return error("Unable to insert Monthly Leave Dates record");
+        }
+
+        return new (insert_id);
+    }
+
+    remote function update_monthly_leave_dates(MonthlyLeaveDates monthly_leave_dates) returns MonthlyLeaveDatesData|error? {
+
+        int id = monthly_leave_dates.id ?: 0;
+        if (id == 0) {
+            return error("Unable to update Monthly Leave Dates record");
+        }
+
+        string leaveDatesString = "";
+        int totalLeaveDates = 0;
+        decimal dailyAmount = 0.0;
+
+        int[] leaveDates = monthly_leave_dates.leave_dates_list;
+
+        foreach int date in leaveDates {
+            leaveDatesString = leaveDatesString + date.toString() + ",";
+            totalLeaveDates = totalLeaveDates + 1;
+        }
+
+        if (leaveDatesString.length() > 0) {
+            leaveDatesString = leaveDatesString.substring(0, leaveDatesString.length() - 1);
+        }
+
+        int? totalSchoolDays = monthly_leave_dates.total_days_in_month - totalLeaveDates;
+
+        CalendarMetadata|error? monthlyPaymentAmount = check db_client->queryRow(
+            `SELECT *
+            FROM calendar_metadata
+            WHERE organization_id = ${monthly_leave_dates.organization_id};`
+        );
+
+        if (monthlyPaymentAmount is CalendarMetadata) {
+            dailyAmount = monthlyPaymentAmount.monthly_payment_amount / totalSchoolDays ?: 0.0;
+        }
+
+        sql:ExecutionResult res = check db_client->execute(
+            `UPDATE monthly_leave_dates SET
+                year = ${monthly_leave_dates.year},
+                month = ${monthly_leave_dates.month},
+                organization_id = ${monthly_leave_dates.organization_id},
+                leave_dates = ${leaveDatesString},
+                daily_amount = ${dailyAmount}
+            WHERE id = ${id};`
+        );
+
+        if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+            return error("Unable to update Monthly Leave Dates record");
+        }
+
+        return new (id);
+    }
+
+    isolated resource function get monthly_leave_dates_record_by_id(int organization_id, int year, int month) returns MonthlyLeaveDatesData|error? {
+        if ((organization_id is int) && (year is int) && (month is int)) {
+
+         MonthlyLeaveDates|error? monthly_leave_dates_raw = db_client->queryRow(
+            `SELECT *
+            FROM monthly_leave_dates
+            WHERE organization_id = ${organization_id} and 
+            year = ${year} and month = ${month} ;`);
+
+          if (monthly_leave_dates_raw is MonthlyLeaveDates) {
+            return new (0,monthly_leave_dates_raw);
+          }else{
+            // Return a new empty MonthlyLeaveDates object if no record is found
+            MonthlyLeaveDates emptyLeaveDates = {
+               id: null,
+               year: null,
+               month: null,
+               organization_id: null,
+               leave_dates_list: [],
+               daily_amount: null,
+               created: null,
+               updated: null,
+               total_days_in_month: null,
+               leave_dates: null
+            };
+            return new(0,emptyLeaveDates);
+          }
+        }
     }
 
 }
