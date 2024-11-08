@@ -102,16 +102,30 @@ service /graphql on new graphql:Listener(4000) {
         return new (name, id);
     }
 
-    isolated resource function get organizations_by_avinya_type(int? avinya_type) returns OrganizationData[]|error? {
+    isolated resource function get organizations_by_avinya_type(int? avinya_type, int? active = 0) returns OrganizationData[]|error? {
 
         stream<Organization, error?> org_list;
-        lock {
-            org_list = db_client->query(
+
+        if (active == 1) {
+
+            lock {
+                org_list = db_client->query(
+                    `SELECT *
+                    FROM organization
+                    WHERE avinya_type = ${avinya_type} and active = ${active}`);
+            }
+
+        } else {
+
+            lock {
+                org_list = db_client->query(
                 `SELECT *
 	             FROM organization
 	             WHERE avinya_type = ${avinya_type}
                 `
             );
+            }
+
         }
 
         OrganizationData[] organizationListDatas = [];
@@ -6046,30 +6060,53 @@ AND p.organization_id IN (
     isolated resource function get monthly_leave_dates_record_by_id(int organization_id, int year, int month) returns MonthlyLeaveDatesData|error? {
         if ((organization_id is int) && (year is int) && (month is int)) {
 
-         MonthlyLeaveDates|error? monthly_leave_dates_raw = db_client->queryRow(
+            MonthlyLeaveDates|error? monthly_leave_dates_raw = db_client->queryRow(
             `SELECT *
             FROM monthly_leave_dates
             WHERE organization_id = ${organization_id} and 
             year = ${year} and month = ${month} ;`);
 
-          if (monthly_leave_dates_raw is MonthlyLeaveDates) {
-            return new (0,monthly_leave_dates_raw);
-          }else{
-            // Return a new empty MonthlyLeaveDates object if no record is found
-            MonthlyLeaveDates emptyLeaveDates = {
-               id: null,
-               year: null,
-               month: null,
-               organization_id: null,
-               leave_dates_list: [],
-               daily_amount: null,
-               created: null,
-               updated: null,
-               total_days_in_month: null,
-               leave_dates: null
-            };
-            return new(0,emptyLeaveDates);
-          }
+            if (monthly_leave_dates_raw is MonthlyLeaveDates) {
+                return new (0, monthly_leave_dates_raw);
+            } else {
+                // Return a new empty MonthlyLeaveDates object if no record is found
+                MonthlyLeaveDates emptyLeaveDates = {
+                    id: null,
+                    year: null,
+                    month: null,
+                    organization_id: null,
+                    leave_dates_list: [],
+                    daily_amount: null,
+                    created: null,
+                    updated: null,
+                    total_days_in_month: null,
+                    leave_dates: null
+                };
+                return new (0, emptyLeaveDates);
+            }
+        }
+    }
+
+    isolated resource function get calendar_metadata_by_org_id(int organization_id) returns CalendarMetaData|error? {
+
+        if (organization_id is int) {
+
+            CalendarMetadata|error? calendar_metadata_raw = db_client->queryRow(
+            `SELECT *
+            FROM calendar_metadata
+            WHERE organization_id = ${organization_id} ;`);
+
+            if (calendar_metadata_raw is CalendarMetadata) {
+                return new (0, calendar_metadata_raw);
+            } else {
+                // Return a new empty Calendar Metadata object if no record is found
+                CalendarMetadata emptyCalendarMetadata = {
+                    id: null,
+                    organization_id: organization_id,
+                    monthly_payment_amount: 0.0
+                };
+                return new (0, emptyCalendarMetadata);
+            }
         }
     }
 
