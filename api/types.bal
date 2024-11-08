@@ -87,6 +87,7 @@ public type Organization record {|
     int? phone;
     string? description;
     string? notes;
+    int? active;
 |};
 
 type ParentChildOrganization record {|
