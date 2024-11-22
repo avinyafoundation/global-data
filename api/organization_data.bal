@@ -261,4 +261,10 @@ lock{
         return org_meta_data_details;
     }
 
+    isolated resource function get active() returns int? {
+        lock {
+            return self.organization.active;
+        }
+    }
+
 }
