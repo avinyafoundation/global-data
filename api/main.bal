@@ -5761,9 +5761,10 @@ AND p.organization_id IN (
 
             Person|error? personRaw = db_client->queryRow(
                                         `SELECT *
-                                        FROM person
-                                        WHERE 
-                                        nic_no = ${person.nic_no};`
+                                        FROM person p
+                                        left join  organization o  on o.id = p.organization_id
+                                        WHERE  o.id = ${person.organization_id} and
+                                        p.nic_no = ${person.nic_no};`
                                     );
 
             if (personRaw is Person) {
