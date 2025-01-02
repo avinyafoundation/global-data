@@ -4,7 +4,7 @@ public isolated service class OrganizationData {
     private Organization organization;
 
     isolated function init(string? name = null, int? organization_id = 0, Organization? organization = null) returns error? {
-        if(organization != null) { // if organization is provided, then use that and do not load from DB
+        if (organization != null) { // if organization is provided, then use that and do not load from DB
             self.organization = organization.cloneReadOnly();
             return;
         }
@@ -13,37 +13,37 @@ public isolated service class OrganizationData {
         int id = organization_id ?: 0;
 
         Organization org_raw;
-        if(id > 0) { // organization_id provided, give precedance to that
-            org_raw = check db_client -> queryRow(
+        if (id > 0) { // organization_id provided, give precedance to that
+            org_raw = check db_client->queryRow(
             `SELECT *
             FROM organization
             WHERE
                 id = ${id};`);
-        } else 
+        } else
         {
-            org_raw = check db_client -> queryRow(
+            org_raw = check db_client->queryRow(
             `SELECT *
             FROM organization
             WHERE
                 name_en LIKE ${_name};`);
         }
-        
+
         self.organization = org_raw.cloneReadOnly();
     }
 
     isolated resource function get id() returns int? {
         lock {
-                return self.organization.id;
+            return self.organization.id;
         }
     }
 
-    isolated resource function get description() returns string?{
+    isolated resource function get description() returns string? {
         lock {
             return self.organization.description;
         }
     }
 
-    isolated resource function get notes() returns string?{
+    isolated resource function get notes() returns string? {
         lock {
             return self.organization.notes;
         }
@@ -53,12 +53,12 @@ public isolated service class OrganizationData {
         int id = 0;
         lock {
             id = self.organization.address_id ?: 0;
-            if( id == 0) {
+            if (id == 0) {
                 return null; // no point in querying if address id is null
-            } 
-            
+            }
+
         }
-        
+
         return new AddressData(id);
     }
 
@@ -66,11 +66,11 @@ public isolated service class OrganizationData {
         int id = 0;
         lock {
             id = self.organization.avinya_type ?: 0;
-            if( id == 0) {
+            if (id == 0) {
                 return null; // no point in querying if address id is null
-            } 
+            }
         }
-        
+
         return new AvinyaTypeData(id);
     }
 
@@ -84,8 +84,8 @@ public isolated service class OrganizationData {
         lock {
             return {
                 "name_en": self.organization["name_en"],
-                "name_si": self.organization["name_si"]?:"", // handle null cases 
-                "name_ta": self.organization["name_ta"]?:""
+                "name_si": self.organization["name_si"] ?: "", // handle null cases 
+                "name_ta": self.organization["name_ta"] ?: ""
             };
         }
     }
@@ -97,8 +97,9 @@ public isolated service class OrganizationData {
             child_org_ids = db_client->query(
                 `SELECT *
                 FROM parent_child_organization
-                WHERE parent_org_id = ${self.organization.id} AND parent_org_id != 17 AND parent_org_id != 24 AND parent_org_id != 32`
+                WHERE parent_org_id = ${self.organization.id}`
             );
+            //  WHERE parent_org_id = ${self.organization.id} AND parent_org_id != 17 AND parent_org_id != 24 AND parent_org_id != 32`
         }
 
         OrganizationData[] child_orgs = [];
@@ -166,32 +167,31 @@ public isolated service class OrganizationData {
         // Get list of people in the organization
         stream<Person, error?> people;
 
-lock{
-        int|error? avinya_type_id = db_client->queryRow(
+        lock {
+            int|error? avinya_type_id = db_client->queryRow(
             `SELECT avinya_type FROM organization WHERE id = ${self.organization.id};`
         );
-                    io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
-
-         if !(avinya_type_id is int) {
             io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
-            return error("AvinyaType ID does not exist");
-        }
 
-        if(avinya_type_id == 10 || avinya_type_id == 96){ // if organization is 10 or 96, get all vocational it students or cs students
+            if !(avinya_type_id is int) {
+                io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
+                return error("AvinyaType ID does not exist");
+            }
+
+            if (avinya_type_id == 10 || avinya_type_id == 96) { // if organization is 10 or 96, get all vocational it students or cs students
                 people = db_client->query(
                     `SELECT *
                     FROM person
                     WHERE avinya_type_id=${avinya_type_id} AND organization_id = ${self.organization.id}`
                 );
-            }else{
-            people = db_client->query(
+            } else {
+                people = db_client->query(
                 `SELECT *
                 FROM person
                 WHERE organization_id = ${self.organization.id} AND avinya_type_id=37`
             );
             }
-}
-
+        }
 
         PersonData[] peopleData = [];
 
@@ -238,7 +238,7 @@ lock{
     }
 
     isolated resource function get organization_metadata() returns OrganizationMetaData[]|error? {
-       
+
         stream<OrganizationMetaDataDetails, error?> org_meta_data;
         lock {
             org_meta_data = db_client->query(
@@ -252,7 +252,7 @@ lock{
 
         check from OrganizationMetaDataDetails orgmetdatadetails in org_meta_data
             do {
-                OrganizationMetaData|error org_meta_data_det = new OrganizationMetaData((),(),orgmetdatadetails);
+                OrganizationMetaData|error org_meta_data_det = new OrganizationMetaData((), (), orgmetdatadetails);
                 if !(org_meta_data_det is error) {
                     org_meta_data_details.push(org_meta_data_det);
                 }
