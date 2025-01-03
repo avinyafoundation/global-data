@@ -1,3 +1,5 @@
+
+
 # Localized names in English, Sinhala, and Tamil.
 # Names are stored with a `name_` prefix, followed
 # by the respective ISO 639-1 language code.
@@ -132,6 +134,8 @@ public type Person record {|
     string? academy_org_name;
     string? branch_code;
     string? current_job;
+    int? documents_id;
+    UserDocument[]? documentList;
     int? created_by;
     int? updated_by;
 |};
@@ -710,4 +714,35 @@ public type MonthlyLeaveDates record {|
     decimal? daily_amount;
     string? created;
     string? updated;
+|};
+
+public type UserDocument record {|
+    readonly string? record_type = "user_document";
+    int id?;
+    string? folder_id;
+    string? nic_front_id;
+    string? nic_back_id;
+    string? birth_certificate_front_id;
+    string? birth_certificate_back_id;
+    string? ol_certificate_id;
+    string? al_certificate_id;
+    string? additional_certificate_01_id;
+    string? additional_certificate_02_id;
+    string? additional_certificate_03_id;
+    string? additional_certificate_04_id;
+    string? additional_certificate_05_id;
+    string? document_type;
+    string? document;
+|};
+
+public type OrganizationFolderMapping record {|
+    readonly string? record_type = "organization_folder_mapping";
+    int id?;
+    int? organization_id;
+    string? organization_folder_id;
+|};
+
+public type ErrorDetail record {|
+    string message;
+    int errorCode;
 |};

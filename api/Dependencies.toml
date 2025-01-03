@@ -15,12 +15,14 @@ dependencies = [
 	{org = "ballerina", name = "graphql"},
 	{org = "ballerina", name = "io"},
 	{org = "ballerina", name = "log"},
+	{org = "ballerina", name = "mime"},
 	{org = "ballerina", name = "regex"},
 	{org = "ballerina", name = "sql"},
 	{org = "ballerina", name = "test"},
 	{org = "ballerina", name = "time"},
 	{org = "ballerinai", name = "observe"},
 	{org = "ballerinai", name = "transaction"},
+	{org = "ballerinax", name = "googleapis.drive"},
 	{org = "ballerinax", name = "mysql"},
 	{org = "ballerinax", name = "mysql.driver"}
 ]
@@ -113,7 +115,7 @@ modules = [
 [[package]]
 org = "ballerina"
 name = "http"
-version = "2.10.17"
+version = "2.10.19"
 dependencies = [
 	{org = "ballerina", name = "auth"},
 	{org = "ballerina", name = "cache"},
@@ -141,7 +143,7 @@ dependencies = [
 [[package]]
 org = "ballerina"
 name = "io"
-version = "1.6.1"
+version = "1.6.3"
 dependencies = [
 	{org = "ballerina", name = "jballerina.java"},
 	{org = "ballerina", name = "lang.value"}
@@ -283,6 +285,9 @@ dependencies = [
 	{org = "ballerina", name = "jballerina.java"},
 	{org = "ballerina", name = "lang.int"}
 ]
+modules = [
+	{org = "ballerina", packageName = "mime", moduleName = "mime"}
+]
 
 [[package]]
 org = "ballerina"
@@ -395,7 +400,7 @@ dependencies = [
 [[package]]
 org = "ballerina"
 name = "websocket"
-version = "2.10.2"
+version = "2.10.3"
 dependencies = [
 	{org = "ballerina", name = "auth"},
 	{org = "ballerina", name = "constraint"},
@@ -443,6 +448,33 @@ dependencies = [
 ]
 modules = [
 	{org = "ballerinai", packageName = "transaction", moduleName = "transaction"}
+]
+
+[[package]]
+org = "ballerinax"
+name = "client.config"
+version = "1.0.1"
+dependencies = [
+	{org = "ballerina", name = "http"},
+	{org = "ballerina", name = "oauth2"}
+]
+
+[[package]]
+org = "ballerinax"
+name = "googleapis.drive"
+version = "3.3.0"
+dependencies = [
+	{org = "ballerina", name = "file"},
+	{org = "ballerina", name = "http"},
+	{org = "ballerina", name = "io"},
+	{org = "ballerina", name = "log"},
+	{org = "ballerina", name = "os"},
+	{org = "ballerina", name = "url"},
+	{org = "ballerinai", name = "observe"},
+	{org = "ballerinax", name = "client.config"}
+]
+modules = [
+	{org = "ballerinax", packageName = "googleapis.drive", moduleName = "googleapis.drive"}
 ]
 
 [[package]]
