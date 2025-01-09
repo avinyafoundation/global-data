@@ -3397,7 +3397,9 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
 
     resource function get duty_participants(int? organization_id) returns DutyParticipantData[]|error {
 
-        Organization child_organization_raw = check db_client->queryRow(
+        stream<Organization, error?> child_organization_raw;
+
+        child_organization_raw = db_client->query(
             `SELECT c.*
              FROM parent_child_organization pc
              JOIN organization c ON pc.child_org_id = c.id
@@ -3407,25 +3409,29 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
              AND (om_end.key_name = 'end_date' AND (om_end.value IS NULL OR STR_TO_DATE(om_end.value, '%Y-%m-%d') >= CURDATE()));`
         );
 
-        stream<DutyParticipant, error?> duty_participants;
-        lock {
-            duty_participants = db_client->query(
-            `SELECT * 
-	         FROM  duty_participant
-	         WHERE person_id IN (SELECT id FROM person 
-             WHERE organization_id IN (select child_org_id from parent_child_organization where parent_org_id = ${child_organization_raw.id}));`
-            );
-        }
-
         DutyParticipantData[] dutyParticipantsDatas = [];
+        stream<DutyParticipant, error?> duty_participants;
 
-        check from DutyParticipant dutyParticipant in duty_participants
-            do {
-                DutyParticipantData|error dutyParticipantData = new DutyParticipantData(0, 0, 0, dutyParticipant);
-                if !(dutyParticipantData is error) {
-                    dutyParticipantsDatas.push(dutyParticipantData);
-                }
-            };
+        check from Organization batch  in child_organization_raw
+         do{
+            lock {
+                duty_participants = db_client->query(
+                `SELECT * 
+                FROM  duty_participant
+                WHERE person_id IN (SELECT id FROM person 
+                WHERE organization_id IN (select child_org_id from parent_child_organization where parent_org_id = ${batch.id}));`
+                );
+            }
+
+
+            check from DutyParticipant dutyParticipant in duty_participants
+                do {
+                    DutyParticipantData|error dutyParticipantData = new DutyParticipantData(0, 0, 0, dutyParticipant);
+                    if !(dutyParticipantData is error) {
+                        dutyParticipantsDatas.push(dutyParticipantData);
+                    }
+                };
+         };
         check duty_participants.close();
         return dutyParticipantsDatas;
     }
@@ -4455,10 +4461,10 @@ AND p.organization_id IN (
                             daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/icons/icons8-leopard-80.png";
                             daily_activity_participant_attendance_by_parent_org_record.color = "0xFF800080";
                         }
-                        if (value == "Elephants") {
+                        if (value == "Sharks") {
 
-                            daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/icons/icons8-elephant-100.png";
-                            daily_activity_participant_attendance_by_parent_org_record.color = "0xFFDAA520";
+                            daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/icons/icon8-shark-100.png";
+                            daily_activity_participant_attendance_by_parent_org_record.color = "0xFFFFB6C1";
                         }
                         if (value == "IT") {
 
