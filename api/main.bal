@@ -3,11 +3,22 @@ import ballerina/io;
 import ballerina/log;
 import ballerina/sql;
 import ballerina/time;
+import ballerinax/googleapis.drive as drive;
+import ballerina/mime;
+
 
 // @display {
 //     label: "Global Data API",
 //     id: "global-data"
 // }
+configurable string GOOGLEDRIVECLIENTID = ?;
+configurable string GOOGLEDRIVECLIENTSECRET = ?;
+configurable string GOOGLEDRIVEREFRESHTOKEN = ?;
+configurable string GOOGLEDRIVEREFRESHURL = ?;
+
+
+
+
 service /graphql on new graphql:Listener(4000) {
     resource function get geo() returns GeoData {
         return new ();
@@ -3386,7 +3397,9 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
 
     resource function get duty_participants(int? organization_id) returns DutyParticipantData[]|error {
 
-        Organization child_organization_raw = check db_client->queryRow(
+        stream<Organization, error?> child_organization_raw;
+
+        child_organization_raw = db_client->query(
             `SELECT c.*
              FROM parent_child_organization pc
              JOIN organization c ON pc.child_org_id = c.id
@@ -3396,25 +3409,29 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
              AND (om_end.key_name = 'end_date' AND (om_end.value IS NULL OR STR_TO_DATE(om_end.value, '%Y-%m-%d') >= CURDATE()));`
         );
 
-        stream<DutyParticipant, error?> duty_participants;
-        lock {
-            duty_participants = db_client->query(
-            `SELECT * 
-	         FROM  duty_participant
-	         WHERE person_id IN (SELECT id FROM person 
-             WHERE organization_id IN (select child_org_id from parent_child_organization where parent_org_id = ${child_organization_raw.id}));`
-            );
-        }
-
         DutyParticipantData[] dutyParticipantsDatas = [];
+        stream<DutyParticipant, error?> duty_participants;
 
-        check from DutyParticipant dutyParticipant in duty_participants
-            do {
-                DutyParticipantData|error dutyParticipantData = new DutyParticipantData(0, 0, 0, dutyParticipant);
-                if !(dutyParticipantData is error) {
-                    dutyParticipantsDatas.push(dutyParticipantData);
-                }
-            };
+        check from Organization batch  in child_organization_raw
+         do{
+            lock {
+                duty_participants = db_client->query(
+                `SELECT * 
+                FROM  duty_participant
+                WHERE person_id IN (SELECT id FROM person 
+                WHERE organization_id IN (select child_org_id from parent_child_organization where parent_org_id = ${batch.id}));`
+                );
+            }
+
+
+            check from DutyParticipant dutyParticipant in duty_participants
+                do {
+                    DutyParticipantData|error dutyParticipantData = new DutyParticipantData(0, 0, 0, dutyParticipant);
+                    if !(dutyParticipantData is error) {
+                        dutyParticipantsDatas.push(dutyParticipantData);
+                    }
+                };
+         };
         check duty_participants.close();
         return dutyParticipantsDatas;
     }
@@ -4444,10 +4461,10 @@ AND p.organization_id IN (
                             daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/icons/icons8-leopard-80.png";
                             daily_activity_participant_attendance_by_parent_org_record.color = "0xFF800080";
                         }
-                        if (value == "Elephants") {
+                        if (value == "Sharks") {
 
-                            daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/icons/icons8-elephant-100.png";
-                            daily_activity_participant_attendance_by_parent_org_record.color = "0xFFDAA520";
+                            daily_activity_participant_attendance_by_parent_org_record.svg_src = "assets/icons/icon8-shark-100.png";
+                            daily_activity_participant_attendance_by_parent_org_record.color = "0xFFFFB6C1";
                         }
                         if (value == "IT") {
 
@@ -5746,18 +5763,62 @@ AND p.organization_id IN (
 
     }
 
-    remote function insert_person(Person person, Address? mailing_address, City? mailing_address_city) returns PersonData|error? {
+ 
+    remote function insert_person(Person person,Address? mailing_address, City? mailing_address_city) returns PersonData|error?{
 
         //starting the transaction
         boolean first_db_transaction_fail = false;
         boolean second_db_transaction_fail = false;
         boolean third_db_transaction_fail = false;
+        boolean fourth_db_transaction_fail = false;
 
         int|string? mailing_address_insert_id = null;
 
         string message = "";
+        string orgFolderId = "";
 
-        transaction {
+        drive:Client driveClient = check getDriveClient();
+
+        OrganizationFolderMapping|error orgFolderRaw = db_client->queryRow(
+                                        `SELECT *
+                                        FROM organization_folder_mapping orgFolMap
+                                        WHERE  orgFolMap.organization_id = ${person.organization_id};`
+                                    );
+
+        if (orgFolderRaw is OrganizationFolderMapping) {
+            orgFolderId = orgFolderRaw.organization_folder_id ?: "";
+        }else{
+            return error(orgFolderRaw.message());
+        }
+
+        drive:File|error create_folder_response = driveClient->createFolder(person.nic_no.toString(),orgFolderId);
+        
+        string created_folder_id= "";
+
+        if (create_folder_response is drive:File) {
+
+           created_folder_id = create_folder_response?.id.toString();
+
+        }else{
+            return error(create_folder_response.message());
+        }
+
+     transaction {
+
+        sql:ExecutionResult insert_user_document_folder_id = check db_client->execute(
+                    `INSERT INTO user_documents(
+                            folder_id
+                    ) VALUES(
+                        ${created_folder_id}
+                    );`
+                );
+        int|string? user_document_folder_id = insert_user_document_folder_id.lastInsertId;
+
+        if !(user_document_folder_id is int) {
+            fourth_db_transaction_fail = true;
+            message = "Unable to insert folder id";
+        }
+
 
             Person|error? personRaw = db_client->queryRow(
                                         `SELECT *
@@ -5818,7 +5879,8 @@ AND p.organization_id IN (
                                                   bank_account_number,
                                                   bank_account_name,
                                                   bank_branch,
-                                                  created_by
+                                                  created_by,
+                                                  documents_id
                                                 ) VALUES (
                                                   ${person.preferred_name},
                                                   ${person.full_name},
@@ -5840,7 +5902,8 @@ AND p.organization_id IN (
                                                   ${person.bank_account_number},
                                                   ${person.bank_account_name},
                                                   ${person.bank_branch},
-                                                  ${person.created_by}
+                                                  ${person.created_by},
+                                                  ${user_document_folder_id}
                                                 );`);
 
             int|string? insert_person_id = insert_person_res.lastInsertId;
@@ -5851,12 +5914,16 @@ AND p.organization_id IN (
                 message = "Unable to insert person";
             }
 
+
             if (first_db_transaction_fail ||
                 second_db_transaction_fail ||
-                third_db_transaction_fail) {
-
+                third_db_transaction_fail ||
+                fourth_db_transaction_fail
+                ) {
+               
                 rollback;
-                return error(message);
+                boolean|error deleted_document_folder_response = driveClient->deleteFile(created_folder_id);
+                return error(message);                
             } else {
 
                 // Commit the transaction if three updates are successful
@@ -5866,6 +5933,317 @@ AND p.organization_id IN (
             }
         }
 
+    }
+
+    remote function upload_document(UserDocument user_document) returns DocumentsData|error?{
+
+        string uploadContent = user_document.document.toString();
+        byte[] base64DecodedDocument = <byte[]>(check mime:base64Decode(uploadContent.toBytes()));
+        string userFolderId = "";
+        string? nic_front_id = "";
+        string? nic_back_id = "";
+        string? birth_certificate_front_id = "";
+        string? birth_certificate_back_id = "";
+        string? ol_certificate_id = "";
+        string? al_certificate_id = "";
+        string? additional_certificate_01_id = "";
+        string? additional_certificate_02_id = "";
+        string? additional_certificate_03_id = "";
+        string? additional_certificate_04_id = "";
+        string? additional_certificate_05_id = "";
+
+        drive:Client driveClient = check getDriveClient();
+        
+        UserDocument|error userDocumentRaw = db_client->queryRow(
+                                        `SELECT *
+                                        FROM user_documents userDoc
+                                        WHERE  userDoc.id = ${user_document.id};`
+                                    );
+
+        if (userDocumentRaw is UserDocument) {
+            userFolderId = userDocumentRaw.folder_id ?: "";
+            nic_front_id = userDocumentRaw.nic_front_id;
+            nic_back_id = userDocumentRaw.nic_back_id;
+            birth_certificate_front_id = userDocumentRaw.birth_certificate_front_id;
+            birth_certificate_back_id = userDocumentRaw.birth_certificate_back_id;
+            ol_certificate_id = userDocumentRaw.ol_certificate_id;
+            al_certificate_id = userDocumentRaw.al_certificate_id;
+            additional_certificate_01_id = userDocumentRaw.additional_certificate_01_id;
+            additional_certificate_02_id = userDocumentRaw.additional_certificate_02_id;
+            additional_certificate_03_id = userDocumentRaw.additional_certificate_03_id;
+            additional_certificate_04_id = userDocumentRaw.additional_certificate_04_id;
+            additional_certificate_05_id = userDocumentRaw.additional_certificate_05_id;
+
+        }else{
+            return error(userDocumentRaw.message());
+        }
+
+        drive:File|error create_file_response = 
+            driveClient->uploadFileUsingByteArray(base64DecodedDocument,user_document.document_type.toString(),userFolderId);
+
+        
+        if (create_file_response is drive:File) {
+
+                string created_file_id = create_file_response?.id.toString();
+
+                if(user_document.document_type == "nicFront"){
+
+
+                  if(nic_front_id != null){
+
+                    boolean|error deleted_nic_front_document_response = driveClient->deleteFile(nic_front_id);
+                    
+                    if (deleted_nic_front_document_response is boolean) {
+                        log:printInfo("nic front document deleted.");
+                    } else {
+                        log:printError("Unable to delete nic front document.");
+                    }
+
+                  }
+                     sql:ExecutionResult res = check db_client->execute(
+                            `UPDATE user_documents SET
+                                nic_front_id = ${created_file_id}
+                            WHERE id = ${user_document.id};`
+                        );
+                        if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+                            return error("Unable to update the nic front id for the user document record");
+                        }
+                }
+                if(user_document.document_type == "nicBack"){
+                    
+                    if(nic_back_id != null){
+
+                        boolean|error deleted_nic_back_document_response = driveClient->deleteFile(nic_back_id);
+                        
+                        if (deleted_nic_back_document_response is boolean) {
+                            log:printInfo("nic back document deleted.");
+                        } else {
+                            log:printError("Unable to delete nic back document.");
+                        }
+
+                    }
+                    
+                     sql:ExecutionResult res = check db_client->execute(
+                            `UPDATE user_documents SET
+                                nic_back_id = ${created_file_id}
+                            WHERE id = ${user_document.id};`
+                        );
+                        if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+                            return error("Unable to update the nic back id for the user document record");
+                        }
+                }
+                if(user_document.document_type == "birthCertificateFront"){
+
+                    if(birth_certificate_front_id != null){
+
+                        boolean|error deleted_birth_certificate_front_document_response = driveClient->deleteFile(birth_certificate_front_id);
+                        
+                        if (deleted_birth_certificate_front_document_response is boolean) {
+                            log:printInfo("birth certificate front document deleted.");
+                        } else {
+                            log:printError("Unable to delete birth certificate front document.");
+                        }
+
+                    }
+
+                     sql:ExecutionResult res = check db_client->execute(
+                            `UPDATE user_documents SET
+                                birth_certificate_front_id = ${created_file_id}
+                            WHERE id = ${user_document.id};`
+                        );
+                        if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+                            return error("Unable to update the birth certificate front id for the user document record");
+                        }
+                }
+                if(user_document.document_type == "birthCertificateBack"){
+
+                    if(birth_certificate_back_id != null){
+
+                        boolean|error deleted_birth_certificate_back_document_response = driveClient->deleteFile(birth_certificate_back_id);
+                        
+                        if (deleted_birth_certificate_back_document_response is boolean) {
+                            log:printInfo("birth certificate back document deleted.");
+                        } else {
+                            log:printError("Unable to delete birth certificate back document.");
+                        }
+
+                    }
+
+                     sql:ExecutionResult res = check db_client->execute(
+                            `UPDATE user_documents SET
+                                birth_certificate_back_id = ${created_file_id}
+                            WHERE id = ${user_document.id};`
+                        );
+                        if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+                            return error("Unable to update the birth certificate back id for the user document record");
+                        }
+                }
+                if(user_document.document_type == "olDocument"){
+
+                    if(ol_certificate_id != null){
+
+                        boolean|error deleted_ol_certificate_document_response = driveClient->deleteFile(ol_certificate_id);
+                        
+                        if (deleted_ol_certificate_document_response is boolean) {
+                            log:printInfo("ol certificate document deleted.");
+                        } else {
+                            log:printError("Unable to delete ol certificate document.");
+                        }
+
+                    }
+
+                    sql:ExecutionResult res = check db_client->execute(
+                            `UPDATE user_documents SET
+                                ol_certificate_id = ${created_file_id}
+                            WHERE id = ${user_document.id};`
+                        );
+                        if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+                            return error("Unable to update the ol id for the user document record");
+                        }
+                }
+                if(user_document.document_type == "alDocument"){
+
+                    if(al_certificate_id != null){
+
+                        boolean|error deleted_al_certificate_document_response = driveClient->deleteFile(al_certificate_id);
+                        
+                        if (deleted_al_certificate_document_response is boolean) {
+                            log:printInfo("al certificate document deleted.");
+                        } else {
+                            log:printError("Unable to delete al certificate document.");
+                        }
+
+                    }
+
+                    sql:ExecutionResult res = check db_client->execute(
+                            `UPDATE user_documents SET
+                                al_certificate_id = ${created_file_id}
+                            WHERE id = ${user_document.id};`
+                        );
+                        if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+                            return error("Unable to update the al id for the user document record");
+                        }
+                }
+                if(user_document.document_type == "additionalCertificate01"){
+
+                    if(additional_certificate_01_id != null){
+
+                        boolean|error deleted_additional_certificate_01_document_response = driveClient->deleteFile(additional_certificate_01_id);
+                        
+                        if (deleted_additional_certificate_01_document_response is boolean) {
+                            log:printInfo("additional certificate 01 document deleted.");
+                        } else {
+                            log:printError("Unable to delete additional certificate 01 document.");
+                        }
+
+                    }
+
+                     sql:ExecutionResult res = check db_client->execute(
+                            `UPDATE user_documents SET
+                                additional_certificate_01_id = ${created_file_id}
+                            WHERE id = ${user_document.id};`
+                        );
+                        if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+                            return error("Unable to update the additional certificate 01 id for the user document record");
+                        }
+                }
+                if(user_document.document_type == "additionalCertificate02"){
+
+                    if(additional_certificate_02_id != null){
+
+                        boolean|error deleted_additional_certificate_02_document_response = driveClient->deleteFile(additional_certificate_02_id);
+                        
+                        if (deleted_additional_certificate_02_document_response is boolean) {
+                            log:printInfo("additional certificate 02 document deleted.");
+                        } else {
+                            log:printError("Unable to delete additional certificate 02 document.");
+                        }
+
+                    }
+
+                     sql:ExecutionResult res = check db_client->execute(
+                            `UPDATE user_documents SET
+                                additional_certificate_02_id = ${created_file_id}
+                            WHERE id = ${user_document.id};`
+                        );
+                        if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+                            return error("Unable to update the additional certificate 02 id for the user document record");
+                        }
+                }
+                if(user_document.document_type == "additionalCertificate03"){
+
+                    if(additional_certificate_03_id != null){
+
+                        boolean|error deleted_additional_certificate_03_document_response = driveClient->deleteFile(additional_certificate_03_id);
+                        
+                        if (deleted_additional_certificate_03_document_response is boolean) {
+                            log:printInfo("additional certificate 03 document deleted.");
+                        } else {
+                            log:printError("Unable to delete additional certificate 03 document.");
+                        }
+
+                    }
+
+                     sql:ExecutionResult res = check db_client->execute(
+                            `UPDATE user_documents SET
+                                additional_certificate_03_id = ${created_file_id}
+                            WHERE id = ${user_document.id};`
+                        );
+                        if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+                            return error("Unable to update the additional certificate 03 id for the user document record");
+                        }
+                }
+                if(user_document.document_type == "additionalCertificate04"){
+
+                    if(additional_certificate_04_id != null){
+
+                        boolean|error deleted_additional_certificate_04_document_response = driveClient->deleteFile(additional_certificate_04_id);
+                        
+                        if (deleted_additional_certificate_04_document_response is boolean) {
+                            log:printInfo("additional certificate 04 document deleted.");
+                        } else {
+                            log:printError("Unable to delete additional certificate 04 document.");
+                        }
+
+                    }
+
+                     sql:ExecutionResult res = check db_client->execute(
+                            `UPDATE user_documents SET
+                                additional_certificate_04_id = ${created_file_id}
+                            WHERE id = ${user_document.id};`
+                        );
+                        if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+                            return error("Unable to update the additional certificate 04 id for the user document record");
+                        }
+                }
+                if(user_document.document_type == "additionalCertificate05"){
+
+                    if(additional_certificate_05_id != null){
+
+                        boolean|error deleted_additional_certificate_05_document_response = driveClient->deleteFile(additional_certificate_05_id);
+                        
+                        if (deleted_additional_certificate_05_document_response is boolean) {
+                            log:printInfo("additional certificate 05 document deleted.");
+                        } else {
+                            log:printError("Unable to delete additional certificate 05 document.");
+                        }
+
+                    }
+
+                     sql:ExecutionResult res = check db_client->execute(
+                            `UPDATE user_documents SET
+                                additional_certificate_05_id = ${created_file_id}
+                            WHERE id = ${user_document.id};`
+                        );
+                        if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+                            return error("Unable to update the additional certificate 05 id for the user document record");
+                        }
+                }
+        }else{
+            return error(create_file_response.message());
+        }
+       
+        return new (user_document.id);
     }
 
     isolated resource function get districts() returns DistrictData[]|error? {
@@ -6111,7 +6489,30 @@ AND p.organization_id IN (
         }
     }
 
+    // remote function onError(error err) returns http:Response {
+    //     http:Response response = new;
+    //     response.statusCode = 400;
+    //     response.setPayload({message: err.message()});
+    //     return response;
+    // }
+
 }
+
+isolated function getDriveClient() returns drive:Client|error{
+
+    drive:ConnectionConfig config = {
+                auth: {
+                    clientId: GOOGLEDRIVECLIENTID,
+                    clientSecret: GOOGLEDRIVECLIENTSECRET,
+                    refreshUrl:GOOGLEDRIVEREFRESHURL,
+                    refreshToken: GOOGLEDRIVEREFRESHTOKEN
+                }
+            };
+    drive:Client driveClient = check new (config);
+    return  driveClient;
+}
+
+
 
 isolated function calculateWeekdays(time:Utc toDate, time:Utc fromDate) returns int {
     int weekdays = 0;
