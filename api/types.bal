@@ -111,6 +111,7 @@ public type Person record {|
     int? mailing_address_id;
     int? phone;
     int? organization_id;
+    int? parent_organization_id;
     int? avinya_type_id;
     string? notes;
     string? nic_no;
@@ -135,7 +136,6 @@ public type Person record {|
     string? branch_code;
     string? current_job;
     int? documents_id;
-    UserDocument[]? documentList;
     int? created_by;
     int? updated_by;
 |};
