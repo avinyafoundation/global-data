@@ -5584,6 +5584,7 @@ AND p.organization_id IN (
         boolean first_db_transaction_fail = false;
         boolean second_db_transaction_fail = false;
         boolean third_db_transaction_fail = false;
+        boolean fourth_db_transaction_fail = false;
 
         sql:ExecutionResult permanent_address_res;
         sql:ExecutionResult mailing_address_res;
@@ -5592,6 +5593,56 @@ AND p.organization_id IN (
         int|string? mailing_address_insert_id = null;
 
         string message = "";
+        string orgFolderId = "";
+        int person_document_id = 0;
+        string created_folder_id= "";
+
+        person_document_id = person.documents_id !=0 ? person.documents_id ?: 0 : 0;
+
+        if(person_document_id == 0){
+
+                drive:Client driveClient = check getDriveClient();
+
+                OrganizationFolderMapping|error orgFolderRaw = db_client->queryRow(
+                                                `SELECT *
+                                                FROM organization_folder_mapping orgFolMap
+                                                WHERE  orgFolMap.organization_id = ${person.parent_organization_id};`
+                                            );
+
+                if (orgFolderRaw is OrganizationFolderMapping) {
+                    orgFolderId = orgFolderRaw.organization_folder_id ?: "";
+                }else{
+                    return error(orgFolderRaw.message());
+                }
+
+                drive:File|error create_folder_response = driveClient->createFolder(person.nic_no.toString(),orgFolderId);
+
+                if (create_folder_response is drive:File) {
+
+                created_folder_id = create_folder_response?.id.toString();
+
+                }else{
+                    return error(create_folder_response.message());
+                }
+
+                sql:ExecutionResult insert_user_document_folder_id = check db_client->execute(
+                    `INSERT INTO user_documents(
+                            folder_id
+                    ) VALUES(
+                        ${created_folder_id}
+                    );`
+                );
+
+                int|string? user_document_folder_id = insert_user_document_folder_id.lastInsertId;
+
+                if !(user_document_folder_id is int) {
+                    fourth_db_transaction_fail = true;
+                    message = "Unable to insert folder id";
+                }else if(user_document_folder_id is int){
+                    person.documents_id = user_document_folder_id;
+                }
+
+        }
 
         transaction {
 
@@ -5737,6 +5788,7 @@ AND p.organization_id IN (
                                                     academy_org_id = ${person.academy_org_id},
                                                     bank_branch = ${person.bank_branch},
                                                     current_job = ${person.current_job},
+                                                    documents_id = ${person.documents_id},
                                                     updated_by = ${person.updated_by}
                                                 WHERE id = ${person_id};`);
 
@@ -5748,7 +5800,9 @@ AND p.organization_id IN (
 
             if (first_db_transaction_fail ||
                 second_db_transaction_fail ||
-                third_db_transaction_fail) {
+                third_db_transaction_fail ||
+                fourth_db_transaction_fail
+                ) {
 
                 rollback;
                 return error(message);
