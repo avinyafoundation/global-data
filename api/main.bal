@@ -5782,7 +5782,7 @@ AND p.organization_id IN (
         OrganizationFolderMapping|error orgFolderRaw = db_client->queryRow(
                                         `SELECT *
                                         FROM organization_folder_mapping orgFolMap
-                                        WHERE  orgFolMap.organization_id = ${person.organization_id};`
+                                        WHERE  orgFolMap.organization_id = ${person.parent_organization_id};`
                                     );
 
         if (orgFolderRaw is OrganizationFolderMapping) {
@@ -6246,6 +6246,167 @@ AND p.organization_id IN (
         return new (user_document.id);
     }
 
+    
+    
+    isolated resource function get document_list(int id) returns DocumentsData[]|error? {
+
+        drive:Client driveClient = check getDriveClient();
+        DocumentsData[] documents=[];
+        UserDocument[] documentList=[];
+        UserDocument|error user_document_list_raw;
+        string? nic_front_id;
+        string? nic_back_id;
+        string? birth_certificate_front_id;
+        string? birth_certificate_back_id;
+        string? ol_certificate_id ;
+        string? al_certificate_id;
+        string? additional_certificate_01_id;
+        string? additional_certificate_02_id;
+        string? additional_certificate_03_id;
+        string? additional_certificate_04_id;
+        string? additional_certificate_05_id;
+        
+        lock {
+            
+            if (id == 0) {
+                return null; // no point in querying if document id is null
+            }
+
+            user_document_list_raw = check db_client->queryRow(
+                                    `SELECT *
+                                    FROM user_documents
+                                    WHERE
+                                        id = ${id};`);
+           }
+        
+        if(user_document_list_raw is UserDocument){
+
+            nic_front_id = user_document_list_raw.nic_front_id;
+            nic_back_id = user_document_list_raw.nic_back_id;
+            birth_certificate_front_id = user_document_list_raw.birth_certificate_front_id;
+            birth_certificate_back_id = user_document_list_raw.birth_certificate_back_id;
+            ol_certificate_id = user_document_list_raw.ol_certificate_id;
+            al_certificate_id = user_document_list_raw.al_certificate_id;
+            additional_certificate_01_id = user_document_list_raw.additional_certificate_01_id;
+            additional_certificate_02_id = user_document_list_raw.additional_certificate_02_id;
+            additional_certificate_03_id = user_document_list_raw.additional_certificate_03_id;
+            additional_certificate_04_id = user_document_list_raw.additional_certificate_04_id;
+            additional_certificate_05_id = user_document_list_raw.additional_certificate_05_id;
+        }else{
+             return error(user_document_list_raw.message());
+        }
+
+        if nic_front_id is string {
+                UserDocument|error nic_front_document = getDocument(driveClient,nic_front_id,"nicFront");
+                if(nic_front_document is UserDocument){
+                  documentList.push(nic_front_document);
+                }else{
+                    return error(nic_front_document.message());
+                }
+        }
+       
+        if nic_back_id is string {
+                UserDocument|error nic_back_document = getDocument(driveClient,nic_back_id,"nicBack");
+                if(nic_back_document is UserDocument){
+                  documentList.push(nic_back_document);
+                }else{
+                    return error(nic_back_document.message());
+                }
+        }
+
+        if birth_certificate_front_id is string {
+                UserDocument|error birth_certificate_front_document = getDocument(driveClient,birth_certificate_front_id,"birthCertificateFront");
+                if(birth_certificate_front_document is UserDocument){
+                  documentList.push(birth_certificate_front_document);
+                }else{
+                    return error(birth_certificate_front_document.message());
+                }
+        }
+       
+        if birth_certificate_back_id is string {
+                UserDocument|error birth_certificate_back_document = getDocument(driveClient,birth_certificate_back_id,"birthCertificateBack");
+                if(birth_certificate_back_document is UserDocument){
+                  documentList.push(birth_certificate_back_document);
+                }else{
+                    return error(birth_certificate_back_document.message());
+                }
+        }
+     
+        if ol_certificate_id is string {
+                UserDocument|error ol_document = getDocument(driveClient,ol_certificate_id,"olDocument");
+                if(ol_document is UserDocument){
+                  documentList.push(ol_document);
+                }else{
+                    return error(ol_document.message());
+                }
+        }
+    
+        if al_certificate_id is string {
+                UserDocument|error al_document = getDocument(driveClient,al_certificate_id,"alDocument");
+                if(al_document is UserDocument){
+                  documentList.push(al_document);
+                }else{
+                    return error(al_document.message());
+                }
+        }
+        
+        if additional_certificate_01_id is string {
+                UserDocument|error additional_certificate_01_document = getDocument(driveClient,additional_certificate_01_id,"additionalCertificate01");
+                if(additional_certificate_01_document is UserDocument){
+                  documentList.push(additional_certificate_01_document);
+                }else{
+                    return error(additional_certificate_01_document.message());
+                }
+        }
+        
+        if additional_certificate_02_id is string {
+                UserDocument|error additional_certificate_02_document = getDocument(driveClient,additional_certificate_02_id,"additionalCertificate02");
+                if(additional_certificate_02_document is UserDocument){
+                  documentList.push(additional_certificate_02_document);
+                }else{
+                    return error(additional_certificate_02_document.message());
+                }
+        }
+
+        if additional_certificate_03_id is string {
+                UserDocument|error additional_certificate_03_document = getDocument(driveClient,additional_certificate_03_id,"additionalCertificate03");
+                if(additional_certificate_03_document is UserDocument){
+                  documentList.push(additional_certificate_03_document);
+                }else{
+                    return error(additional_certificate_03_document.message());
+                }
+        }
+
+        if additional_certificate_04_id is string {
+                UserDocument|error additional_certificate_04_document = getDocument(driveClient,additional_certificate_04_id,"additionalCertificate04");
+                if(additional_certificate_04_document is UserDocument){
+                  documentList.push(additional_certificate_04_document);
+                }else{
+                    return error(additional_certificate_04_document.message());
+                }
+        }
+
+        if additional_certificate_05_id is string {
+                UserDocument|error additional_certificate_05_document = getDocument(driveClient,additional_certificate_05_id,"additionalCertificate05");
+                if(additional_certificate_05_document is UserDocument){
+                  documentList.push(additional_certificate_05_document);
+                }else{
+                    return error(additional_certificate_05_document.message());
+                }
+        }
+
+        
+        from UserDocument user_document_record in documentList
+            do {
+                DocumentsData|error documentData = new DocumentsData(0,user_document_record);
+                if !(documentData is error) {
+                    documents.push(documentData);
+                }
+            };
+
+        return documents;
+    }
+
     isolated resource function get districts() returns DistrictData[]|error? {
         stream<District, error?> districts_data;
 
@@ -6496,6 +6657,41 @@ AND p.organization_id IN (
     //     return response;
     // }
 
+}
+
+isolated  function getDocument(drive:Client driveClient,string id,string document_name) returns UserDocument|error{
+
+    UserDocument user_document={
+                id:(),
+                additional_certificate_01_id: (),
+                additional_certificate_02_id: (),
+                additional_certificate_03_id: (),
+                additional_certificate_04_id: (),
+                additional_certificate_05_id: (),
+                birth_certificate_back_id: (),
+                birth_certificate_front_id: (),
+                document_type: (),
+                nic_back_id: (),
+                nic_front_id: (),
+                al_certificate_id:(),
+                ol_certificate_id:(),
+                document: (),
+                folder_id: ()
+               };
+
+    drive:FileContent|error document_file_stream = check driveClient->getFileContent(id);
+
+    if(document_file_stream is  drive:FileContent){
+        //byte[] base64EncodedDocument = <byte[]>(check mime:base64Encode(document_file_stream.content));
+        //string base64EncodedStringDocument = check string:fromBytes(document_file_stream.content);
+        string base64EncodedStringDocument = document_file_stream.content.toBase64();
+        user_document.document_type = document_name;
+        user_document.document = base64EncodedStringDocument;
+    }else{
+        user_document.document_type = ();
+        user_document.document = ();
+    }
+    return  user_document;
 }
 
 isolated function getDriveClient() returns drive:Client|error{
