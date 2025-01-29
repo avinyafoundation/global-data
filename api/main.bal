@@ -6546,11 +6546,11 @@ AND p.organization_id IN (
             `SELECT *
             FROM monthly_leave_dates
             WHERE year = ${monthly_leave_dates.year} and month = ${monthly_leave_dates.month} and
-            organization_id = ${monthly_leave_dates.organization_id};`
+            organization_id = ${monthly_leave_dates.organization_id} and batch_id = ${monthly_leave_dates.batch_id};`
         );
 
         if (monthlyLeaveDatesRaw is MonthlyLeaveDates) {
-            return error("A record for this organization id already exists for the same year and month.");
+            return error("A record for this organization id & batch id already exists for the same year and month.");
         }
 
         int[] leaveDates = monthly_leave_dates.leave_dates_list;
@@ -6569,7 +6569,7 @@ AND p.organization_id IN (
         CalendarMetadata|error? monthlyPaymentAmount = check db_client->queryRow(
             `SELECT *
             FROM calendar_metadata
-            WHERE organization_id = ${monthly_leave_dates.organization_id};`
+            WHERE organization_id = ${monthly_leave_dates.organization_id} and batch_id = ${monthly_leave_dates.batch_id};`
         );
 
         if (monthlyPaymentAmount is CalendarMetadata) {
@@ -6581,12 +6581,14 @@ AND p.organization_id IN (
                 year,
                 month,
                 organization_id,
+                batch_id,
                 leave_dates,
                 daily_amount
             ) VALUES (
                 ${monthly_leave_dates.year},
                 ${monthly_leave_dates.month},
                 ${monthly_leave_dates.organization_id},
+                ${monthly_leave_dates.batch_id},
                 ${leaveDatesString},
                 ${dailyAmount}
             );`
@@ -6627,7 +6629,7 @@ AND p.organization_id IN (
         CalendarMetadata|error? monthlyPaymentAmount = check db_client->queryRow(
             `SELECT *
             FROM calendar_metadata
-            WHERE organization_id = ${monthly_leave_dates.organization_id};`
+            WHERE organization_id = ${monthly_leave_dates.organization_id} and batch_id = ${monthly_leave_dates.batch_id};`
         );
 
         if (monthlyPaymentAmount is CalendarMetadata) {
@@ -6639,6 +6641,7 @@ AND p.organization_id IN (
                 year = ${monthly_leave_dates.year},
                 month = ${monthly_leave_dates.month},
                 organization_id = ${monthly_leave_dates.organization_id},
+                batch_id = ${monthly_leave_dates.batch_id},
                 leave_dates = ${leaveDatesString},
                 daily_amount = ${dailyAmount}
             WHERE id = ${id};`
@@ -6651,13 +6654,13 @@ AND p.organization_id IN (
         return new (id);
     }
 
-    isolated resource function get monthly_leave_dates_record_by_id(int organization_id, int year, int month) returns MonthlyLeaveDatesData|error? {
-        if ((organization_id is int) && (year is int) && (month is int)) {
+    isolated resource function get monthly_leave_dates_record_by_id(int organization_id,int batch_id,int year, int month) returns MonthlyLeaveDatesData|error? {
+        if ((organization_id is int) && (batch_id is int) && (year is int) && (month is int)) {
 
             MonthlyLeaveDates|error? monthly_leave_dates_raw = db_client->queryRow(
             `SELECT *
             FROM monthly_leave_dates
-            WHERE organization_id = ${organization_id} and 
+            WHERE organization_id = ${organization_id} and batch_id = ${batch_id} and 
             year = ${year} and month = ${month} ;`);
 
             if (monthly_leave_dates_raw is MonthlyLeaveDates) {
@@ -6669,6 +6672,7 @@ AND p.organization_id IN (
                     year: null,
                     month: null,
                     organization_id: null,
+                    batch_id: null,
                     leave_dates_list: [],
                     daily_amount: null,
                     created: null,
@@ -6681,14 +6685,14 @@ AND p.organization_id IN (
         }
     }
 
-    isolated resource function get calendar_metadata_by_org_id(int organization_id) returns CalendarMetaData|error? {
+    isolated resource function get calendar_metadata_by_org_id(int organization_id,int batch_id) returns CalendarMetaData|error? {
 
-        if (organization_id is int) {
+        if (organization_id is int && batch_id is int) {
 
             CalendarMetadata|error? calendar_metadata_raw = db_client->queryRow(
             `SELECT *
             FROM calendar_metadata
-            WHERE organization_id = ${organization_id} ;`);
+            WHERE organization_id = ${organization_id} and batch_id = ${batch_id};`);
 
             if (calendar_metadata_raw is CalendarMetadata) {
                 return new (0, calendar_metadata_raw);
@@ -6697,6 +6701,7 @@ AND p.organization_id IN (
                 CalendarMetadata emptyCalendarMetadata = {
                     id: null,
                     organization_id: organization_id,
+                    batch_id: null,
                     monthly_payment_amount: 0.0
                 };
                 return new (0, emptyCalendarMetadata);

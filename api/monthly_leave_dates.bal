@@ -57,6 +57,12 @@ public isolated service class MonthlyLeaveDatesData {
         }
     }
 
+    isolated resource function get batch_id() returns int?|error {
+        lock {
+            return self.monthly_leave_dates.batch_id;
+        }
+    }
+
     isolated resource function get leave_dates_list() returns int[]?|error {
      string[] strArray;
 
