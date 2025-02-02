@@ -153,18 +153,30 @@ service /graphql on new graphql:Listener(4000) {
         return organizationListDatas;
     }
 
-    isolated resource function get student_list_by_parent(int? id) returns PersonData[]|error? {
+    isolated resource function get student_list_by_parent(int? parent_organization_id,int? batch_id) returns PersonData[]|error? {
         stream<Person, error?> studentList;
+        
+      if(parent_organization_id !=null){
+        
         lock {
             studentList = db_client->query(
                 `SELECT * FROM person WHERE avinya_type_id IN (37, 10, 96) AND organization_id in
                 (SELECT child_org_id FROM parent_child_organization WHERE parent_org_id IN
                 (SELECT organization_id FROM organization_metadata WHERE organization_id IN
-                (SELECT id FROM organization WHERE id in (SELECT child_org_id FROM parent_child_organization WHERE parent_org_id = 2 ) AND avinya_type = 86)
+                (SELECT id FROM organization WHERE id in (SELECT child_org_id FROM parent_child_organization WHERE parent_org_id = ${parent_organization_id} ) AND avinya_type = 86)
                 AND organization_id IN (SELECT organization_id FROM organization_metadata WHERE key_name = 'start_date' AND CURRENT_DATE() >= value)
                 AND organization_id IN (SELECT organization_id FROM organization_metadata WHERE key_name = 'end_date' AND CURRENT_DATE() <= value)));`
             );
         }
+       
+      }else{
+        lock{
+            studentList = db_client->query(
+                `SELECT * FROM person WHERE avinya_type_id IN (37, 10, 96) AND organization_id in
+                  (SELECT child_org_id FROM parent_child_organization WHERE parent_org_id = ${batch_id});`
+            );
+        }
+      }
 
         PersonData[] studentListDatas = [];
 
@@ -1638,7 +1650,7 @@ service /graphql on new graphql:Listener(4000) {
         return attendnaceDatas;
     }
 
-    isolated resource function get class_attendance_report(int? organization_id, int? parent_organization_id, int? activity_id, int? result_limit = 0, string? from_date = "", string? to_date = "") returns ActivityParticipantAttendanceData[]|error? {
+    isolated resource function get class_attendance_report(int? batch_id,int? organization_id, int? parent_organization_id, int? activity_id, int? result_limit = 0, string? from_date = "", string? to_date = "") returns ActivityParticipantAttendanceData[]|error? {
         stream<ActivityParticipantAttendance, error?> attendance_records;
 
         time:Utc startTime = time:utcNow();
@@ -1685,7 +1697,20 @@ service /graphql on new graphql:Listener(4000) {
                         ORDER BY created DESC;`
                     );
                     }
-                } else {
+                }else if(batch_id != null){
+
+                    lock {
+                        attendance_records = db_client->query(
+                            `SELECT *
+                            FROM activity_participant_attendance
+                            WHERE person_id in (SELECT id FROM person WHERE avinya_type_id IN (37, 10, 96) AND
+                            organization_id in (SELECT id FROM organization WHERE id in (SELECT child_org_id FROM parent_child_organization WHERE parent_org_id = ${batch_id}) AND avinya_type IN (87, 10, 96)))
+                            AND activity_instance_id in (SELECT id FROM activity_instance WHERE activity_id = ${activity_id}) 
+                            AND DATE(sign_in_time) BETWEEN ${from_date} AND ${to_date}
+                            ORDER BY DATE(sign_in_time),created DESC;`
+                        );
+                    }
+                }else {
                     lock {
                         attendance_records = db_client->query(
                             `SELECT *
@@ -6546,11 +6571,11 @@ AND p.organization_id IN (
             `SELECT *
             FROM monthly_leave_dates
             WHERE year = ${monthly_leave_dates.year} and month = ${monthly_leave_dates.month} and
-            organization_id = ${monthly_leave_dates.organization_id};`
+            organization_id = ${monthly_leave_dates.organization_id} and batch_id = ${monthly_leave_dates.batch_id};`
         );
 
         if (monthlyLeaveDatesRaw is MonthlyLeaveDates) {
-            return error("A record for this organization id already exists for the same year and month.");
+            return error("A record for this organization id & batch id already exists for the same year and month.");
         }
 
         int[] leaveDates = monthly_leave_dates.leave_dates_list;
@@ -6569,7 +6594,7 @@ AND p.organization_id IN (
         CalendarMetadata|error? monthlyPaymentAmount = check db_client->queryRow(
             `SELECT *
             FROM calendar_metadata
-            WHERE organization_id = ${monthly_leave_dates.organization_id};`
+            WHERE organization_id = ${monthly_leave_dates.organization_id} and batch_id = ${monthly_leave_dates.batch_id};`
         );
 
         if (monthlyPaymentAmount is CalendarMetadata) {
@@ -6581,12 +6606,14 @@ AND p.organization_id IN (
                 year,
                 month,
                 organization_id,
+                batch_id,
                 leave_dates,
                 daily_amount
             ) VALUES (
                 ${monthly_leave_dates.year},
                 ${monthly_leave_dates.month},
                 ${monthly_leave_dates.organization_id},
+                ${monthly_leave_dates.batch_id},
                 ${leaveDatesString},
                 ${dailyAmount}
             );`
@@ -6627,7 +6654,7 @@ AND p.organization_id IN (
         CalendarMetadata|error? monthlyPaymentAmount = check db_client->queryRow(
             `SELECT *
             FROM calendar_metadata
-            WHERE organization_id = ${monthly_leave_dates.organization_id};`
+            WHERE organization_id = ${monthly_leave_dates.organization_id} and batch_id = ${monthly_leave_dates.batch_id};`
         );
 
         if (monthlyPaymentAmount is CalendarMetadata) {
@@ -6639,6 +6666,7 @@ AND p.organization_id IN (
                 year = ${monthly_leave_dates.year},
                 month = ${monthly_leave_dates.month},
                 organization_id = ${monthly_leave_dates.organization_id},
+                batch_id = ${monthly_leave_dates.batch_id},
                 leave_dates = ${leaveDatesString},
                 daily_amount = ${dailyAmount}
             WHERE id = ${id};`
@@ -6651,13 +6679,13 @@ AND p.organization_id IN (
         return new (id);
     }
 
-    isolated resource function get monthly_leave_dates_record_by_id(int organization_id, int year, int month) returns MonthlyLeaveDatesData|error? {
-        if ((organization_id is int) && (year is int) && (month is int)) {
+    isolated resource function get monthly_leave_dates_record_by_id(int organization_id,int batch_id,int year, int month) returns MonthlyLeaveDatesData|error? {
+        if ((organization_id is int) && (batch_id is int) && (year is int) && (month is int)) {
 
             MonthlyLeaveDates|error? monthly_leave_dates_raw = db_client->queryRow(
             `SELECT *
             FROM monthly_leave_dates
-            WHERE organization_id = ${organization_id} and 
+            WHERE organization_id = ${organization_id} and batch_id = ${batch_id} and 
             year = ${year} and month = ${month} ;`);
 
             if (monthly_leave_dates_raw is MonthlyLeaveDates) {
@@ -6669,6 +6697,7 @@ AND p.organization_id IN (
                     year: null,
                     month: null,
                     organization_id: null,
+                    batch_id: null,
                     leave_dates_list: [],
                     daily_amount: null,
                     created: null,
@@ -6681,14 +6710,14 @@ AND p.organization_id IN (
         }
     }
 
-    isolated resource function get calendar_metadata_by_org_id(int organization_id) returns CalendarMetaData|error? {
+    isolated resource function get calendar_metadata_by_org_id(int organization_id,int batch_id) returns CalendarMetaData|error? {
 
-        if (organization_id is int) {
+        if (organization_id is int && batch_id is int) {
 
             CalendarMetadata|error? calendar_metadata_raw = db_client->queryRow(
             `SELECT *
             FROM calendar_metadata
-            WHERE organization_id = ${organization_id} ;`);
+            WHERE organization_id = ${organization_id} and batch_id = ${batch_id};`);
 
             if (calendar_metadata_raw is CalendarMetadata) {
                 return new (0, calendar_metadata_raw);
@@ -6697,6 +6726,7 @@ AND p.organization_id IN (
                 CalendarMetadata emptyCalendarMetadata = {
                     id: null,
                     organization_id: organization_id,
+                    batch_id: null,
                     monthly_payment_amount: 0.0
                 };
                 return new (0, emptyCalendarMetadata);
