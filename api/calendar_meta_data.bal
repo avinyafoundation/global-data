@@ -42,6 +42,13 @@ public isolated service class CalendarMetaData {
         }
     }
 
+    isolated resource function get batch_id() returns int?|error {
+        lock {
+            return self.calendar_metadata.batch_id;
+        }
+    }
+
+
     isolated resource function get monthly_payment_amount() returns decimal?|error {
         lock {
             return self.calendar_metadata.monthly_payment_amount;

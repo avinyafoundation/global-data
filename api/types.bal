@@ -699,6 +699,7 @@ public type CalendarMetadata record {|
     readonly string? record_type = "calendar_metadata";
     int id?;
     int? organization_id;
+    int? batch_id;
     decimal? monthly_payment_amount;
 |};
 
@@ -709,6 +710,7 @@ public type MonthlyLeaveDates record {|
     int? month;
     int? total_days_in_month;
     int? organization_id;
+    int? batch_id;
     int[] leave_dates_list;
     string? leave_dates;
     decimal? daily_amount;
