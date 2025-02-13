@@ -205,6 +205,23 @@ service /graphql on new graphql:Listener(4000) {
         );
 
         if (personJwtId is Person) {
+
+            int? organization_id = personJwtId.organization_id;
+            Organization|error? orgRaw = db_client->queryRow(
+                                        `SELECT *
+                                        FROM organization o
+                                        WHERE  o.id = ${organization_id};`
+                                    );
+
+            if(orgRaw is Organization){
+                int? org_avinya_type = orgRaw.avinya_type;
+                if(org_avinya_type == 95){
+                    personJwtId.is_graduated = true;
+                }else{
+                    personJwtId.is_graduated = false;
+                }
+            }
+
             return new ((), 0, personJwtId);
         }
         return error("Unable to find person by digital id");
@@ -6732,6 +6749,146 @@ AND p.organization_id IN (
                 return new (0, emptyCalendarMetadata);
             }
         }
+    }
+
+    //Alumni Graphql methods start from here
+    remote function create_alumni(Person person,Address? mailing_address, City? mailing_address_city,Alumni alumni) returns PersonData|error?{
+
+        int id = person.id ?: 0;
+
+        if (id == 0) {
+            return error("Unable to update person record");
+        }
+
+        //starting the transaction
+        boolean first_db_transaction_fail = false;
+        boolean second_db_transaction_fail = false;
+
+        sql:ExecutionResult mailing_address_res;
+        int|string? mailing_address_insert_id = null;
+
+        string message = "";
+        sql:ExecutionResult personUpdateResponse;
+
+     transaction {
+            int mailing_address_id = mailing_address?.id ?: 0;
+
+            Address|error? mailing_address_raw = db_client->queryRow(
+                                                    `SELECT *
+                                                    FROM address
+                                                    WHERE id = ${mailing_address_id};`
+                                                    );
+
+            if (mailing_address_raw is Address) {
+
+                io:println("Mailing Address is already exists!");
+
+                if (mailing_address != null && mailing_address_city != null) {
+
+                    mailing_address_res = check db_client->execute(
+                    `UPDATE address SET
+                        street_address = ${mailing_address?.street_address},
+                        phone = ${mailing_address?.phone},
+                        city_id = ${mailing_address_city?.id}
+                    WHERE id = ${mailing_address_id};`);
+
+                    mailing_address_insert_id = mailing_address_id;
+
+                    if (mailing_address_res.affectedRowCount == sql:EXECUTION_FAILED) {
+                        first_db_transaction_fail = true;
+                        io:println("Unable to update mailing address record");
+                        message = "Unable to update mailing address record";
+                    }
+                }
+
+            } else {
+
+                if (mailing_address != null && mailing_address_city != null) {
+
+                    mailing_address_res = check db_client->execute(
+                    `INSERT INTO address(
+                            street_address,
+                            phone,
+                            city_id
+                    ) VALUES(
+                        ${mailing_address?.street_address},
+                        ${mailing_address?.phone},
+                        ${mailing_address_city?.id}
+                    );`
+                );
+
+                    mailing_address_insert_id = mailing_address_res.lastInsertId;
+
+                    if !(mailing_address_insert_id is int) {
+                        first_db_transaction_fail = true;
+                        io:println("Unable to insert mailing address");
+                        message = "Unable to insert mailing address";
+                    }
+                }
+
+            }
+            int person_id = person.id ?: 0;
+
+            Person|error? personRaw = db_client->queryRow(
+                                        `SELECT *
+                                        FROM person p
+                                        p.id = ${person.id};`
+                                    );
+
+            if (personRaw is Person) {
+                io:println("Person already exists.");
+
+                personUpdateResponse = check db_client->execute(
+                    `UPDATE person SET
+                        full_name = ${person.full_name},
+                        email = ${person.email},
+                        phone = ${person.phone},
+                        mailing_address_id = ${mailing_address_insert_id}
+                    WHERE id = ${person_id};`);
+            }
+
+            sql:ExecutionResult insert_alumni_res = check db_client->execute(
+                                                `INSERT INTO alumni(
+                                                  status,
+                                                  company_name,
+                                                  job_title,
+                                                  linkedin_id,
+                                                  facebook_id,
+                                                  instagram_id,
+                                                  updated_by
+                                                ) VALUES (
+                                                  ${alumni.status},
+                                                  ${alumni.company_name},
+                                                  ${alumni.job_title},
+                                                  ${alumni.linkedin_id},
+                                                  ${alumni.facebook_id},
+                                                  ${alumni.instagram_id},
+                                                  ${alumni.updated_by}
+                                                );`);
+
+            int|string? insert_alumni_id = insert_alumni_res.lastInsertId;
+
+            if !(insert_alumni_id is int) {
+                second_db_transaction_fail = true;
+                io:println("Unable to insert alumni");
+                message = "Unable to insert alumni";
+            }
+
+
+            if (first_db_transaction_fail ||
+                second_db_transaction_fail ) {
+               
+                rollback;
+                return error(message);                
+            } else {
+
+                // Commit the transaction if three updates are successful
+                check commit;
+                io:println("Transaction committed successfully!");
+                return new (null, <int?>insert_alumni_id);
+            }
+        }
+
     }
 
     // remote function onError(error err) returns http:Response {
