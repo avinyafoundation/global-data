@@ -320,4 +320,16 @@ public isolated service class PersonData {
         }
     }
 
+    isolated resource function get alumni_id() returns int? {
+        lock {
+            return self.person.alumni_id;
+        }
+    }
+
+    isolated resource function get is_graduated() returns boolean? {
+        lock {
+            return self.person.is_graduated;
+        }
+    }
+
 }

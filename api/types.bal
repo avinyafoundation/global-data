@@ -136,8 +136,10 @@ public type Person record {|
     string? branch_code;
     string? current_job;
     int? documents_id;
+    int? alumni_id;
     int? created_by;
     int? updated_by;
+    boolean? is_graduated;
 |};
 
 type ParentChildStudent record {|
@@ -742,6 +744,53 @@ public type OrganizationFolderMapping record {|
     int id?;
     int? organization_id;
     string? organization_folder_id;
+|};
+
+public type Alumni record {|
+    readonly string? record_type = "alumni";
+    int id?;
+    string? status;
+    string? company_name;
+    string? job_title;
+    string? linkedin_id;
+    string? facebook_id;
+    string? instagram_id;
+    string? updated_by;
+    string? created;
+    string? updated;
+|};
+
+public type AlumniEducationQualifications record {|
+    readonly string? record_type = "alumni_education_qualifications";
+    int id?;
+    int? person_id;
+    string? university_name;
+    string? course_name;
+    boolean? is_currently_studying;
+    string? start_date;
+    string? end_date;
+    string? created;
+    string? updated;
+|};
+
+public type AlumniWorkExperience record {|
+    readonly string? record_type = "alumni_work_experience";
+    int id?;
+    int? person_id;
+    string? company_name;
+    string? job_title;
+    boolean? currently_working;
+    string? start_date;
+    string? end_date;
+    string? created;
+    string? updated;
+|};
+
+public type EventGift record {|
+    readonly string? record_type = "event_gift";
+    int id?;
+    decimal? gift_amount;
+    int? no_of_gifts;
 |};
 
 public type ErrorDetail record {|
