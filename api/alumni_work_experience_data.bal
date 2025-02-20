@@ -53,7 +53,7 @@ public isolated service class AlumniWorkExperienceData {
         }
     }
 
-    isolated resource function get currently_working() returns boolean?|error {
+    isolated resource function get currently_working() returns int?|error {
         lock {
             return self.alumni_work_experience.currently_working;
         }
