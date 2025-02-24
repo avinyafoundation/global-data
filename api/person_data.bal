@@ -326,10 +326,70 @@ public isolated service class PersonData {
         }
     }
 
+    isolated resource function get alumni() returns AlumniData|error? {
+        int id = 0;
+        lock {
+            id = self.person.alumni_id ?: 0;
+            if (id == 0) {
+                return null; // no point in querying if alumni id is null
+            }
+        }
+
+        return new AlumniData(id);
+    }
+
     isolated resource function get is_graduated() returns boolean? {
         lock {
             return self.person.is_graduated;
         }
+    }
+
+    isolated resource function get alumni_education_qualifications() returns AlumniEducationQualificationData[]|error? {
+        // Get list of alumni education qualifications
+        stream<AlumniEducationQualification, error?> alumni_education_qualification_ids;
+        lock {
+            alumni_education_qualification_ids = db_client->query(
+                `SELECT id
+                FROM alumni_education_qualifications
+                WHERE person_id = ${self.person.id}`
+            );
+        }
+
+        AlumniEducationQualificationData[] alumni_education_qualifications = [];
+
+        check from AlumniEducationQualification aeq in alumni_education_qualification_ids
+            do {
+                AlumniEducationQualificationData|error alumni_education_qualification = new AlumniEducationQualificationData(aeq.id);
+                if !(alumni_education_qualification is error) {
+                    alumni_education_qualifications.push(alumni_education_qualification);
+                }
+            };
+        check alumni_education_qualification_ids.close();
+        return alumni_education_qualifications;
+    }
+
+    isolated resource function get alumni_work_experience() returns AlumniWorkExperienceData[]|error? {
+        // Get list of alumni work experience
+        stream<AlumniWorkExperience, error?> alumni_work_experience_ids;
+        lock {
+            alumni_work_experience_ids = db_client->query(
+                `SELECT id
+                FROM alumni_work_experience
+                WHERE person_id = ${self.person.id}`
+            );
+        }
+
+        AlumniWorkExperienceData[] alumni_work_experiences = [];
+
+        check from AlumniWorkExperience awe in alumni_work_experience_ids
+            do {
+                AlumniWorkExperienceData|error alumni_work_experience = new AlumniWorkExperienceData(awe.id);
+                if !(alumni_work_experience is error) {
+                    alumni_work_experiences.push(alumni_work_experience);
+                }
+            };
+        check alumni_work_experience_ids.close();
+        return alumni_work_experiences;
     }
 
 }

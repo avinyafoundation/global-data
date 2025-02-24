@@ -120,6 +120,7 @@ public type Person record {|
     string? email;
     Address? permanent_address;
     Address? mailing_address;
+    Alumni? alumni;
     string? created;
     string? updated;
     int[] child_student?;
@@ -744,6 +745,23 @@ public type OrganizationFolderMapping record {|
     int id?;
     int? organization_id;
     string? organization_folder_id;
+    string? profile_pictures_folder_id;
+|};
+
+public type PersonProfilePicture record {|
+    readonly string? record_type = "person_profile_picutres";
+    int id?;
+    int? person_id;
+    int? organization_id;
+    string? picture_id;
+    string? picture;
+|};
+
+public type PersonProfileFolder record {|
+    readonly string? record_type = "person_profile_folder";
+    int id?;
+    int? person_id;
+    string? profile_folder_id;
 |};
 
 public type Alumni record {|
@@ -760,13 +778,13 @@ public type Alumni record {|
     string? updated;
 |};
 
-public type AlumniEducationQualifications record {|
-    readonly string? record_type = "alumni_education_qualifications";
+public type AlumniEducationQualification record {|
+    readonly string? record_type = "alumni_education_qualification";
     int id?;
     int? person_id;
     string? university_name;
     string? course_name;
-    boolean? is_currently_studying;
+    int? is_currently_studying;
     string? start_date;
     string? end_date;
     string? created;
@@ -779,7 +797,7 @@ public type AlumniWorkExperience record {|
     int? person_id;
     string? company_name;
     string? job_title;
-    boolean? currently_working;
+    int? currently_working;
     string? start_date;
     string? end_date;
     string? created;
