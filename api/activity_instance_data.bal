@@ -1,12 +1,14 @@
 public isolated service class ActivityInstanceData {
     private ActivityInstance activity_instance;
+    private int? person_id=-1;
 
-    isolated function init(string? name = null, int? activity_id = 0, ActivityInstance? activity_instance = null) returns error? {
+    isolated function init(string? name = null, int? activity_id = 0, ActivityInstance? activity_instance = null,int? person_id = 0) returns error? {
         if(activity_instance != null) { // if activity_instance is provided, then use that and do not load from DB
+            self.person_id = person_id;
             self.activity_instance = activity_instance.cloneReadOnly();
             return;
         }
-
+        
         string _name = "%" + (name ?: "") + "%";
         int id = activity_id ?: 0;
 
@@ -25,7 +27,6 @@ public isolated service class ActivityInstanceData {
             WHERE
                 name_en LIKE ${_name};`);
         }
-        
         self.activity_instance = activity_instance_raw.cloneReadOnly();
     }
 
@@ -38,6 +39,12 @@ public isolated service class ActivityInstanceData {
     isolated resource function get name() returns string? {
         lock {
                 return self.activity_instance.name;
+        }
+    }
+
+    isolated resource function get location() returns string? {
+        lock {
+            return self.activity_instance.location;
         }
     }
 
@@ -148,6 +155,36 @@ public isolated service class ActivityInstanceData {
         check activityParticipants.close();
         return activityParticipantDatas;
     }
+    
+    isolated resource function get activity_participant() returns ActivityParticipantData|error? {
+        ActivityParticipant|error? activity_participant_raw;
+     
+      lock{
+        activity_participant_raw = db_client->queryRow(
+            `SELECT *
+            FROM activity_participant
+            WHERE activity_instance_id = ${self.activity_instance.id} and person_id = ${self.person_id};`);
+       }
+
+            if (activity_participant_raw is ActivityParticipant) {
+                return new (0,activity_participant_raw);
+            } else {
+            // Return a new empty Activity Participant object if no record is found
+               ActivityParticipant activity_participant_empty_data = {
+                    activity_instance_id: -1,
+                    person_id: -1,
+                    organization_id: -1,
+                    start_date: "",
+                    end_date: "",
+                    role: "",
+                    notes: "",
+                    is_attending: -1,
+                    created: "",
+                    updated: ""
+                };
+                return new (0, activity_participant_empty_data);
+            }
+    }
 
     isolated resource function get activity_participant_attendances() returns ActivityParticipantAttendanceData[]|error? {
         stream<ActivityParticipantAttendance, error?> activityParticipantAttendances;
@@ -195,6 +232,63 @@ public isolated service class ActivityInstanceData {
 
         check evaluations.close();
         return evaluationDatas;
+    }
+    isolated resource function get event_gift() returns EventGiftData|error? {
+        
+        EventGift|error? event_gift_raw;
+
+        lock {
+            event_gift_raw = db_client->queryRow(
+            `SELECT *
+            FROM event_gift
+            WHERE activity_instance_id = ${self.activity_instance.id};`);
+        }
+
+        if (event_gift_raw is EventGift) {
+
+            return new (0,0,event_gift_raw);
+
+        } else {
+
+            // Return a new empty event gift object if no record is found
+            EventGift event_gift_empty_data = {
+                activity_instance_id: -1,
+                gift_amount: -1,
+                no_of_gifts: -1,
+                notes: "",
+                description: ""
+            };
+            return new (0,0,event_gift_empty_data);
+        }
+    }
+
+    isolated resource function get activity_evaluation() returns ActivityInstanceEvaluationData|error? {
+        ActivityInstanceEvaluation|error? activity_instance_evaluation_raw;
+     
+      lock{
+            activity_instance_evaluation_raw = db_client->queryRow(
+            `SELECT *
+            FROM activity_instance_evaluation
+            WHERE activity_instance_id = ${self.activity_instance.id} and evaluator_id = ${self.person_id};`);
+       }
+
+            if (activity_instance_evaluation_raw is ActivityInstanceEvaluation) {
+            
+                return new (0,activity_instance_evaluation_raw);
+            
+            } else {
+
+            // Return a new empty Activity Evaluation object if no record is found
+            ActivityInstanceEvaluation activity_evaluation_empty_data = {
+                    activity_instance_id: -1,
+                    evaluator_id: -1,
+                    feedback: "",
+                    rating: -1,
+                    created: "",
+                    updated: ""
+                };
+                return new (0, activity_evaluation_empty_data);
+            }
     }
     
 }
