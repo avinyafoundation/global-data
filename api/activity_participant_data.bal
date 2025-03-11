@@ -7,6 +7,7 @@ public isolated service class ActivityParticipantData {
         end_date: "" ,
         role: "" ,
         notes: "" ,
+        is_attending:-1,
         created: "",
         updated: ""
      };
@@ -31,15 +32,27 @@ public isolated service class ActivityParticipantData {
         
     }
 
-    isolated resource function get id() returns int? {
+    isolated resource function get id() returns int?|error {
         lock {
                 return self.activity_participant.id;
         }
     }
 
-    isolated resource function get activity_instance_id() returns int? {
+    isolated resource function get activity_instance_id() returns int?|error {
         lock {
                 return self.activity_participant.activity_instance_id;
+        }
+    }
+
+    isolated resource function get person_id() returns int?|error {
+        lock {
+            return self.activity_participant.person_id;
+        }
+    }
+
+    isolated resource function get organization_id() returns int?|error {
+        lock {
+            return self.activity_participant.organization_id;
         }
     }
 
@@ -68,37 +81,43 @@ public isolated service class ActivityParticipantData {
         return new OrganizationData((), id);
     }
 
-    isolated resource function get start_date() returns string? {
+    isolated resource function get start_date() returns string?|error {
         lock {
                 return self.activity_participant.start_date;
         }
     }
 
-    isolated resource function get end_date() returns string? {
+    isolated resource function get end_date() returns string?|error {
         lock {
                 return self.activity_participant.end_date;
         }
     }
 
-    isolated resource function get role() returns string? {
+    isolated resource function get role() returns string?|error {
         lock {
                 return self.activity_participant.role;
         }
     }
 
-    isolated resource function get notes() returns string? {
+    isolated resource function get notes() returns string?|error {
         lock {
                 return self.activity_participant.notes;
         }
     }
 
-    isolated resource function get created() returns string? {
+    isolated resource function get is_attending() returns int?|error {
+        lock {
+            return self.activity_participant.is_attending;
+        }
+    }
+
+    isolated resource function get created() returns string?|error {
         lock {
                 return self.activity_participant.created;
         }
     }
 
-    isolated resource function get updated() returns string? {
+    isolated resource function get updated() returns string?|error {
         lock {
                 return self.activity_participant.updated;
         }

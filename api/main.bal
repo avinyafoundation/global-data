@@ -7381,6 +7381,270 @@ AND p.organization_id IN (
 
     }
 
+    remote function create_activity_participant(ActivityParticipant activity_participant) returns ActivityParticipantData|error? {
+                
+            sql:ExecutionResult activity_participant_res;
+            int|string? activity_participant_insert_id = null;
+
+            ActivityParticipant|error? activity_participant_raw =  db_client->queryRow(
+                                                    `SELECT *
+                                                    FROM activity_participant
+                                                    WHERE activity_instance_id = ${activity_participant.activity_instance_id} and person_id = ${activity_participant.person_id};`
+                                                    );
+
+            if (activity_participant_raw is ActivityParticipant) {
+
+                activity_participant_res = check db_client->execute(
+                    `UPDATE activity_participant SET
+                        is_attending = ${activity_participant.is_attending}
+                    WHERE id = ${activity_participant.id};`);
+
+                    activity_participant_insert_id = activity_participant.id;
+
+                    if (activity_participant_res.affectedRowCount == sql:EXECUTION_FAILED) {
+                        return error("Execution failed.Unable to update activity participant record");
+                    }
+
+            } else {
+
+                activity_participant_res = check db_client->execute(
+                    `INSERT INTO activity_participant(
+                            activity_instance_id,
+                            person_id,
+                            organization_id,
+                            is_attending
+                    ) VALUES(
+                        ${activity_participant.activity_instance_id},
+                        ${activity_participant.person_id},
+                        ${activity_participant.organization_id},
+                        ${activity_participant.is_attending}
+                    );`
+                );
+                
+                activity_participant_insert_id = activity_participant_res.lastInsertId;
+                if !(activity_participant_insert_id is int) {
+                    return error("Unable to insert activity participant record.");
+                }
+
+            }
+        return new(<int?>activity_participant_insert_id);
+
+    }
+
+    //create feedback & rating for a event
+    remote function create_activity_instance_evaluation(ActivityInstanceEvaluation activity_instance_evaluation) returns ActivityInstanceEvaluationData|error? {
+
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO activity_instance_evaluation(
+                activity_instance_id,
+                evaluator_id,
+                feedback,
+                rating
+            ) VALUES (
+                ${activity_instance_evaluation.activity_instance_id},
+                ${activity_instance_evaluation.evaluator_id},
+                ${activity_instance_evaluation.feedback},
+                ${activity_instance_evaluation.rating}
+            );`
+        );
+
+        int|string? insert_id = res.lastInsertId;
+        if !(insert_id is int) {
+            return error("Unable to insert activity instance evaluation record");
+        }
+
+        return new (insert_id);
+    }
+
+    isolated resource function get upcoming_events(int? person_id) returns ActivityInstanceData[]|error? {
+
+        int id = person_id ?: 0;
+        if (id == 0) {
+            return error("Person Id cannot be zero");
+        }
+
+        int? alum_class_id =0;
+        int? alum_batch_id =0;
+        int? alum_branch_id=0; //bandaragama or gradpass
+        int? alum_org_id   =1; //Avinya Foundation
+
+        Person|error? personRow = check db_client->queryRow(
+            `SELECT *
+            FROM person
+            WHERE id = ${person_id};`
+        );
+
+        if (personRow is Person) {
+
+            alum_class_id = personRow.organization_id;
+            ParentChildOrganization|error? alum_batch_raw = check db_client->queryRow(
+                                                    `SELECT *
+                                                        FROM parent_child_organization
+                                                        WHERE child_org_id = ${alum_class_id};`
+                                                    );
+            if(alum_batch_raw is ParentChildOrganization){
+
+                alum_batch_id = alum_batch_raw.parent_org_id;
+
+                ParentChildOrganization|error? alum_branch_raw = check db_client->queryRow(
+                                                    `SELECT *
+                                                        FROM parent_child_organization
+                                                        WHERE child_org_id = ${alum_batch_id};`
+                                                    );
+
+                if(alum_branch_raw is ParentChildOrganization){
+                    alum_branch_id = alum_branch_raw.parent_org_id;
+
+                }
+            }
+
+        }
+        
+        io:println(alum_class_id);
+        io:println(alum_batch_id);
+        io:println(alum_branch_id);
+        io:println(alum_org_id);
+
+
+        if(alum_class_id == 0 || alum_batch_id == 0 ||
+           alum_branch_id == 0 || alum_org_id == 0){
+
+          return error("class id or batch id or branch id cannot be zero");
+
+        }
+
+        stream<ActivityInstance, error?> upcoming_events_data;
+
+        lock {
+            upcoming_events_data = db_client->query(
+                    `SELECT *
+                     FROM activity_instance
+                     WHERE start_time > NOW() and activity_id=20
+                     ORDER BY start_time ASC;`);
+        }
+        
+        
+        ActivityInstanceData[] upcomingEventDatas = [];
+
+        check from ActivityInstance upcoming_event_data_record in upcoming_events_data
+                        
+            do {
+
+               int? org_id = upcoming_event_data_record.organization_id;
+
+               if(org_id == alum_class_id ||
+                  org_id == alum_batch_id ||
+                  org_id == alum_branch_id ||
+                  org_id == alum_org_id){
+                
+                ActivityInstanceData|error upcomingEventData = new ActivityInstanceData(null, 0, upcoming_event_data_record,person_id);
+                
+                if !(upcomingEventData is error) {
+                    upcomingEventDatas.push(upcomingEventData);
+                }else{
+                    io:println("error");
+                }
+
+                }
+            };
+
+        check upcoming_events_data.close();
+        return upcomingEventDatas;
+    }
+
+    isolated resource function get completed_events(int? person_id) returns ActivityInstanceData[]|error? {
+        
+        int id = person_id ?: 0;
+        if (id == 0) {
+            return error("Person Id cannot be zero");
+        }
+
+        int? alum_class_id =0;
+        int? alum_batch_id =0;
+        int? alum_branch_id=0; //bandaragama or gradpass
+        int? alum_org_id   =1; //Avinya Foundation
+
+        Person|error? personRow = check db_client->queryRow(
+            `SELECT organization_id
+            FROM person
+            WHERE id = ${person_id};`
+        );
+
+        if (personRow is Person) {
+
+            alum_class_id = personRow.organization_id;
+
+            ParentChildOrganization|error? alum_batch_raw = check db_client->queryRow(
+                                                    `SELECT *
+                                                        FROM parent_child_organization
+                                                        WHERE child_org_id = ${alum_class_id};`
+                                                    );
+            if(alum_batch_raw is ParentChildOrganization){
+
+                alum_batch_id = alum_batch_raw.parent_org_id;
+
+                ParentChildOrganization|error? alum_branch_raw = check db_client->queryRow(
+                                                    `SELECT *
+                                                        FROM parent_child_organization
+                                                        WHERE child_org_id = ${alum_batch_id};`
+                                                    );
+
+                if(alum_branch_raw is ParentChildOrganization){
+                    alum_branch_id = alum_branch_raw.parent_org_id;
+                }
+            }
+
+        }
+        
+        io:println(alum_class_id);
+        io:println(alum_batch_id);
+        io:println(alum_branch_id);
+        io:println(alum_org_id);
+
+
+        if(alum_class_id == 0 || alum_batch_id == 0 ||
+           alum_branch_id == 0 || alum_org_id == 0){
+
+          return error("class id or batch id or branch id cannot be zero");
+
+        }
+        
+        
+        stream<ActivityInstance, error?> completed_events_data;
+
+        lock {
+            completed_events_data = db_client->query(
+                    `SELECT *
+                     FROM activity_instance
+                     WHERE end_time < NOW() and activity_id=20
+                     ORDER BY end_time DESC;`);
+        }
+        
+        
+        ActivityInstanceData[] completedEventDatas = [];
+
+        check from ActivityInstance completed_event_data_record in completed_events_data
+            do {
+
+               int? org_id = completed_event_data_record.organization_id;
+               
+               if(org_id == alum_class_id ||
+                  org_id == alum_batch_id ||
+                  org_id == alum_branch_id ||
+                  org_id == alum_org_id){
+
+                    ActivityInstanceData|error completedEventData = new ActivityInstanceData(null, 0, completed_event_data_record,person_id);
+                    if !(completedEventData is error) {
+                        completedEventDatas.push(completedEventData);
+                    }
+                  
+                }
+            };
+
+        check completed_events_data.close();
+        return completedEventDatas;
+    }
+
 }
 
 isolated  function getProfilePicture(drive:Client driveClient,string id) returns PersonProfilePicture|error{

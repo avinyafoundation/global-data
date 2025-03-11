@@ -406,6 +406,7 @@ public type ActivityInstance record {|
     int? activity_id;
     string? name;
     int? place_id;
+    string? location;
     int? organization_id;
     int? daily_sequence;
     int? weekly_sequence;
@@ -428,6 +429,7 @@ public type ActivityParticipant record {|
     string? end_date;
     string? role;
     string? notes;
+    int? is_attending;
     string? created;
     string? updated;
 |};
@@ -807,9 +809,25 @@ public type AlumniWorkExperience record {|
 public type EventGift record {|
     readonly string? record_type = "event_gift";
     int id?;
+    int? activity_instance_id;
     decimal? gift_amount;
     int? no_of_gifts;
+    string? notes;
+    string? description;
 |};
+
+public type ActivityInstanceEvaluation record {|
+    readonly string? record_type = "activity_instance_evaluation";
+    int id?;
+    int? activity_instance_id;
+    int? evaluator_id;
+    string? feedback;
+    int? rating;
+    string? created;
+    string? updated;
+|};
+
+
 
 public type ErrorDetail record {|
     string message;
