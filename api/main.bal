@@ -113,11 +113,11 @@ service /graphql on new graphql:Listener(4000) {
         return new (name, id);
     }
 
-    isolated resource function get organizations_by_avinya_type(int? avinya_type, int? active = 0) returns OrganizationData[]|error? {
+    isolated resource function get organizations_by_avinya_type(int? avinya_type, int? active) returns OrganizationData[]|error? {
 
         stream<Organization, error?> org_list;
 
-        if (active == 1) {
+        if (active == 1 || active == 0) {
 
             lock {
                 org_list = db_client->query(
@@ -6341,8 +6341,6 @@ AND p.organization_id IN (
        
         return new (user_document.id);
     }
-
-    
     
     isolated resource function get document_list(int id) returns DocumentsData[]|error? {
 
@@ -7386,6 +7384,7 @@ AND p.organization_id IN (
             sql:ExecutionResult activity_participant_res;
             int|string? activity_participant_insert_id = null;
 
+
             ActivityParticipant|error? activity_participant_raw =  db_client->queryRow(
                                                     `SELECT *
                                                     FROM activity_participant
@@ -7645,6 +7644,77 @@ AND p.organization_id IN (
         return completedEventDatas;
     }
 
+    isolated resource function get alumni_persons(int? parent_organization_id) returns PersonData[]|error? {
+        
+        stream<Person, error?> alumni_persons_data;
+
+        if (parent_organization_id != null) {
+         lock {
+                alumni_persons_data = db_client->query(
+                    `SELECT p.id,p.preferred_name,p.full_name,p.email,p.phone,p.alumni_id
+                        FROM person p
+                        JOIN organization o_class ON p.organization_id = o_class.id AND o_class.avinya_type = 95
+                        JOIN parent_child_organization pco_class ON o_class.id = pco_class.child_org_id
+                        JOIN organization o_batch ON pco_class.parent_org_id = o_batch.id AND o_batch.avinya_type = 86
+                        JOIN parent_child_organization pco ON o_batch.id = pco.child_org_id
+                        JOIN organization o_branch ON pco.parent_org_id = o_branch.id
+                        WHERE o_branch.id = ${parent_organization_id};`);
+            }
+
+        }else {
+            return error("Provide non-null value for parent organization id.");
+        }
+        PersonData[] alumniPersonsData = [];
+
+        check from Person alumni_person_data_record in alumni_persons_data
+            do {
+                PersonData|error alumniPersonData = new PersonData(null, 0, alumni_person_data_record);
+                if !(alumniPersonData is error) {
+                    alumniPersonsData.push(alumniPersonData);
+                }
+            };
+
+        check alumni_persons_data.close();
+        return alumniPersonsData;
+
+    }
+
+    isolated resource function get alumni_summary(int? alumni_batch_id) returns AlumniData[]|error? {
+        
+        stream<Alumni, error?> alumni_summary_data;
+
+        if (alumni_batch_id != null) {
+         lock {
+                alumni_summary_data = db_client->query(
+                    `SELECT 
+                        a.status, 
+                        COUNT(p.id) AS person_count
+                        FROM person p
+                        JOIN alumni a ON p.alumni_id = a.id
+                        JOIN parent_child_organization po ON p.organization_id = po.child_org_id
+                        WHERE po.parent_org_id = ${alumni_batch_id}
+                        GROUP BY a.status;`);
+            }
+
+        }else {
+            return error("Provide non-null value for alumni batch id.");
+        }
+
+        AlumniData[] alumniSummaryData = [];
+
+        check from Alumni alumni_summary_data_record in alumni_summary_data
+            do {
+                AlumniData|error alumniSummaryRecordData = new AlumniData(0,alumni_summary_data_record);
+                if !(alumniSummaryRecordData is error) {
+                    alumniSummaryData.push(alumniSummaryRecordData);
+                }
+            };
+
+        check alumni_summary_data.close();
+        return alumniSummaryData;
+      
+    }
+    
 }
 
 isolated  function getProfilePicture(drive:Client driveClient,string id) returns PersonProfilePicture|error{

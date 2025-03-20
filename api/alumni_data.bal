@@ -88,4 +88,10 @@ public isolated service class AlumniData {
             return self.alumni.updated;
         }
     }
+
+    isolated resource function get person_count() returns int?|error {
+        lock {
+            return self.alumni.person_count;
+        }
+    }
 }

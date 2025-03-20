@@ -776,6 +776,7 @@ public type Alumni record {|
     string? facebook_id;
     string? instagram_id;
     string? updated_by;
+    int? person_count;
     string? created;
     string? updated;
 |};
@@ -833,3 +834,10 @@ public type ErrorDetail record {|
     string message;
     int errorCode;
 |};
+
+public type AlumniSummary record {|
+    readonly string? record_type = "alumni_summary";
+    string? status;
+    int? person_count;
+|};
+
