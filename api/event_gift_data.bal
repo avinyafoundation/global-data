@@ -2,7 +2,7 @@ public isolated service class EventGiftData {
 
     private EventGift event_gift = {
         activity_instance_id: -1,
-        gift_amount: -1,
+        gift_amount: 0.0,
         no_of_gifts: -1,
         notes: "",
         description: ""

@@ -7384,6 +7384,7 @@ AND p.organization_id IN (
             sql:ExecutionResult activity_participant_res;
             int|string? activity_participant_insert_id = null;
 
+
             ActivityParticipant|error? activity_participant_raw =  db_client->queryRow(
                                                     `SELECT *
                                                     FROM activity_participant
