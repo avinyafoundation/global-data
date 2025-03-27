@@ -71,6 +71,12 @@ public isolated service class AlumniData {
         }
     }
 
+    isolated resource function get tiktok_id() returns string?|error {
+        lock {
+            return self.alumni.tiktok_id;
+        }
+    }
+
     isolated resource function get updated_by() returns string?|error {
         lock {
             return self.alumni.updated_by;

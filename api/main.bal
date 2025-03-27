@@ -6835,6 +6835,7 @@ AND p.organization_id IN (
                                                   linkedin_id,
                                                   facebook_id,
                                                   instagram_id,
+                                                  tiktok_id,
                                                   updated_by
                                                 ) VALUES (
                                                   ${alumni.status},
@@ -6843,6 +6844,7 @@ AND p.organization_id IN (
                                                   ${alumni.linkedin_id},
                                                   ${alumni.facebook_id},
                                                   ${alumni.instagram_id},
+                                                  ${alumni.tiktok_id},
                                                   ${alumni.updated_by}
                                                 );`);
 
@@ -6985,6 +6987,7 @@ AND p.organization_id IN (
                                                     linkedin_id = ${alumni.linkedin_id},
                                                     facebook_id = ${alumni.facebook_id},
                                                     instagram_id = ${alumni.instagram_id},
+                                                    tiktok_id = ${alumni.tiktok_id},
                                                     updated_by = ${alumni.updated_by}
                                                 WHERE id = ${alumni.id};`);
 
@@ -7651,7 +7654,7 @@ AND p.organization_id IN (
         if (parent_organization_id != null) {
          lock {
                 alumni_persons_data = db_client->query(
-                    `SELECT p.id,p.preferred_name,p.full_name,p.email,p.phone,p.alumni_id
+                    `SELECT p.id,p.preferred_name,p.full_name,p.email,p.phone,p.nic_no,p.alumni_id
                         FROM person p
                         JOIN organization o_class ON p.organization_id = o_class.id AND o_class.avinya_type = 95
                         JOIN parent_child_organization pco_class ON o_class.id = pco_class.child_org_id
