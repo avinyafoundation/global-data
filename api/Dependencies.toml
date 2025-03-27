@@ -115,7 +115,7 @@ modules = [
 [[package]]
 org = "ballerina"
 name = "http"
-version = "2.10.19"
+version = "2.10.21"
 dependencies = [
 	{org = "ballerina", name = "auth"},
 	{org = "ballerina", name = "cache"},
@@ -400,7 +400,7 @@ dependencies = [
 [[package]]
 org = "ballerina"
 name = "websocket"
-version = "2.10.3"
+version = "2.10.4"
 dependencies = [
 	{org = "ballerina", name = "auth"},
 	{org = "ballerina", name = "constraint"},

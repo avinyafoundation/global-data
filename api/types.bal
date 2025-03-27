@@ -120,6 +120,7 @@ public type Person record {|
     string? email;
     Address? permanent_address;
     Address? mailing_address;
+    Alumni? alumni;
     string? created;
     string? updated;
     int[] child_student?;
@@ -136,8 +137,10 @@ public type Person record {|
     string? branch_code;
     string? current_job;
     int? documents_id;
+    int? alumni_id;
     int? created_by;
     int? updated_by;
+    boolean? is_graduated;
 |};
 
 type ParentChildStudent record {|
@@ -403,6 +406,7 @@ public type ActivityInstance record {|
     int? activity_id;
     string? name;
     int? place_id;
+    string? location;
     int? organization_id;
     int? daily_sequence;
     int? weekly_sequence;
@@ -425,6 +429,7 @@ public type ActivityParticipant record {|
     string? end_date;
     string? role;
     string? notes;
+    int? is_attending;
     string? created;
     string? updated;
 |};
@@ -742,9 +747,98 @@ public type OrganizationFolderMapping record {|
     int id?;
     int? organization_id;
     string? organization_folder_id;
+    string? profile_pictures_folder_id;
 |};
+
+public type PersonProfilePicture record {|
+    readonly string? record_type = "person_profile_picutres";
+    int id?;
+    int? person_id;
+    int? organization_id;
+    string? picture_id;
+    string? picture;
+|};
+
+public type PersonProfileFolder record {|
+    readonly string? record_type = "person_profile_folder";
+    int id?;
+    int? person_id;
+    string? profile_folder_id;
+|};
+
+public type Alumni record {|
+    readonly string? record_type = "alumni";
+    int id?;
+    string? status;
+    string? company_name;
+    string? job_title;
+    string? linkedin_id;
+    string? facebook_id;
+    string? instagram_id;
+    string? tiktok_id;
+    string? updated_by;
+    int? person_count;
+    string? created;
+    string? updated;
+|};
+
+public type AlumniEducationQualification record {|
+    readonly string? record_type = "alumni_education_qualification";
+    int id?;
+    int? person_id;
+    string? university_name;
+    string? course_name;
+    int? is_currently_studying;
+    string? start_date;
+    string? end_date;
+    string? created;
+    string? updated;
+|};
+
+public type AlumniWorkExperience record {|
+    readonly string? record_type = "alumni_work_experience";
+    int id?;
+    int? person_id;
+    string? company_name;
+    string? job_title;
+    int? currently_working;
+    string? start_date;
+    string? end_date;
+    string? created;
+    string? updated;
+|};
+
+public type EventGift record {|
+    readonly string? record_type = "event_gift";
+    int id?;
+    int? activity_instance_id;
+    decimal? gift_amount;
+    int? no_of_gifts;
+    string? notes;
+    string? description;
+|};
+
+public type ActivityInstanceEvaluation record {|
+    readonly string? record_type = "activity_instance_evaluation";
+    int id?;
+    int? activity_instance_id;
+    int? evaluator_id;
+    string? feedback;
+    int? rating;
+    string? created;
+    string? updated;
+|};
+
+
 
 public type ErrorDetail record {|
     string message;
     int errorCode;
 |};
+
+public type AlumniSummary record {|
+    readonly string? record_type = "alumni_summary";
+    string? status;
+    int? person_count;
+|};
+

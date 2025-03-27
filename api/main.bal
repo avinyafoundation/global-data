@@ -113,11 +113,11 @@ service /graphql on new graphql:Listener(4000) {
         return new (name, id);
     }
 
-    isolated resource function get organizations_by_avinya_type(int? avinya_type, int? active = 0) returns OrganizationData[]|error? {
+    isolated resource function get organizations_by_avinya_type(int? avinya_type, int? active) returns OrganizationData[]|error? {
 
         stream<Organization, error?> org_list;
 
-        if (active == 1) {
+        if (active == 1 || active == 0) {
 
             lock {
                 org_list = db_client->query(
@@ -205,6 +205,23 @@ service /graphql on new graphql:Listener(4000) {
         );
 
         if (personJwtId is Person) {
+
+            int? organization_id = personJwtId.organization_id;
+            Organization|error? orgRaw = db_client->queryRow(
+                                        `SELECT *
+                                        FROM organization o
+                                        WHERE  o.id = ${organization_id};`
+                                    );
+
+            if(orgRaw is Organization){
+                int? org_avinya_type = orgRaw.avinya_type;
+                if(org_avinya_type == 95){
+                    personJwtId.is_graduated = true;
+                }else{
+                    personJwtId.is_graduated = false;
+                }
+            }
+
             return new ((), 0, personJwtId);
         }
         return error("Unable to find person by digital id");
@@ -6324,8 +6341,6 @@ AND p.organization_id IN (
        
         return new (user_document.id);
     }
-
-    
     
     isolated resource function get document_list(int id) returns DocumentsData[]|error? {
 
@@ -6734,12 +6749,997 @@ AND p.organization_id IN (
         }
     }
 
-    // remote function onError(error err) returns http:Response {
-    //     http:Response response = new;
-    //     response.statusCode = 400;
-    //     response.setPayload({message: err.message()});
-    //     return response;
-    // }
+    //Alumni Graphql methods start from here
+    remote function create_alumni(Person person,Address? mailing_address, City? mailing_address_city,Alumni alumni) returns PersonData|error? {
+
+        int id = person.id ?: 0;
+
+        if (id == 0) {
+            return error("Unable to update person record");
+        }
+
+        //starting the transaction
+        boolean first_db_transaction_fail = false;
+        boolean second_db_transaction_fail = false;
+        boolean third_db_transaction_fail = false;
+
+
+        sql:ExecutionResult mailing_address_res;
+        int|string? mailing_address_insert_id = null;
+
+        string message = "";
+
+     transaction {
+            int mailing_address_id = mailing_address?.id ?: 0;
+
+            Address|error? mailing_address_raw = db_client->queryRow(
+                                                    `SELECT *
+                                                    FROM address
+                                                    WHERE id = ${mailing_address_id};`
+                                                    );
+
+            if (mailing_address_raw is Address) {
+
+                io:println("Mailing Address is already exists!");
+
+                if (mailing_address != null && mailing_address_city != null) {
+
+                    mailing_address_res = check db_client->execute(
+                    `UPDATE address SET
+                        street_address = ${mailing_address?.street_address},
+                        phone = ${mailing_address?.phone},
+                        city_id = ${mailing_address_city?.id}
+                    WHERE id = ${mailing_address_id};`);
+
+                    mailing_address_insert_id = mailing_address_id;
+
+                    if (mailing_address_res.affectedRowCount == sql:EXECUTION_FAILED) {
+                        first_db_transaction_fail = true;
+                        io:println("Unable to update mailing address record");
+                        message = "Unable to update mailing address record";
+                    }
+                }
+
+            } else {
+
+                if (mailing_address != null && mailing_address_city != null) {
+
+                    mailing_address_res = check db_client->execute(
+                    `INSERT INTO address(
+                            street_address,
+                            phone,
+                            city_id
+                    ) VALUES(
+                        ${mailing_address?.street_address},
+                        ${mailing_address?.phone},
+                        ${mailing_address_city?.id}
+                    );`
+                );
+
+                    mailing_address_insert_id = mailing_address_res.lastInsertId;
+
+                    if !(mailing_address_insert_id is int) {
+                        first_db_transaction_fail = true;
+                        io:println("Unable to insert mailing address");
+                        message = "Unable to insert mailing address";
+                    }
+                }
+
+            }
+
+            sql:ExecutionResult insert_alumni_res = check db_client->execute(
+                                                `INSERT INTO alumni(
+                                                  status,
+                                                  company_name,
+                                                  job_title,
+                                                  linkedin_id,
+                                                  facebook_id,
+                                                  instagram_id,
+                                                  tiktok_id,
+                                                  updated_by
+                                                ) VALUES (
+                                                  ${alumni.status},
+                                                  ${alumni.company_name},
+                                                  ${alumni.job_title},
+                                                  ${alumni.linkedin_id},
+                                                  ${alumni.facebook_id},
+                                                  ${alumni.instagram_id},
+                                                  ${alumni.tiktok_id},
+                                                  ${alumni.updated_by}
+                                                );`);
+
+            int|string? insert_alumni_id = insert_alumni_res.lastInsertId;
+
+            if !(insert_alumni_id is int) {
+                second_db_transaction_fail = true;
+                io:println("Unable to insert alumni");
+                message = "Unable to insert alumni";
+            }
+
+            int person_id = person.id ?: 0;
+
+            Person|error? personRaw = db_client->queryRow(
+                                        `SELECT *
+                                        FROM person p
+                                        WHERE p.id = ${person_id};`
+                                    );
+
+            if (personRaw is Person) {
+                io:println("Person already exists.");
+
+                sql:ExecutionResult personUpdateResponse = check db_client->execute(
+                    `UPDATE person SET
+                        full_name = ${person.full_name},
+                        email = ${person.email},
+                        phone = ${person.phone},
+                        mailing_address_id = ${mailing_address_insert_id},
+                        alumni_id = ${insert_alumni_id}
+                    WHERE id = ${person_id};`);
+
+                 if (personUpdateResponse.affectedRowCount == sql:EXECUTION_FAILED) {
+                    third_db_transaction_fail = true;
+                    io:println("Unable to update person record");
+                    message = "Unable to update person record";
+                 }
+            }
+
+            if (first_db_transaction_fail ||
+                second_db_transaction_fail ||
+                third_db_transaction_fail
+                ) {
+               
+                rollback;
+                return error(message);                
+            } else {
+
+                // Commit the transaction if three updates are successful
+                check commit;
+                io:println("Transaction committed successfully!");
+                return new (null, <int?>person_id);
+            }
+        }
+
+    }
+
+    remote function update_alumni(Person person,Address? mailing_address, City? mailing_address_city,Alumni alumni) returns PersonData|error? {
+
+        int id = person.id ?: 0;
+
+        if (id == 0) {
+            return error("Unable to update person record");
+        }
+
+        //starting the transaction
+        boolean first_db_transaction_fail = false;
+        boolean second_db_transaction_fail = false;
+        boolean third_db_transaction_fail = false;
+
+
+        sql:ExecutionResult mailing_address_res;
+        int|string? mailing_address_insert_id = null;
+
+        string message = "";
+
+     transaction {
+
+            int mailing_address_id = mailing_address?.id ?: 0;
+
+            Address|error? mailing_address_raw = db_client->queryRow(
+                                                    `SELECT *
+                                                    FROM address
+                                                    WHERE id = ${mailing_address_id};`
+                                                    );
+
+            if (mailing_address_raw is Address) {
+
+                io:println("Mailing Address is already exists!");
+
+                if (mailing_address != null && mailing_address_city != null) {
+
+                    mailing_address_res = check db_client->execute(
+                    `UPDATE address SET
+                        street_address = ${mailing_address?.street_address},
+                        phone = ${mailing_address?.phone},
+                        city_id = ${mailing_address_city?.id}
+                    WHERE id = ${mailing_address_id};`);
+
+                    mailing_address_insert_id = mailing_address_id;
+
+                    if (mailing_address_res.affectedRowCount == sql:EXECUTION_FAILED) {
+                        first_db_transaction_fail = true;
+                        io:println("Unable to update mailing address record");
+                        message = "Unable to update mailing address record";
+                    }
+                }
+
+            } else {
+
+                if (mailing_address != null && mailing_address_city != null) {
+
+                    mailing_address_res = check db_client->execute(
+                    `INSERT INTO address(
+                            street_address,
+                            phone,
+                            city_id
+                    ) VALUES(
+                        ${mailing_address?.street_address},
+                        ${mailing_address?.phone},
+                        ${mailing_address_city?.id}
+                    );`
+                );
+
+                    mailing_address_insert_id = mailing_address_res.lastInsertId;
+
+                    if !(mailing_address_insert_id is int) {
+                        first_db_transaction_fail = true;
+                        io:println("Unable to insert mailing address");
+                        message = "Unable to insert mailing address";
+                    }
+                }
+
+            }
+            
+            sql:ExecutionResult update_alumni_res = check db_client->execute(
+                                             `UPDATE alumni SET
+                                                    status = ${alumni.status},
+                                                    company_name = ${alumni.company_name},
+                                                    job_title = ${alumni.job_title},
+                                                    linkedin_id = ${alumni.linkedin_id},
+                                                    facebook_id = ${alumni.facebook_id},
+                                                    instagram_id = ${alumni.instagram_id},
+                                                    tiktok_id = ${alumni.tiktok_id},
+                                                    updated_by = ${alumni.updated_by}
+                                                WHERE id = ${alumni.id};`);
+
+              if (update_alumni_res.affectedRowCount == sql:EXECUTION_FAILED) {
+                second_db_transaction_fail = true;
+                io:println("Unable to update alumni record");
+                message = "Unable to update alumni record";
+            }
+
+            int person_id = person.id ?: 0;
+
+            Person|error? personRaw = db_client->queryRow(
+                                        `SELECT *
+                                        FROM person p
+                                       WHERE p.id = ${person_id};`
+                                    );
+
+            if (personRaw is Person) {
+
+                sql:ExecutionResult personUpdateResponse = check db_client->execute(
+                    `UPDATE person SET
+                        full_name = ${person.full_name},
+                        email = ${person.email},
+                        phone = ${person.phone},
+                        mailing_address_id = ${mailing_address_insert_id}
+                    WHERE id = ${person_id};`);
+
+                 if (personUpdateResponse.affectedRowCount == sql:EXECUTION_FAILED) {
+                    third_db_transaction_fail = true;
+                    io:println("Unable to update person record");
+                    message = "Unable to update person record";
+                 }
+            }
+
+            if (first_db_transaction_fail ||
+                second_db_transaction_fail ||
+                third_db_transaction_fail
+                ) {
+
+                rollback;
+                return error(message);
+            } else {
+
+                // Commit the transaction if three updates are successful
+                check commit;
+                io:println("Transaction committed successfully!");
+                return new (null, <int?>person_id);
+            }
+
+        }
+
+    }
+
+    remote function create_alumni_education_qualification(AlumniEducationQualification alumni_education_qualification) returns AlumniEducationQualificationData|error? {
+
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO alumni_education_qualifications(
+                person_id,
+                university_name,
+                course_name,
+                is_currently_studying,
+                start_date,
+                end_date
+            ) VALUES (
+                ${alumni_education_qualification.person_id},
+                ${alumni_education_qualification.university_name},
+                ${alumni_education_qualification.course_name},
+                ${alumni_education_qualification.is_currently_studying},
+                ${alumni_education_qualification.start_date},
+                ${alumni_education_qualification.end_date}
+            );`
+        );
+
+        int|string? insert_id = res.lastInsertId;
+        if !(insert_id is int) {
+            return error("Unable to insert Alumni Education Qualification record");
+        }
+
+        return new (insert_id);
+    }
+
+    remote function create_alumni_work_experience(AlumniWorkExperience alumni_work_experience) returns AlumniWorkExperienceData|error? {
+
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO alumni_work_experience(
+                person_id,
+                company_name,
+                job_title,
+                currently_working,
+                start_date,
+                end_date
+            ) VALUES (
+                ${alumni_work_experience.person_id},
+                ${alumni_work_experience.company_name},
+                ${alumni_work_experience.job_title},
+                ${alumni_work_experience.currently_working},
+                ${alumni_work_experience.start_date},
+                ${alumni_work_experience.end_date}
+            );`
+        );
+
+        int|string? insert_id = res.lastInsertId;
+        if !(insert_id is int) {
+            return error("Unable to insert Alumni Work Experience record");
+        }
+
+        return new (insert_id);
+    }
+
+    remote function update_alumni_education_qualification(AlumniEducationQualification alumni_education_qualification) returns AlumniEducationQualificationData|error? {
+        int id = alumni_education_qualification.id ?: 0;
+        if (id == 0) {
+            return error("Alumni education qualification record ID cannot be zero");
+        }
+
+        sql:ExecutionResult res = check db_client->execute(
+            `UPDATE alumni_education_qualifications SET
+                university_name = ${alumni_education_qualification.university_name},
+                course_name = ${alumni_education_qualification.course_name},
+                is_currently_studying = ${alumni_education_qualification.is_currently_studying},
+                start_date = ${alumni_education_qualification.start_date},
+                end_date = ${alumni_education_qualification.end_date}
+            WHERE id = ${id};`
+        );
+
+        if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+            return error("Unable to update alumni education qualification record");
+        }
+
+        return new (id);
+    }
+
+    remote function update_alumni_work_experience(AlumniWorkExperience alumni_work_experience) returns AlumniWorkExperienceData|error? {
+        int id = alumni_work_experience.id ?: 0;
+        if (id == 0) {
+            return error("Alumni work experience record ID cannot be zero");
+        }
+
+        sql:ExecutionResult res = check db_client->execute(
+            `UPDATE alumni_work_experience SET
+                company_name = ${alumni_work_experience.company_name},
+                job_title = ${alumni_work_experience.job_title},
+                currently_working = ${alumni_work_experience.currently_working},
+                start_date = ${alumni_work_experience.start_date},
+                end_date = ${alumni_work_experience.end_date}
+            WHERE id = ${id};`
+        );
+
+        if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+            return error("Unable to update alumni work experience record");
+        }
+
+        return new (id);
+    }
+
+    remote function delete_alumni_education_qualification_by_id(int? id) returns int?|error? {
+
+        sql:ExecutionResult res = check db_client->execute(
+            `DELETE FROM alumni_education_qualifications WHERE id = ${id};`
+        );
+
+        int? delete_id = res.affectedRowCount;
+        io:println(delete_id);
+        if (delete_id <= 0) {
+            return error("Unable to delete alumni education qualification with id: " + id.toString());
+        }
+
+        return delete_id;
+
+    }
+
+
+    remote function delete_alumni_work_experience_by_id(int? id) returns int?|error? {
+
+        sql:ExecutionResult res = check db_client->execute(
+            `DELETE FROM alumni_work_experience WHERE id = ${id};`
+        );
+
+        int? delete_id = res.affectedRowCount;
+        io:println(delete_id);
+        if (delete_id <= 0) {
+            return error("Unable to delete work experience with id: " + id.toString());
+        }
+
+        return delete_id;
+    }
+    
+    isolated resource function get alumni_education_qualification_by_id(int? id) returns AlumniEducationQualificationData|error? {
+        if (id != null) {
+            return new (id);
+        } else {
+            return error("Provide non-null value for id.");
+        }
+    }
+
+    
+    isolated resource function get alumni_work_experience_by_id(int? id) returns AlumniWorkExperienceData|error? {
+        if (id != null) {
+            return new (id);
+        } else {
+            return error("Provide non-null value for id.");
+        }
+    }
+
+    remote function upload_alumni_picture(PersonProfilePicture person_profile_picture) returns PersonProfilePictureData|error?{
+
+        string uploadContent = person_profile_picture.picture.toString();
+        byte[] base64DecodedDocument = <byte[]>(check mime:base64Decode(uploadContent.toBytes()));
+        string personProfileFolderId = "";
+        string orgProfilePictureFolderId = "";
+        drive:File|error create_picture_response;
+        string created_file_id = "";
+        int|string? inserted_picture_record_id = null;
+
+        drive:Client driveClient = check getDriveClient();
+        
+
+        PersonProfileFolder|error personProfileFolderRaw = db_client->queryRow(
+                                        `SELECT *
+                                        FROM person_profile_folder
+                                        WHERE id = ${person_profile_picture.person_id};`
+                                    );
+
+        if (personProfileFolderRaw is PersonProfileFolder) {
+
+            personProfileFolderId = personProfileFolderRaw.profile_folder_id ?: "";
+
+            create_picture_response = 
+            driveClient->uploadFileUsingByteArray(base64DecodedDocument,"",personProfileFolderId);
+
+            if (create_picture_response is drive:File) {
+
+                created_file_id = create_picture_response?.id.toString();
+
+                sql:ExecutionResult res = check db_client->execute(
+                            `INSERT INTO person_profile_picutres(
+                                person_id,
+                                picture_id
+                            ) VALUES (
+                                ${person_profile_picture.person_id},
+                                ${created_file_id}
+                            );`
+                        );
+
+                        inserted_picture_record_id = res.lastInsertId;
+                        if !(inserted_picture_record_id is int) {
+                            return error("Unable to insert profile picture record");
+                        }
+            }else{
+                return error(create_picture_response.message());
+            }
+            
+        }else{
+
+        OrganizationFolderMapping|error orgFolderRaw = db_client->queryRow(
+                                        `SELECT *
+                                        FROM organization_folder_mapping orgFolMap
+                                        WHERE  orgFolMap.organization_id = ${person_profile_picture.organization_id};`
+                                    );
+
+        if (orgFolderRaw is OrganizationFolderMapping) {
+            orgProfilePictureFolderId = orgFolderRaw.profile_pictures_folder_id ?: "";
+        }else{
+            return error(orgFolderRaw.message());
+        }
+
+        drive:File|error create_profile_picture_folder_response = driveClient->createFolder(person_profile_picture.person_id.toString(),orgProfilePictureFolderId);
+    
+        string created_profile_picture_folder_id= "";
+
+        if (create_profile_picture_folder_response is drive:File) {
+
+        created_profile_picture_folder_id = create_profile_picture_folder_response?.id.toString();
+
+        sql:ExecutionResult res = check db_client->execute(
+                            `INSERT INTO person_profile_folder(
+                                person_id,
+                                profile_folder_id
+                            ) VALUES (
+                                ${person_profile_picture.person_id},
+                                ${created_profile_picture_folder_id}
+                            );`
+                        );
+
+                        int|string? insert_id = res.lastInsertId;
+                        if !(insert_id is int) {
+                            return error("Unable to insert profile picture folder record");
+                        }
+
+         create_picture_response = 
+            driveClient->uploadFileUsingByteArray(base64DecodedDocument,"",created_profile_picture_folder_id);
+
+            if (create_picture_response is drive:File) {
+
+                created_file_id = create_picture_response?.id.toString();
+
+                sql:ExecutionResult insert_res = check db_client->execute(
+                            `INSERT INTO person_profile_picutres(
+                                person_id,
+                                picture_id
+                            ) VALUES (
+                                ${person_profile_picture.person_id},
+                                ${created_file_id}
+                            );`
+                        );
+
+                        inserted_picture_record_id = insert_res.lastInsertId;
+                        if !(inserted_picture_record_id is int) {
+                            return error("Unable to insert profile picture record");
+                        }
+            }else{
+                return error(create_picture_response.message());
+            }
+
+        }else{
+            return error(create_profile_picture_folder_response.message());
+        }
+
+        }
+
+        return new (<int?>inserted_picture_record_id);
+    }
+
+    remote function delete_alumni_picture_by_id(PersonProfilePicture person_profile_picture) returns int?|error? {
+        
+        int? delete_id = 0;
+
+        drive:Client driveClient = check getDriveClient();
+        
+        boolean|error deleted_profile_picture_response = driveClient->deleteFile(person_profile_picture.picture_id ?: "");
+                    
+        if (deleted_profile_picture_response is boolean) {
+
+            sql:ExecutionResult res = check db_client->execute(
+            `DELETE FROM person_profile_picutres WHERE id = ${person_profile_picture.id};`);
+
+            delete_id = res.affectedRowCount;
+
+            if (delete_id <= 0) {
+                return error("Unable to delete person profile picture from db : " + person_profile_picture.id.toString());
+            }
+        } else {
+            return error(deleted_profile_picture_response.message());
+        }
+
+        return delete_id;
+    }
+
+    isolated resource function get alumni_profile_pictures(int person_id,int page) returns PersonProfilePictureData[]|error? {
+       
+        drive:Client driveClient = check getDriveClient();
+        PersonProfilePictureData[] profilePicturesData=[];
+        PersonProfilePicture[] profilePictureList=[];
+        stream<PersonProfilePicture, error?> profile_picture_data;
+        
+        int offset = (page - 1) * 5;
+
+        lock {
+            
+            if (person_id == 0) {
+                return null; // no point in querying if document id is null
+            }
+
+            profile_picture_data = db_client->query(
+                                    `SELECT *
+                                    FROM person_profile_picutres
+                                    WHERE
+                                    person_id = ${person_id}
+                                    ORDER BY id
+                                    LIMIT 4
+                                    OFFSET ${offset};`);
+
+           }
+
+          check from PersonProfilePicture profile_picture_data_record in profile_picture_data
+                do {
+                    PersonProfilePicture|error profile_picture_file = getProfilePicture(driveClient,profile_picture_data_record.picture_id.toString());
+                        if !(profile_picture_file is error) {
+                            profilePictureList.push(profile_picture_file);
+                        }
+                };
+
+          from PersonProfilePicture person_profile_picture in profilePictureList
+            do {
+                PersonProfilePictureData|error profilePictureData = new PersonProfilePictureData(0,0,person_profile_picture);
+                if !(profilePictureData is error) {
+                    profilePicturesData.push(profilePictureData);
+                }
+            };
+
+        return profilePicturesData;
+
+    }
+
+    remote function create_activity_participant(ActivityParticipant activity_participant) returns ActivityParticipantData|error? {
+                
+            sql:ExecutionResult activity_participant_res;
+            int|string? activity_participant_insert_id = null;
+
+
+            ActivityParticipant|error? activity_participant_raw =  db_client->queryRow(
+                                                    `SELECT *
+                                                    FROM activity_participant
+                                                    WHERE activity_instance_id = ${activity_participant.activity_instance_id} and person_id = ${activity_participant.person_id};`
+                                                    );
+
+            if (activity_participant_raw is ActivityParticipant) {
+
+                activity_participant_res = check db_client->execute(
+                    `UPDATE activity_participant SET
+                        is_attending = ${activity_participant.is_attending}
+                    WHERE id = ${activity_participant.id};`);
+
+                    activity_participant_insert_id = activity_participant.id;
+
+                    if (activity_participant_res.affectedRowCount == sql:EXECUTION_FAILED) {
+                        return error("Execution failed.Unable to update activity participant record");
+                    }
+
+            } else {
+
+                activity_participant_res = check db_client->execute(
+                    `INSERT INTO activity_participant(
+                            activity_instance_id,
+                            person_id,
+                            organization_id,
+                            is_attending
+                    ) VALUES(
+                        ${activity_participant.activity_instance_id},
+                        ${activity_participant.person_id},
+                        ${activity_participant.organization_id},
+                        ${activity_participant.is_attending}
+                    );`
+                );
+                
+                activity_participant_insert_id = activity_participant_res.lastInsertId;
+                if !(activity_participant_insert_id is int) {
+                    return error("Unable to insert activity participant record.");
+                }
+
+            }
+        return new(<int?>activity_participant_insert_id);
+
+    }
+
+    //create feedback & rating for a event
+    remote function create_activity_instance_evaluation(ActivityInstanceEvaluation activity_instance_evaluation) returns ActivityInstanceEvaluationData|error? {
+
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO activity_instance_evaluation(
+                activity_instance_id,
+                evaluator_id,
+                feedback,
+                rating
+            ) VALUES (
+                ${activity_instance_evaluation.activity_instance_id},
+                ${activity_instance_evaluation.evaluator_id},
+                ${activity_instance_evaluation.feedback},
+                ${activity_instance_evaluation.rating}
+            );`
+        );
+
+        int|string? insert_id = res.lastInsertId;
+        if !(insert_id is int) {
+            return error("Unable to insert activity instance evaluation record");
+        }
+
+        return new (insert_id);
+    }
+
+    isolated resource function get upcoming_events(int? person_id) returns ActivityInstanceData[]|error? {
+
+        int id = person_id ?: 0;
+        if (id == 0) {
+            return error("Person Id cannot be zero");
+        }
+
+        int? alum_class_id =0;
+        int? alum_batch_id =0;
+        int? alum_branch_id=0; //bandaragama or gradpass
+        int? alum_org_id   =1; //Avinya Foundation
+
+        Person|error? personRow = check db_client->queryRow(
+            `SELECT *
+            FROM person
+            WHERE id = ${person_id};`
+        );
+
+        if (personRow is Person) {
+
+            alum_class_id = personRow.organization_id;
+            ParentChildOrganization|error? alum_batch_raw = check db_client->queryRow(
+                                                    `SELECT *
+                                                        FROM parent_child_organization
+                                                        WHERE child_org_id = ${alum_class_id};`
+                                                    );
+            if(alum_batch_raw is ParentChildOrganization){
+
+                alum_batch_id = alum_batch_raw.parent_org_id;
+
+                ParentChildOrganization|error? alum_branch_raw = check db_client->queryRow(
+                                                    `SELECT *
+                                                        FROM parent_child_organization
+                                                        WHERE child_org_id = ${alum_batch_id};`
+                                                    );
+
+                if(alum_branch_raw is ParentChildOrganization){
+                    alum_branch_id = alum_branch_raw.parent_org_id;
+
+                }
+            }
+
+        }
+        
+        io:println(alum_class_id);
+        io:println(alum_batch_id);
+        io:println(alum_branch_id);
+        io:println(alum_org_id);
+
+
+        if(alum_class_id == 0 || alum_batch_id == 0 ||
+           alum_branch_id == 0 || alum_org_id == 0){
+
+          return error("class id or batch id or branch id cannot be zero");
+
+        }
+
+        stream<ActivityInstance, error?> upcoming_events_data;
+
+        lock {
+            upcoming_events_data = db_client->query(
+                    `SELECT *
+                     FROM activity_instance
+                     WHERE start_time > NOW() and activity_id=20
+                     ORDER BY start_time ASC;`);
+        }
+        
+        
+        ActivityInstanceData[] upcomingEventDatas = [];
+
+        check from ActivityInstance upcoming_event_data_record in upcoming_events_data
+                        
+            do {
+
+               int? org_id = upcoming_event_data_record.organization_id;
+
+               if(org_id == alum_class_id ||
+                  org_id == alum_batch_id ||
+                  org_id == alum_branch_id ||
+                  org_id == alum_org_id){
+                
+                ActivityInstanceData|error upcomingEventData = new ActivityInstanceData(null, 0, upcoming_event_data_record,person_id);
+                
+                if !(upcomingEventData is error) {
+                    upcomingEventDatas.push(upcomingEventData);
+                }else{
+                    io:println("error");
+                }
+
+                }
+            };
+
+        check upcoming_events_data.close();
+        return upcomingEventDatas;
+    }
+
+    isolated resource function get completed_events(int? person_id) returns ActivityInstanceData[]|error? {
+        
+        int id = person_id ?: 0;
+        if (id == 0) {
+            return error("Person Id cannot be zero");
+        }
+
+        int? alum_class_id =0;
+        int? alum_batch_id =0;
+        int? alum_branch_id=0; //bandaragama or gradpass
+        int? alum_org_id   =1; //Avinya Foundation
+
+        Person|error? personRow = check db_client->queryRow(
+            `SELECT organization_id
+            FROM person
+            WHERE id = ${person_id};`
+        );
+
+        if (personRow is Person) {
+
+            alum_class_id = personRow.organization_id;
+
+            ParentChildOrganization|error? alum_batch_raw = check db_client->queryRow(
+                                                    `SELECT *
+                                                        FROM parent_child_organization
+                                                        WHERE child_org_id = ${alum_class_id};`
+                                                    );
+            if(alum_batch_raw is ParentChildOrganization){
+
+                alum_batch_id = alum_batch_raw.parent_org_id;
+
+                ParentChildOrganization|error? alum_branch_raw = check db_client->queryRow(
+                                                    `SELECT *
+                                                        FROM parent_child_organization
+                                                        WHERE child_org_id = ${alum_batch_id};`
+                                                    );
+
+                if(alum_branch_raw is ParentChildOrganization){
+                    alum_branch_id = alum_branch_raw.parent_org_id;
+                }
+            }
+
+        }
+        
+        io:println(alum_class_id);
+        io:println(alum_batch_id);
+        io:println(alum_branch_id);
+        io:println(alum_org_id);
+
+
+        if(alum_class_id == 0 || alum_batch_id == 0 ||
+           alum_branch_id == 0 || alum_org_id == 0){
+
+          return error("class id or batch id or branch id cannot be zero");
+
+        }
+        
+        
+        stream<ActivityInstance, error?> completed_events_data;
+
+        lock {
+            completed_events_data = db_client->query(
+                    `SELECT *
+                     FROM activity_instance
+                     WHERE end_time < NOW() and activity_id=20
+                     ORDER BY end_time DESC;`);
+        }
+        
+        
+        ActivityInstanceData[] completedEventDatas = [];
+
+        check from ActivityInstance completed_event_data_record in completed_events_data
+            do {
+
+               int? org_id = completed_event_data_record.organization_id;
+               
+               if(org_id == alum_class_id ||
+                  org_id == alum_batch_id ||
+                  org_id == alum_branch_id ||
+                  org_id == alum_org_id){
+
+                    ActivityInstanceData|error completedEventData = new ActivityInstanceData(null, 0, completed_event_data_record,person_id);
+                    if !(completedEventData is error) {
+                        completedEventDatas.push(completedEventData);
+                    }
+                  
+                }
+            };
+
+        check completed_events_data.close();
+        return completedEventDatas;
+    }
+
+    isolated resource function get alumni_persons(int? parent_organization_id) returns PersonData[]|error? {
+        
+        stream<Person, error?> alumni_persons_data;
+
+        if (parent_organization_id != null) {
+         lock {
+                alumni_persons_data = db_client->query(
+                    `SELECT p.id,p.preferred_name,p.full_name,p.email,p.phone,p.nic_no,p.alumni_id
+                        FROM person p
+                        JOIN organization o_class ON p.organization_id = o_class.id AND o_class.avinya_type = 95
+                        JOIN parent_child_organization pco_class ON o_class.id = pco_class.child_org_id
+                        JOIN organization o_batch ON pco_class.parent_org_id = o_batch.id AND o_batch.avinya_type = 86
+                        JOIN parent_child_organization pco ON o_batch.id = pco.child_org_id
+                        JOIN organization o_branch ON pco.parent_org_id = o_branch.id
+                        WHERE o_branch.id = ${parent_organization_id};`);
+            }
+
+        }else {
+            return error("Provide non-null value for parent organization id.");
+        }
+        PersonData[] alumniPersonsData = [];
+
+        check from Person alumni_person_data_record in alumni_persons_data
+            do {
+                PersonData|error alumniPersonData = new PersonData(null, 0, alumni_person_data_record);
+                if !(alumniPersonData is error) {
+                    alumniPersonsData.push(alumniPersonData);
+                }
+            };
+
+        check alumni_persons_data.close();
+        return alumniPersonsData;
+
+    }
+
+    isolated resource function get alumni_summary(int? alumni_batch_id) returns AlumniData[]|error? {
+        
+        stream<Alumni, error?> alumni_summary_data;
+
+        if (alumni_batch_id != null) {
+         lock {
+                alumni_summary_data = db_client->query(
+                    `SELECT 
+                        a.status, 
+                        COUNT(p.id) AS person_count
+                        FROM person p
+                        JOIN alumni a ON p.alumni_id = a.id
+                        JOIN parent_child_organization po ON p.organization_id = po.child_org_id
+                        WHERE po.parent_org_id = ${alumni_batch_id}
+                        GROUP BY a.status;`);
+            }
+
+        }else {
+            return error("Provide non-null value for alumni batch id.");
+        }
+
+        AlumniData[] alumniSummaryData = [];
+
+        check from Alumni alumni_summary_data_record in alumni_summary_data
+            do {
+                AlumniData|error alumniSummaryRecordData = new AlumniData(0,alumni_summary_data_record);
+                if !(alumniSummaryRecordData is error) {
+                    alumniSummaryData.push(alumniSummaryRecordData);
+                }
+            };
+
+        check alumni_summary_data.close();
+        return alumniSummaryData;
+      
+    }
+    
+}
+
+isolated  function getProfilePicture(drive:Client driveClient,string id) returns PersonProfilePicture|error{
+    
+    PersonProfilePicture profile_picture = {
+        id:(),
+        organization_id: (),
+        person_id: (),
+        picture: (),
+        picture_id: ()
+    };
+    
+    drive:FileContent|error picture_file_stream = check driveClient->getFileContent(id);
+
+    if(picture_file_stream is  drive:FileContent){
+        string base64EncodedStringDocument = picture_file_stream.content.toBase64();
+        profile_picture.picture= base64EncodedStringDocument;
+    }else{
+        profile_picture.id = ();
+        profile_picture.picture = ();
+    }
+    return  profile_picture;
 
 }
 
