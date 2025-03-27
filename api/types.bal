@@ -775,6 +775,7 @@ public type Alumni record {|
     string? linkedin_id;
     string? facebook_id;
     string? instagram_id;
+    string? tiktok_id;
     string? updated_by;
     int? person_count;
     string? created;
