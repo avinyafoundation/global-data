@@ -1718,7 +1718,7 @@ service /graphql on new graphql:Listener(4000) {
 
                     lock {
                         attendance_records = db_client->query(
-                            `SELECT *
+                            `SELECT id,activity_instance_id,sign_in_time,person_id
                             FROM activity_participant_attendance
                             WHERE person_id in (SELECT id FROM person WHERE avinya_type_id IN (37, 10, 96) AND
                             organization_id in (SELECT id FROM organization WHERE id in (SELECT child_org_id FROM parent_child_organization WHERE parent_org_id = ${batch_id}) AND avinya_type IN (87, 10, 96)))
