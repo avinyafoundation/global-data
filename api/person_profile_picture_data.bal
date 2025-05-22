@@ -15,9 +15,14 @@ public isolated service class PersonProfilePictureData {
 
                 person_profile_picture_raw = check db_client->queryRow(
                 `SELECT *
-                FROM person_profile_picutres
+                FROM person_profile_pictures
                 WHERE id = ${id};`);
 
+            }else if(person_id > 0){
+                person_profile_picture_raw = check db_client->queryRow(
+                `SELECT *
+                FROM person_profile_pictures
+                WHERE person_id = ${person_id};`);
             }else {
                 return error("No id provided");
             }
@@ -37,9 +42,33 @@ public isolated service class PersonProfilePictureData {
         }
     }
 
-    isolated resource function get picture_id() returns string?|error {
+    isolated resource function get profile_picture_drive_id() returns string?|error {
         lock {
-            return self.person_profile_picture.picture_id;
+            return self.person_profile_picture.profile_picture_drive_id;
+        }
+    }
+
+    isolated resource function get uploaded_by() returns string?|error {
+        lock {
+            return self.person_profile_picture.uploaded_by;
+        }
+    }
+
+    isolated resource function get created() returns string?|error {
+        lock {
+            return self.person_profile_picture.created;
+        }
+    }
+
+    isolated resource function get updated() returns string?|error {
+        lock {
+            return self.person_profile_picture.updated;
+        }
+    }
+
+    isolated resource function get picture() returns string?|error {
+        lock {
+            return self.person_profile_picture.picture;
         }
     }
 }
