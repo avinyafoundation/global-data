@@ -141,6 +141,7 @@ public type Person record {|
     int? created_by;
     int? updated_by;
     boolean? is_graduated;
+    string? profile_picture_folder_id;
 |};
 
 type ParentChildStudent record {|
@@ -751,12 +752,15 @@ public type OrganizationFolderMapping record {|
 |};
 
 public type PersonProfilePicture record {|
-    readonly string? record_type = "person_profile_picutres";
+    readonly string? record_type = "person_profile_pictures";
     int id?;
     int? person_id;
-    int? organization_id;
-    string? picture_id;
+    string? profile_picture_drive_id;
     string? picture;
+    string? nic_no;
+    string? uploaded_by;
+    string? created;
+    string? updated;
 |};
 
 public type PersonProfileFolder record {|
@@ -764,6 +768,13 @@ public type PersonProfileFolder record {|
     int id?;
     int? person_id;
     string? profile_folder_id;
+|};
+
+public type SystemGoogleDriveFolder record {|
+    readonly string? record_type = "system_google_drive_folder_mappings";
+    int id?;
+    string? folder_key;
+    string? google_drive_folder_id;
 |};
 
 public type Alumni record {|
@@ -842,3 +853,6 @@ public type AlumniSummary record {|
     int? person_count;
 |};
 
+public type CountResult record {|
+   int? total;
+|};

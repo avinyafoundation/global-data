@@ -1,3 +1,4 @@
+import ballerinax/googleapis.drive;
 
 
 
@@ -392,4 +393,59 @@ public isolated service class PersonData {
         return alumni_work_experiences;
     }
 
+    isolated resource function get profile_picture() returns PersonProfilePictureData|error?{
+
+        drive:Client driveClient = check getDriveClient();
+
+
+        string? profilePictureDriveId="";
+        PersonProfilePicture|error personProfilePictureRaw;
+        PersonProfilePicture emptyPersonProfilePicture = {
+            id: 0,
+            person_id: 0,
+            profile_picture_drive_id: (),
+            picture: (),
+            nic_no: (),
+            uploaded_by: (),
+            created: (),
+            updated: ()
+        };
+
+       lock{
+            //Get the profile picture of user
+            personProfilePictureRaw = db_client->queryRow(
+                                                `SELECT *
+                                                FROM person_profile_pictures
+                                                WHERE person_id = ${self.person.id};`
+                                        );
+       }
+        
+        if(personProfilePictureRaw is PersonProfilePicture){
+            profilePictureDriveId = personProfilePictureRaw.profile_picture_drive_id ?: "";
+            PersonProfilePicture|error person_profile_picture = getProfilePicture(driveClient, profilePictureDriveId.toString());
+
+            if (person_profile_picture is PersonProfilePicture) {
+                person_profile_picture.id = personProfilePictureRaw.id;
+                PersonProfilePictureData|error personProfilePictureData = new PersonProfilePictureData(0, 0, person_profile_picture);
+                if !(personProfilePictureData is error) {
+                    return personProfilePictureData;
+                }
+            } else {
+                return error(person_profile_picture.message());
+            }
+
+        }else{
+            PersonProfilePictureData|error emptyPersonProfilePictureData = new PersonProfilePictureData(0,0,emptyPersonProfilePicture);
+            if !(emptyPersonProfilePictureData is error) {
+                return emptyPersonProfilePictureData;
+            }
+        }
+        return error("Failed to retrieve profile picture data.");
+    }
+
+    isolated resource function get profile_picture_folder_id() returns string? {
+        lock {
+            return self.person.profile_picture_folder_id;
+        }
+    }
 }
