@@ -14,6 +14,10 @@ configurable string GOOGLEDRIVECLIENTID = ?;
 configurable string GOOGLEDRIVECLIENTSECRET = ?;
 configurable string GOOGLEDRIVEREFRESHTOKEN = ?;
 configurable string GOOGLEDRIVEREFRESHURL = ?;
+configurable string GOOGLEDRIVEJOBSCVSCLIENTID = ?;
+configurable string GOOGLEDRIVEJOBSCVSCLIENTSECRET = ?;
+configurable string GOOGLEDRIVEJOBSCVSREFRESHTOKEN = ?;
+configurable string GOOGLEDRIVEJOBSCVSREFRESHURL = ?;
 
 service /graphql on new graphql:Listener(4000) {
     resource function get geo() returns GeoData {
@@ -7791,6 +7795,388 @@ AND p.organization_id IN (
 
     }
 
+    remote function create_job_post(JobPost job_post) returns JobPostData|error? {
+
+        if(job_post.job_type == "text"){
+
+           sql:ExecutionResult insert_job_post_res = check db_client->execute(
+                                                `INSERT INTO job_post(
+                                                  job_type,
+                                                  job_text,
+                                                  job_category_id,
+                                                  application_deadline,
+                                                  uploaded_by
+                                                ) VALUES (
+                                                  ${job_post.job_type},
+                                                  ${job_post.job_text},
+                                                  ${job_post.job_category_id},
+                                                  ${job_post.application_deadline},
+                                                  ${job_post.uploaded_by}
+                                                );`);
+
+            int|string? insert_job_post_record_id = insert_job_post_res.lastInsertId;
+
+            if !(insert_job_post_record_id is int) {
+                io:println("Unable to insert text job post");
+                return error("Unable to insert text job post");
+            }
+           return new(insert_job_post_record_id);
+
+        }else if(job_post.job_type == "image"){
+
+           string mainJobPostsDirectoryId = "";
+           string createdJobPostPictureFileId = "";
+           string uploadContent = job_post.job_post_image.toString();
+           byte[] base64DecodedJobPostPicture = <byte[]>(check mime:base64Decode(uploadContent.toBytes()));
+           drive:Client driveClient = check getGoogleDriveClientForJobsAndCVs();
+
+            SystemGoogleDriveFolder|error googleDriveFolderRaw = db_client->queryRow(
+                                        `SELECT *
+                                        FROM system_google_drive_folder_mappings
+                                        WHERE  folder_key = "JobPosts";`
+                                    );
+
+            if (googleDriveFolderRaw is SystemGoogleDriveFolder) {
+                mainJobPostsDirectoryId = googleDriveFolderRaw.google_drive_folder_id ?: "";
+            } else {
+                return error(googleDriveFolderRaw.message());
+            }
+
+            string job_post_name = job_post.current_date_time.toString()+"_"+job_post.job_category.toString()+ "_job_post";
+        
+            drive:File|error  create_job_post_file_response =
+                driveClient->uploadFileUsingByteArray(base64DecodedJobPostPicture, job_post_name, mainJobPostsDirectoryId);
+
+                if (create_job_post_file_response is drive:File) {
+
+                    createdJobPostPictureFileId = create_job_post_file_response?.id.toString();
+
+                    sql:ExecutionResult insert_res = check db_client->execute(
+                            `INSERT INTO job_post(
+                                job_type,
+                                job_image_drive_id,
+                                job_category_id,
+                                application_deadline,
+                                uploaded_by
+                            ) VALUES (
+                                ${job_post.job_type},
+                                ${createdJobPostPictureFileId},
+                                ${job_post.job_category_id},
+                                ${job_post.application_deadline},
+                                ${job_post.uploaded_by}
+                            );`
+                        );
+
+                  int|string?  insert_job_post_record_id = insert_res.lastInsertId;
+                    if !(insert_job_post_record_id is int) {
+                        io:println("Unable to insert job post picture record");
+                        return error("Unable to insert job post picture record");
+                    }
+                    return new (insert_job_post_record_id);
+                } else {
+                    return error(create_job_post_file_response.message());
+                }
+
+        }else if(job_post.job_type == "text_with_link"){
+
+                sql:ExecutionResult insert_job_post_res = check db_client->execute(
+                                                `INSERT INTO job_post(
+                                                  job_type,
+                                                  job_text,
+                                                  job_link,
+                                                  job_category_id,
+                                                  application_deadline,
+                                                  uploaded_by
+                                                ) VALUES (
+                                                  ${job_post.job_type},
+                                                  ${job_post.job_text},
+                                                  ${job_post.job_link},
+                                                  ${job_post.job_category_id},
+                                                  ${job_post.application_deadline},
+                                                  ${job_post.uploaded_by}
+                                                );`);
+
+                int|string? insert_job_post_record_id = insert_job_post_res.lastInsertId;
+
+                if !(insert_job_post_record_id is int) {
+                    io:println("Unable to insert text with link job post");
+                   return error("Unable to insert text with link job post");
+               }
+               return new(insert_job_post_record_id);
+
+        }else{
+            return error("Invalid job type received");
+        }
+    }
+    
+    remote function update_job_post(JobPost job_post) returns JobPostData|error? {
+
+        int id = job_post.id ?: 0;
+        if (id == 0) {
+            return error("Unable to update Job Post");
+        }
+
+        if(job_post.job_type == "text"){
+        
+            sql:ExecutionResult res = check db_client->execute(
+                `UPDATE job_post SET
+                    job_type = ${job_post.job_type},
+                    job_text = ${job_post.job_text},
+                    job_category_id = ${job_post.job_category_id},
+                    application_deadline = ${job_post.application_deadline},
+                    uploaded_by = ${job_post.uploaded_by}
+                WHERE id = ${id};`
+               );
+
+            if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+                return error("Unable to update text job post");
+            }
+
+            return new (id);
+        }else if(job_post.job_type == "image"){
+
+            string mainJobPostsDirectoryId = "";
+            string createdJobPostPictureFileId = "";
+            string uploadContent = job_post.job_post_image.toString();
+            byte[] base64DecodedJobPostPicture = <byte[]>(check mime:base64Decode(uploadContent.toBytes()));
+            drive:Client driveClient = check getGoogleDriveClientForJobsAndCVs();
+
+            SystemGoogleDriveFolder|error googleDriveFolderRaw = db_client->queryRow(
+                                        `SELECT *
+                                        FROM system_google_drive_folder_mappings
+                                        WHERE  folder_key = "JobPosts";`
+                                    );
+
+            if (googleDriveFolderRaw is SystemGoogleDriveFolder) {
+                mainJobPostsDirectoryId = googleDriveFolderRaw.google_drive_folder_id ?: "";
+            } else {
+                return error(googleDriveFolderRaw.message());
+            }
+
+            if(job_post.job_image_drive_id !=null){
+
+               string jobPostPictureGoogleDriveId = job_post.job_image_drive_id ?: "";
+               boolean|error delete_job_post_picture_response = driveClient->deleteFile(jobPostPictureGoogleDriveId);
+               
+               if (delete_job_post_picture_response is boolean) {
+
+                  string job_post_name = job_post.current_date_time.toString()+"_"+job_post.job_category.toString()+ "_job_post";
+        
+                  drive:File|error  create_job_post_file_response =
+                    driveClient->uploadFileUsingByteArray(base64DecodedJobPostPicture, job_post_name, mainJobPostsDirectoryId);
+                
+                   if (create_job_post_file_response is drive:File) {
+
+                        createdJobPostPictureFileId = create_job_post_file_response?.id.toString();
+                        
+                        sql:ExecutionResult res = check db_client->execute(
+                                `UPDATE job_post SET
+                                    job_type = ${job_post.job_type},
+                                    job_image_drive_id = ${createdJobPostPictureFileId},
+                                    job_category_id = ${job_post.job_category_id},
+                                    application_deadline = ${job_post.application_deadline},
+                                    uploaded_by = ${job_post.uploaded_by}
+                                WHERE id = ${id};`
+                            );
+
+                        if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+                            return error("Unable to update job post picture record");
+                        }
+                        return new (id);
+                    }else{
+                     return error(create_job_post_file_response.message());
+                    }
+               }else{
+                   return error(delete_job_post_picture_response.message());
+               }
+            }
+        }else if(job_post.job_type == "text_with_link"){
+
+            sql:ExecutionResult res = check db_client->execute(
+                `UPDATE job_post SET
+                    job_type = ${job_post.job_type},
+                    job_text = ${job_post.job_text},
+                    job_link = ${job_post.job_link},
+                    job_category_id = ${job_post.job_category_id},
+                    application_deadline = ${job_post.application_deadline},
+                    uploaded_by = ${job_post.uploaded_by}
+                WHERE id = ${id};`
+               );
+
+            if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+                return error("Unable to update text with link job post");
+            }
+            return new (id); 
+        }else{
+            return error("Invalid job type received");
+        }
+        return;
+    }
+
+    remote function delete_job_post(JobPost job_post) returns int?|error? {
+        
+        if(job_post.job_type == "text" || job_post.job_type == "text_with_link"){
+
+            sql:ExecutionResult res = check db_client->execute(
+            `DELETE FROM job_post WHERE id = ${job_post.id};`
+            );
+
+            int? delete_id = res.affectedRowCount;
+            io:println(delete_id);
+            if (delete_id <= 0) {
+                return error("Unable to delete text job post with id: " + job_post.id.toString());
+            }
+
+            return delete_id;
+
+        }else if(job_post.job_type == "image"){
+
+            drive:Client driveClient = check getGoogleDriveClientForJobsAndCVs();
+            
+            if(job_post.job_image_drive_id !=null){
+
+               string jobPostPictureGoogleDriveId = job_post.job_image_drive_id ?: "";
+               boolean|error delete_job_post_picture_response = driveClient->deleteFile(jobPostPictureGoogleDriveId);
+               
+               if (delete_job_post_picture_response is boolean) {
+                    sql:ExecutionResult res = check db_client->execute(
+                                                `DELETE FROM job_post WHERE id = ${job_post.id};`
+                                                );
+                    int? delete_id = res.affectedRowCount;
+                    io:println(delete_id);
+                    if (delete_id <= 0) {
+                        return error("Unable to delete job post picture record with id: " + job_post.id.toString());
+                    }
+                    return delete_id;
+                }else{
+                 return error(delete_job_post_picture_response.message());
+                }
+            }
+
+        }else{
+            return error("Invalid job type received");
+        }
+        return;
+    }
+
+    isolated resource function get job_post(int? id) returns JobPostData|error? {
+
+      JobPost|error? job_post_raw = db_client->queryRow(
+            `SELECT *
+            FROM job_post
+            WHERE id = ${id};`);
+
+        if(job_post_raw is JobPost){
+
+            if(job_post_raw.job_type == "text" || job_post_raw.job_type == "text_with_link"){
+            
+                int? job_post_id = job_post_raw.id;
+
+                if(job_post_id !=null){
+                    return new(job_post_id);
+                }else{
+                    return error("Provide non-null value for id");
+                }
+
+            }else if(job_post_raw.job_type == "image"){
+
+                drive:Client driveClient = check getGoogleDriveClientForJobsAndCVs();
+                JobPost|error job_post_picture = getJobPostFile(driveClient,job_post_raw.job_image_drive_id.toString());
+                if (job_post_picture is JobPost) {
+
+                    job_post_picture.id = job_post_raw.id;
+                    job_post_picture.job_type = job_post_raw.job_type;
+                    job_post_picture.job_image_drive_id = job_post_raw.job_image_drive_id;
+                    job_post_picture.job_category_id = job_post_raw.job_category_id;
+                    job_post_picture.application_deadline = job_post_raw.application_deadline;
+                    job_post_picture.uploaded_by = job_post_raw.uploaded_by;
+
+                    JobPostData|error jobPostPictureData = new JobPostData(0,job_post_picture);
+                    if !(jobPostPictureData is error) {
+                        return jobPostPictureData;
+                    }
+                } else {
+                    return error(job_post_picture.message());
+                }
+            }else{
+                    return error("Invalid job type received");
+            }
+                return;
+        }else{
+            return error("Unable to find job post by id");
+        }
+    }
+
+    isolated resource function get job_posts(int result_limit=4,int offset=0) returns JobPostData[]|error? {
+        
+        drive:Client driveClient = check getGoogleDriveClientForJobsAndCVs();
+        stream<JobPost, error?> job_posts_data;
+        
+        lock {
+                job_posts_data = db_client->query(
+                    `SELECT *
+                     FROM job_post
+                     LIMIT ${result_limit} OFFSET ${offset};`
+                    );
+         }
+
+        JobPostData[] jobPostsData = [];
+
+        check from JobPost job_post_data_record in job_posts_data
+            do {
+               string? jobPostImageDriveId = job_post_data_record.job_image_drive_id;
+               if(jobPostImageDriveId.toString().trim() != ""){
+
+                 JobPost|error job_post_picture = getJobPostFile(driveClient,jobPostImageDriveId.toString());
+                 if (job_post_picture is JobPost) {
+                    job_post_picture.id = job_post_data_record.id;
+                    job_post_picture.job_type = job_post_data_record.job_type;
+                    job_post_picture.job_image_drive_id = job_post_data_record.job_image_drive_id;
+                    job_post_picture.job_category_id = job_post_data_record.job_category_id;
+                    job_post_picture.application_deadline = job_post_data_record.application_deadline;
+                    job_post_picture.uploaded_by = job_post_data_record.uploaded_by;
+                    JobPostData|error jobPostPictureData = new JobPostData(0,job_post_picture);
+                    if !(jobPostPictureData is error) {
+                        jobPostsData.push(jobPostPictureData);
+                    }
+                 } else {
+                    return error(job_post_picture.message());
+                 }
+               }else{
+               
+                JobPostData|error jobPostRecordData = new JobPostData(0,job_post_data_record);
+                if !(jobPostRecordData is error) {
+                    jobPostsData.push(jobPostRecordData);
+                }
+               }
+            };
+
+        check job_posts_data.close();
+        return jobPostsData;
+    }
+
+    isolated resource function get job_categories() returns JobCategoryData[]|error? {
+        stream<JobCategory, error?> job_categories_data;
+
+        lock {
+            job_categories_data = db_client->query(
+                    `SELECT *
+                        from job_category;`);
+        }
+
+        JobCategoryData[] jobCategoryDatas = [];
+
+        check from JobCategory job_category_data_record in job_categories_data
+            do {
+                JobCategoryData|error jobCategoryData = new JobCategoryData(0,job_category_data_record);
+                if !(jobCategoryData is error) {
+                    jobCategoryDatas.push(jobCategoryData);
+                }
+            };
+
+        check job_categories_data.close();
+        return jobCategoryDatas;
+    }
 }
 
 // isolated function getProfilePicture(drive:Client driveClient, string id) returns PersonProfilePicture|error {
@@ -7851,6 +8237,36 @@ isolated function getDocument(drive:Client driveClient, string id, string docume
     return user_document;
 }
 
+isolated function getJobPostFile(drive:Client driveClient,string id) returns JobPost|error {
+    JobPost job_post = {
+        id: 0,
+        job_type: (),
+        job_text: (),
+        job_link: (),
+        job_image_drive_id: (),
+        job_post_image:(),
+        current_date_time:(),
+        job_category:(),
+        job_category_id:-1,
+        application_deadline:(),
+        uploaded_by:(),
+        created: (),
+        updated:()
+    };
+
+    drive:FileContent|error job_post_file_stream = check driveClient->getFileContent(id);
+
+    if (job_post_file_stream is drive:FileContent) {
+        //byte[] base64EncodedDocument = <byte[]>(check mime:base64Encode(document_file_stream.content));
+        //string base64EncodedStringDocument = check string:fromBytes(document_file_stream.content);
+        string base64EncodedStringFile = job_post_file_stream.content.toBase64();
+        job_post.job_post_image = base64EncodedStringFile;
+    } else {
+        job_post.job_post_image = ();
+    }
+    return job_post;
+}
+
 isolated function getProfilePicture(drive:Client driveClient,string id) returns PersonProfilePicture|error {
     PersonProfilePicture profile_picture = {
         id: 0,
@@ -7886,6 +8302,21 @@ isolated function getDriveClient() returns drive:Client|error {
             refreshToken: GOOGLEDRIVEREFRESHTOKEN
         }
     };
+    drive:Client driveClient = check new (config);
+    return driveClient;
+}
+
+isolated function getGoogleDriveClientForJobsAndCVs() returns drive:Client|error {
+
+    drive:ConnectionConfig config = {
+        auth: {
+            clientId: GOOGLEDRIVEJOBSCVSCLIENTID,
+            clientSecret: GOOGLEDRIVEJOBSCVSCLIENTSECRET,
+            refreshUrl: GOOGLEDRIVEJOBSCVSREFRESHURL,
+            refreshToken: GOOGLEDRIVEJOBSCVSREFRESHTOKEN
+        }
+    };
+  
     drive:Client driveClient = check new (config);
     return driveClient;
 }
