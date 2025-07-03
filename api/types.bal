@@ -840,8 +840,6 @@ public type ActivityInstanceEvaluation record {|
     string? updated;
 |};
 
-
-
 public type ErrorDetail record {|
     string message;
     int errorCode;
@@ -855,4 +853,28 @@ public type AlumniSummary record {|
 
 public type CountResult record {|
    int? total;
+|};
+
+public type JobPost record {|
+    readonly string? record_type = "job_post";
+    int id?;
+    string? job_type;
+    string? job_text;
+    string? job_link;
+    string? job_image_drive_id;
+    string? job_post_image;
+    string? current_date_time;
+    string? job_category;
+    int? job_category_id;
+    string? application_deadline;
+    string? uploaded_by;
+    string? created;
+    string? updated;
+|};
+
+public type JobCategory record {|
+    readonly string? record_type = "job_category";
+    int id?;
+    string? name;
+    string? description;
 |};
