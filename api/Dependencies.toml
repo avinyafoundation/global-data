@@ -115,7 +115,7 @@ modules = [
 [[package]]
 org = "ballerina"
 name = "http"
-version = "2.10.22"
+version = "2.10.23"
 dependencies = [
 	{org = "ballerina", name = "auth"},
 	{org = "ballerina", name = "cache"},
@@ -322,7 +322,7 @@ dependencies = [
 [[package]]
 org = "ballerina"
 name = "regex"
-version = "1.4.3"
+version = "1.3.2"
 dependencies = [
 	{org = "ballerina", name = "jballerina.java"},
 	{org = "ballerina", name = "lang.string"}
@@ -370,7 +370,7 @@ modules = [
 [[package]]
 org = "ballerina"
 name = "time"
-version = "2.4.0"
+version = "2.5.0"
 dependencies = [
 	{org = "ballerina", name = "jballerina.java"}
 ]
@@ -462,7 +462,7 @@ dependencies = [
 [[package]]
 org = "ballerinax"
 name = "googleapis.drive"
-version = "3.3.0"
+version = "3.4.0"
 dependencies = [
 	{org = "ballerina", name = "file"},
 	{org = "ballerina", name = "http"},

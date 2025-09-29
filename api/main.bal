@@ -113,26 +113,42 @@ service /graphql on new graphql:Listener(4000) {
         return new (name, id);
     }
 
-    isolated resource function get organizations_by_avinya_type(int? avinya_type, int? active) returns OrganizationData[]|error? {
-
+    isolated resource function get organizations_by_avinya_type_and_status(int? avinya_type,int? active) returns OrganizationData[]|error? {
         stream<Organization, error?> org_list;
-
-        if (active == 1 || active == 0) {
-
+        if(active !=null && (active==0 || active==1) && avinya_type!=null){
             lock {
                 org_list = db_client->query(
                     `SELECT *
                     FROM organization
                     WHERE avinya_type = ${avinya_type} and active = ${active}`);
             }
+        }else if (active!=null && (active == 1 || active == 0)) {
 
-        } else {
+            lock {
+                org_list = db_client->query(
+                    `SELECT *
+                    FROM organization
+                    WHERE avinya_type IN (86,108) and active = ${active}`);
+            }
 
+        }else if(avinya_type !=null){
+            io:println("Avinya type not null and active null");
             lock {
                 org_list = db_client->query(
                 `SELECT *
 	             FROM organization
 	             WHERE avinya_type = ${avinya_type}
+                `
+            );
+            }
+
+        } else {
+           io:println("both null");
+            lock {
+                org_list = db_client->query(
+                `SELECT *
+	             FROM organization
+	             WHERE avinya_type IN (86,108)
                 `
             );
             }
@@ -160,10 +176,10 @@ service /graphql on new graphql:Listener(4000) {
 
             lock {
                 studentList = db_client->query(
-                `SELECT * FROM person WHERE avinya_type_id IN (37, 10, 96) AND organization_id in
+                `SELECT * FROM person WHERE avinya_type_id IN (37, 10, 96, 110, 115, 120, 125) AND organization_id in
                 (SELECT child_org_id FROM parent_child_organization WHERE parent_org_id IN
                 (SELECT organization_id FROM organization_metadata WHERE organization_id IN
-                (SELECT id FROM organization WHERE id in (SELECT child_org_id FROM parent_child_organization WHERE parent_org_id = ${parent_organization_id} ) AND avinya_type = 86)
+                (SELECT id FROM organization WHERE id in (SELECT child_org_id FROM parent_child_organization WHERE parent_org_id = ${parent_organization_id} ) AND avinya_type IN (86,108)
                 AND organization_id IN (SELECT organization_id FROM organization_metadata WHERE key_name = 'start_date' AND CURRENT_DATE() >= value)
                 AND organization_id IN (SELECT organization_id FROM organization_metadata WHERE key_name = 'end_date' AND CURRENT_DATE() <= value)));`
             );
@@ -172,7 +188,7 @@ service /graphql on new graphql:Listener(4000) {
         } else {
             lock {
                 studentList = db_client->query(
-                `SELECT * FROM person WHERE avinya_type_id IN (37, 10, 96) AND organization_id in
+                `SELECT * FROM person WHERE avinya_type_id IN (37, 10, 96, 110, 115, 120, 125) AND organization_id in
                   (SELECT child_org_id FROM parent_child_organization WHERE parent_org_id = ${batch_id});`
             );
             }
@@ -215,7 +231,7 @@ service /graphql on new graphql:Listener(4000) {
 
             if (orgRaw is Organization) {
                 int? org_avinya_type = orgRaw.avinya_type;
-                if (org_avinya_type == 95) {
+                if (org_avinya_type == 95 || org_avinya_type == 112 || org_avinya_type == 117 || org_avinya_type == 122) {
                     personJwtId.is_graduated = true;
                 } else {
                     personJwtId.is_graduated = false;
@@ -1720,8 +1736,8 @@ service /graphql on new graphql:Listener(4000) {
                         attendance_records = db_client->query(
                             `SELECT id,activity_instance_id,sign_in_time,person_id
                             FROM activity_participant_attendance
-                            WHERE person_id in (SELECT id FROM person WHERE avinya_type_id IN (37, 10, 96) AND
-                            organization_id in (SELECT id FROM organization WHERE id in (SELECT child_org_id FROM parent_child_organization WHERE parent_org_id = ${batch_id}) AND avinya_type IN (87, 10, 96)))
+                            WHERE person_id in (SELECT id FROM person WHERE avinya_type_id IN (37, 10, 96, 110, 115, 120, 125) AND
+                            organization_id in (SELECT id FROM organization WHERE id in (SELECT child_org_id FROM parent_child_organization WHERE parent_org_id = ${batch_id}) AND avinya_type IN (87, 10, 96, 113, 118, 123)))
                             AND activity_instance_id in (SELECT id FROM activity_instance WHERE activity_id = ${activity_id}) 
                             AND DATE(sign_in_time) BETWEEN ${from_date} AND ${to_date}
                             ORDER BY DATE(sign_in_time),created DESC;`
@@ -1732,8 +1748,8 @@ service /graphql on new graphql:Listener(4000) {
                         attendance_records = db_client->query(
                             `SELECT *
                             FROM activity_participant_attendance
-                            WHERE person_id in (SELECT id FROM person WHERE avinya_type_id IN (37, 10, 96) AND
-                            organization_id in (SELECT id FROM organization WHERE id in (SELECT child_org_id FROM parent_child_organization WHERE parent_org_id IN (SELECT child_org_id from parent_child_organization where parent_org_id = ${parent_organization_id})) AND avinya_type IN (87, 10, 96)))
+                            WHERE person_id in (SELECT id FROM person WHERE avinya_type_id IN (37, 10, 96, 110, 115, 120, 125) AND
+                            organization_id in (SELECT id FROM organization WHERE id in (SELECT child_org_id FROM parent_child_organization WHERE parent_org_id IN (SELECT child_org_id from parent_child_organization where parent_org_id = ${parent_organization_id})) AND avinya_type IN (87, 10, 96, 113, 118, 123)))
                             AND activity_instance_id in (SELECT id FROM activity_instance WHERE activity_id = ${activity_id}) 
                             AND DATE(sign_in_time) BETWEEN ${from_date} AND ${to_date}
                             ORDER BY DATE(sign_in_time),created DESC;`
@@ -1843,8 +1859,8 @@ LEFT JOIN person p ON apa.person_id = p.id
                                 FROM activity_participant_attendance apa
                                 LEFT JOIN person p ON apa.person_id = p.id
                                 LEFT JOIN organization o ON p.organization_id = o.id
-                                WHERE apa.person_id in (SELECT id FROM person WHERE avinya_type_id IN (37, 10, 96) AND
-                                organization_id in (SELECT id FROM organization WHERE id in (SELECT child_org_id FROM parent_child_organization WHERE parent_org_id IN (SELECT child_org_id from parent_child_organization where parent_org_id = ${parent_organization_id})) AND avinya_type IN (87, 10, 96)))
+                                WHERE apa.person_id in (SELECT id FROM person WHERE avinya_type_id IN (37, 10, 96, 110, 115, 120, 125) AND
+                                organization_id in (SELECT id FROM organization WHERE id in (SELECT child_org_id FROM parent_child_organization WHERE parent_org_id IN (SELECT child_org_id from parent_child_organization where parent_org_id = ${parent_organization_id})) AND avinya_type IN (87, 10, 96, 113, 118, 123)))
                                 AND apa.activity_instance_id in (SELECT id FROM activity_instance WHERE activity_id = ${activity_id}) 
                                 AND DATE(apa.sign_in_time) BETWEEN ${from_date} AND ${to_date}
                                 AND TIME_FORMAT(apa.sign_in_time, '%H:%i:%s') > '08:30:59'
@@ -3805,7 +3821,7 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
             `SELECT CAST(COUNT(*) AS DECIMAL) AS total_students
                             FROM person p
                             JOIN organization o ON o.id = p.organization_id
-                            WHERE p.avinya_type_id IN (37, 10, 96) AND p.id != 26
+                            WHERE p.avinya_type_id IN (37, 10, 96, 110, 115, 120, 125) AND p.id != 26
                             AND p.organization_id IN (
                                                                     SELECT id
                                                                     FROM organization
@@ -3917,7 +3933,7 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
                                         WHERE activity_id = 4
                                         ORDER BY id DESC
                                     )
-                                    AND p.avinya_type_id IN (37, 10, 96)
+                                    AND p.avinya_type_id IN (37, 10, 96, 110, 115, 120, 125)
                                     AND DATE(pa.sign_in_time) BETWEEN ${from_date} AND ${to_date}
                                     AND p.organization_id IN (
                                         SELECT id
@@ -3947,7 +3963,7 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
                                     AND DATE(sign_in_time) BETWEEN ${from_date} AND ${to_date}
                             ) AS subquery
                             LEFT JOIN activity_participant_attendance a ON p.id = a.person_id AND DATE(a.sign_in_time) = subquery.a_date 
-                            WHERE a.person_id IS NULL AND p.avinya_type_id IN (37, 10, 96) AND p.id != 26 AND o.avinya_type NOT IN (95, 97, 98)
+                            WHERE a.person_id IS NULL AND p.avinya_type_id IN (37, 10, 96, 110, 115, 120, 125) AND p.id != 26 AND o.avinya_type NOT IN (95, 97, 98, 112, 117, 122)
                             AND p.organization_id IN (
                                                                     SELECT id
                                                                     FROM organization
@@ -3982,7 +3998,7 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
                                                                             )
                                                                         )
                                                                     )
-                                AND avinya_type_id IN (37, 10, 96)
+                                AND avinya_type_id IN (37, 10, 96, 110, 115, 120, 125)
                                     AND apa.activity_instance_id IN (SELECT id FROM activity_instance WHERE activity_id = 4)
                                     AND DATE(apa.sign_in_time) BETWEEN ${from_date} AND ${to_date}
                                     AND TIME_FORMAT(apa.sign_in_time, '%H:%i:%s') > '08:30:59';`
@@ -4000,7 +4016,7 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
                                         WHERE activity_id = 11
                                         ORDER BY id DESC
                                     )
-                                    AND p.avinya_type_id IN (37, 10, 96)
+                                    AND p.avinya_type_id IN (37, 10, 96, 110, 115, 120, 125)
                                     AND DATE(pa.sign_in_time) BETWEEN ${from_date} AND ${to_date}
                                     AND p.organization_id IN (
                                         SELECT id
@@ -4022,7 +4038,7 @@ WHERE name = "Admission Cycle" AND NOW() BETWEEN start_time AND end_time;`
                         `select COUNT(e.id) AS absent_count_duty FROM person p
 JOIN organization o ON o.id = p.organization_id 
 LEFT JOIN evaluation e ON p.id = e.evaluatee_id 
-WHERE p.avinya_type_id IN (37, 10, 96) AND p.id != 26 AND o.avinya_type NOT IN (95, 97, 98)
+WHERE p.avinya_type_id IN (37, 10, 96, 110, 115, 120, 125) AND p.id != 26 AND o.avinya_type NOT IN (95, 97, 98, 112, 117, 122)
 AND e.evaluation_criteria_id=110
 AND DATE(e.created) BETWEEN ${from_date} AND ${to_date}
 AND p.organization_id IN (
@@ -4058,7 +4074,7 @@ AND p.organization_id IN (
                                                                             )
                                                                         )
                                                                     )
-                                AND avinya_type_id IN (37, 10, 96)
+                                AND avinya_type_id IN (37, 10, 96, 110, 115, 120, 125)
                                     AND apa.activity_instance_id IN (SELECT id FROM activity_instance WHERE activity_id = 11)
                                     AND DATE(apa.sign_in_time) BETWEEN ${from_date} AND ${to_date}
                                     AND TIME_FORMAT(apa.sign_in_time, '%H:%i:%s') > '14:00:00';`
@@ -4338,7 +4354,7 @@ AND p.organization_id IN (
                     JOIN activity_instance ai ON a.activity_instance_id = ai.id
                     JOIN organization o ON o.id = p.organization_id
                     WHERE p.avinya_type_id = ${avinya_type_id}
-                        AND o.avinya_type NOT IN (95, 97, 98)
+                        AND o.avinya_type NOT IN (95, 97, 98, 112, 117, 122)
                         AND ai.activity_id = 1
                         AND a.sign_in_time IS NOT NULL
                         AND NOT EXISTS (
@@ -4365,8 +4381,8 @@ AND p.organization_id IN (
                     JOIN activity_participant_attendance a ON p.id = a.person_id
                     JOIN activity_instance ai ON a.activity_instance_id = ai.id
                     JOIN organization o ON o.id = p.organization_id
-                    WHERE p.avinya_type_id IN (37, 10, 96)
-                        AND o.avinya_type NOT IN (95, 97, 98)
+                    WHERE p.avinya_type_id IN (37, 10, 96, 110, 115, 120, 125)
+                        AND o.avinya_type NOT IN (95, 97, 98, 112, 117, 122)
                         AND ai.activity_id = 1
                         AND a.sign_in_time IS NOT NULL
                         AND NOT EXISTS (
@@ -4429,7 +4445,7 @@ AND p.organization_id IN (
                         SELECT COUNT(p_total.id) 
                         FROM person p_total
                         WHERE p_total.organization_id = o.id
-                        AND p_total.avinya_type_id IN (37, 10, 96)
+                        AND p_total.avinya_type_id IN (37, 10, 96, 110, 115, 120, 125)
                     ) AS total_student_count
                 FROM 
                     activity_participant_attendance pa
@@ -4445,7 +4461,7 @@ AND p.organization_id IN (
                         WHERE activity_id = 4
                         ORDER BY id DESC
                     )
-                    AND p.avinya_type_id IN (37, 10, 96)
+                    AND p.avinya_type_id IN (37, 10, 96, 110, 115, 120, 125)
                     AND DATE(pa.sign_in_time) = CURRENT_DATE()
                     AND p.organization_id IN (
                         SELECT id
@@ -4600,7 +4616,7 @@ AND p.organization_id IN (
                             person_id IN (
                                 SELECT DISTINCT id 
                                 FROM person 
-                                WHERE avinya_type_id IN (37, 10, 96)
+                                WHERE avinya_type_id IN (37, 10, 96, 110, 115, 120, 125)
                                 AND organization_id IN (
                                     SELECT DISTINCT id 
                                     FROM organization 
@@ -4613,7 +4629,7 @@ AND p.organization_id IN (
                                             WHERE parent_org_id = ${parent_organization_id}
                                         )
                                     ) 
-                                    AND avinya_type IN (87, 10, 96)
+                                    AND avinya_type IN (87, 10, 96, 113, 118, 123)
                                 )
                             )
                             AND activity_instance_id IN (
@@ -5619,7 +5635,7 @@ AND p.organization_id IN (
         }
     }
 
-    remote function update_person(Person person, Address? permanent_address, City? permanent_address_city, Address? mailing_address, City? mailing_address_city) returns PersonData|error? {
+    remote function update_person(Person person,Address? mailing_address, City? mailing_address_city) returns PersonData|error? {
 
         //starting the transaction
         boolean first_db_transaction_fail = false;
@@ -5627,10 +5643,8 @@ AND p.organization_id IN (
         boolean third_db_transaction_fail = false;
         boolean fourth_db_transaction_fail = false;
 
-        sql:ExecutionResult permanent_address_res;
         sql:ExecutionResult mailing_address_res;
 
-        int|string? permanent_address_insert_id = null;
         int|string? mailing_address_insert_id = null;
 
         string message = "";
@@ -5686,61 +5700,6 @@ AND p.organization_id IN (
         }
 
         transaction {
-
-            int permanent_address_id = permanent_address?.id ?: 0;
-
-            Address|error? permanent_address_raw = db_client->queryRow(
-                                                    `SELECT *
-                                                    FROM address
-                                                    WHERE id = ${permanent_address_id};`
-                                                    );
-
-            if (permanent_address_raw is Address) {
-                io:println("Permanent Address is already exists!");
-
-                if (permanent_address != null && permanent_address_city != null) {
-
-                    permanent_address_res = check db_client->execute(
-                    `UPDATE address SET
-                        street_address = ${permanent_address?.street_address},
-                        phone = ${permanent_address?.phone},
-                        city_id = ${permanent_address_city?.id}
-                    WHERE id = ${permanent_address_id};`);
-
-                    permanent_address_insert_id = permanent_address_id;
-
-                    if (permanent_address_res.affectedRowCount == sql:EXECUTION_FAILED) {
-                        first_db_transaction_fail = true;
-                        io:println("Unable to update permanent address record");
-                        message = "Unable to update permanent address record";
-                    }
-                }
-
-            } else {
-
-                if (permanent_address != null && permanent_address_city != null) {
-
-                    permanent_address_res = check db_client->execute(
-                    `INSERT INTO address(
-                            street_address,
-                            phone,
-                            city_id
-                    ) VALUES(
-                        ${permanent_address?.street_address},
-                        ${permanent_address?.phone},
-                        ${permanent_address_city?.id}
-                    );`
-                );
-
-                    permanent_address_insert_id = permanent_address_res.lastInsertId;
-
-                    if !(permanent_address_insert_id is int) {
-                        first_db_transaction_fail = true;
-                        io:println("Unable to insert permanent address");
-                        message = "Unable to insert permanent address";
-                    }
-                }
-            }
 
             int mailing_address_id = mailing_address?.id ?: 0;
 
@@ -5810,7 +5769,6 @@ AND p.organization_id IN (
                                                     asgardeo_id = ${person.asgardeo_id},
                                                     jwt_sub_id = ${person.jwt_sub_id},
                                                     jwt_email = ${person.jwt_email},
-                                                    permanent_address_id = ${permanent_address_insert_id},
                                                     mailing_address_id = ${mailing_address_insert_id},
                                                     phone = ${person.phone},
                                                     organization_id = ${person.organization_id},
@@ -7733,9 +7691,9 @@ AND p.organization_id IN (
                 alumni_persons_data = db_client->query(
                     `SELECT p.id,p.preferred_name,p.full_name,p.email,p.phone,p.nic_no,p.alumni_id
                         FROM person p
-                        JOIN organization o_class ON p.organization_id = o_class.id AND o_class.avinya_type = 95
+                        JOIN organization o_class ON p.organization_id = o_class.id AND o_class.avinya_type IN (95, 112, 117, 122)
                         JOIN parent_child_organization pco_class ON o_class.id = pco_class.child_org_id
-                        JOIN organization o_batch ON pco_class.parent_org_id = o_batch.id AND o_batch.avinya_type = 86
+                        JOIN organization o_batch ON pco_class.parent_org_id = o_batch.id AND o_batch.avinya_type IN (86,108)
                         JOIN parent_child_organization pco ON o_batch.id = pco.child_org_id
                         JOIN organization o_branch ON pco.parent_org_id = o_branch.id
                         WHERE o_branch.id = ${parent_organization_id};`);

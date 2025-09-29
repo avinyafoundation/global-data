@@ -172,14 +172,15 @@ public isolated service class OrganizationData {
             `SELECT avinya_type FROM organization WHERE id = ${self.organization.id};`
         );
             io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
+            io:println("Org id: ", (self.organization.id).toString());
 
             if !(avinya_type_id is int) {
                 io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
                 return error("AvinyaType ID does not exist");
             }
 
-            if (avinya_type_id == 10 || avinya_type_id == 96) { // if organization is 10 or 96, get all vocational it students or cs students
-                people = db_client->query(
+            if (avinya_type_id == 10 || avinya_type_id == 96) { // if organization is 10,96, get all vocational it students or cs students  
+                people = db_client->query(                                                
                     `SELECT *
                     FROM person
                     WHERE avinya_type_id=${avinya_type_id} AND organization_id = ${self.organization.id}`
@@ -188,7 +189,7 @@ public isolated service class OrganizationData {
                 people = db_client->query(
                 `SELECT *
                 FROM person
-                WHERE organization_id = ${self.organization.id} AND avinya_type_id=37`
+                WHERE organization_id = ${self.organization.id} AND avinya_type_id IN (37,110,115,120,125)`
             );
             }
         }
