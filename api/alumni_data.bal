@@ -77,6 +77,12 @@ public isolated service class AlumniData {
         }
     }
 
+    isolated resource function get canva_cv_url() returns string?|error {
+        lock {
+            return self.alumni.canva_cv_url;
+        }
+    }
+
     isolated resource function get updated_by() returns string?|error {
         lock {
             return self.alumni.updated_by;

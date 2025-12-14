@@ -5,6 +5,7 @@ public isolated service class ActivityParticipantData {
         organization_id: -1,
         start_date: "" ,
         end_date: "" ,
+        task_status: "",
         role: "" ,
         notes: "" ,
         is_attending:-1,
