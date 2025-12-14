@@ -2,14 +2,17 @@ import ballerina/graphql;
 import ballerina/io;
 import ballerina/log;
 import ballerina/mime;
+import ballerina/regex;
 import ballerina/sql;
 import ballerina/time;
 import ballerinax/googleapis.drive as drive;
+import ballerina/email;
 
 // @display {
 //     label: "Global Data API",
 //     id: "global-data"
 // }
+
 configurable string GOOGLEDRIVECLIENTID = ?;
 configurable string GOOGLEDRIVECLIENTSECRET = ?;
 configurable string GOOGLEDRIVEREFRESHTOKEN = ?;
@@ -18,6 +21,11 @@ configurable string GOOGLEDRIVEJOBSCVSCLIENTID = ?;
 configurable string GOOGLEDRIVEJOBSCVSCLIENTSECRET = ?;
 configurable string GOOGLEDRIVEJOBSCVSREFRESHTOKEN = ?;
 configurable string GOOGLEDRIVEJOBSCVSREFRESHURL = ?;
+configurable string ALUMNI_CV_REQUEST_EMAIL = ?;
+configurable string ALUMNI_CV_REQUEST_SENDER_EMAIL = ?;
+configurable string ALUMNI_CV_REQUEST_SENDER_EMAIL_APP_PASSWORD = ?;
+configurable string FCM_URL = ?;
+configurable string FCM_SERVER_KEY = ?;
 
 service /graphql on new graphql:Listener(4000) {
     resource function get geo() returns GeoData {
@@ -113,16 +121,16 @@ service /graphql on new graphql:Listener(4000) {
         return new (name, id);
     }
 
-    isolated resource function get organizations_by_avinya_type_and_status(int? avinya_type,int? active) returns OrganizationData[]|error? {
+    isolated resource function get organizations_by_avinya_type_and_status(int? avinya_type, int? active) returns OrganizationData[]|error? {
         stream<Organization, error?> org_list;
-        if(active !=null && (active==0 || active==1) && avinya_type!=null){
+        if (active != null && (active == 0 || active == 1) && avinya_type != null) {
             lock {
                 org_list = db_client->query(
                     `SELECT *
                     FROM organization
                     WHERE avinya_type = ${avinya_type} and active = ${active}`);
             }
-        }else if (active!=null && (active == 1 || active == 0)) {
+        } else if (active != null && (active == 1 || active == 0)) {
 
             lock {
                 org_list = db_client->query(
@@ -131,7 +139,7 @@ service /graphql on new graphql:Listener(4000) {
                     WHERE avinya_type IN (86,108) and active = ${active}`);
             }
 
-        }else if(avinya_type !=null){
+        } else if (avinya_type != null) {
             io:println("Avinya type not null and active null");
             lock {
                 org_list = db_client->query(
@@ -143,7 +151,7 @@ service /graphql on new graphql:Listener(4000) {
             }
 
         } else {
-           io:println("both null");
+            io:println("both null");
             lock {
                 org_list = db_client->query(
                 `SELECT *
@@ -5585,7 +5593,6 @@ AND p.organization_id IN (
 
     isolated resource function get persons(int? organization_id, int? avinya_type_id) returns PersonData[]|error? {
         stream<Person, error?> persons_data;
-
         if (organization_id != null && organization_id != -1 && avinya_type_id != null) {
             lock {
                 persons_data = db_client->query(
@@ -5609,7 +5616,17 @@ AND p.organization_id IN (
                         where 
                         p.avinya_type_id = ${avinya_type_id};`);
             }
-        } else {
+        } else if(organization_id != null && organization_id != -1 && avinya_type_id == null){
+            
+            //get people by organization id[ex:- Need to get the bandaragama employees]
+            lock {
+                persons_data = db_client->query(
+                    `SELECT *
+                        from person p
+                        where 
+                        p.organization_id = ${organization_id};`);
+            }
+        }else {
             return error("Provide non-null values for both 'organization_id' and 'avinya_type_id'.");
         }
         PersonData[] personDatas = [];
@@ -5635,7 +5652,7 @@ AND p.organization_id IN (
         }
     }
 
-    remote function update_person(Person person,Address? mailing_address, City? mailing_address_city) returns PersonData|error? {
+    remote function update_person(Person person, Address? mailing_address, City? mailing_address_city) returns PersonData|error? {
 
         //starting the transaction
         boolean first_db_transaction_fail = false;
@@ -6786,6 +6803,7 @@ AND p.organization_id IN (
                                                   facebook_id,
                                                   instagram_id,
                                                   tiktok_id,
+                                                  canva_cv_url,
                                                   updated_by
                                                 ) VALUES (
                                                   ${alumni.status},
@@ -6795,6 +6813,7 @@ AND p.organization_id IN (
                                                   ${alumni.facebook_id},
                                                   ${alumni.instagram_id},
                                                   ${alumni.tiktok_id},
+                                                  ${alumni.canva_cv_url},
                                                   ${alumni.updated_by}
                                                 );`);
 
@@ -6937,6 +6956,7 @@ AND p.organization_id IN (
                                                     facebook_id = ${alumni.facebook_id},
                                                     instagram_id = ${alumni.instagram_id},
                                                     tiktok_id = ${alumni.tiktok_id},
+                                                    canva_cv_url = ${alumni.canva_cv_url},
                                                     updated_by = ${alumni.updated_by}
                                                 WHERE id = ${alumni.id};`);
 
@@ -7160,7 +7180,7 @@ AND p.organization_id IN (
 
         if (personRaw is Person) {
             personProfilePictureFolderId = personRaw.profile_picture_folder_id ?: "";
-        }else{
+        } else {
             return error(personRaw.message());
         }
 
@@ -7194,18 +7214,18 @@ AND p.organization_id IN (
                     return error("Unable to update the profile picture folder id for the person record");
                 }
 
-             if (created_person_profile_picture_folder_id != "") {
+                if (created_person_profile_picture_folder_id != "") {
 
-                string person_profile_picture_name = person_profile_picture.nic_no.toString() + "_profile_picture";
+                    string person_profile_picture_name = person_profile_picture.nic_no.toString() + "_profile_picture";
 
-                create_profile_picture_file_response =
+                    create_profile_picture_file_response =
                 driveClient->uploadFileUsingByteArray(base64DecodedPicture, person_profile_picture_name, created_person_profile_picture_folder_id);
 
-                if (create_profile_picture_file_response is drive:File) {
+                    if (create_profile_picture_file_response is drive:File) {
 
-                    created_profile_picture_file_id = create_profile_picture_file_response?.id.toString();
+                        created_profile_picture_file_id = create_profile_picture_file_response?.id.toString();
 
-                    sql:ExecutionResult insert_res = check db_client->execute(
+                        sql:ExecutionResult insert_res = check db_client->execute(
                             `INSERT INTO person_profile_pictures(
                                 person_id,
                                 profile_picture_drive_id,
@@ -7217,16 +7237,16 @@ AND p.organization_id IN (
                             );`
                         );
 
-                    inserted_profile_picture_record_id = insert_res.lastInsertId;
-                    if !(inserted_profile_picture_record_id is int) {
-                        return error("Unable to insert profile profile picture record");
+                        inserted_profile_picture_record_id = insert_res.lastInsertId;
+                        if !(inserted_profile_picture_record_id is int) {
+                            return error("Unable to insert profile profile picture record");
+                        }
+                        return new (inserted_profile_picture_record_id);
+                    } else {
+                        return error(create_profile_picture_file_response.message());
                     }
-                    return new (inserted_profile_picture_record_id);
-                } else {
-                    return error(create_profile_picture_file_response.message());
-                }
 
-              }
+                }
 
             } else {
                 return error(create_profile_picture_folder_response.message());
@@ -7242,8 +7262,8 @@ AND p.organization_id IN (
 
             if (countResult is CountResult) {
 
-                if(countResult.total == 0){
-                
+                if (countResult.total == 0) {
+
                     string person_profile_picture_name = person_profile_picture.nic_no.toString() + "_profile_picture";
 
                     create_profile_picture_file_response =
@@ -7274,59 +7294,59 @@ AND p.organization_id IN (
                         return error(create_profile_picture_file_response.message());
                     }
 
-                }else if(countResult.total == 1){
+                } else if (countResult.total == 1) {
 
-                        PersonProfilePicture|error personProfilePictureRaw = db_client->queryRow(
+                    PersonProfilePicture|error personProfilePictureRaw = db_client->queryRow(
                                                 `SELECT *
                                                 FROM person_profile_pictures
                                                 WHERE person_id = ${person_profile_picture.person_id};`
                                         );
 
-                        if(personProfilePictureRaw is PersonProfilePicture){                
+                    if (personProfilePictureRaw is PersonProfilePicture) {
 
-                            personProfilePictureDriveId = personProfilePictureRaw.profile_picture_drive_id ?: "";
+                        personProfilePictureDriveId = personProfilePictureRaw.profile_picture_drive_id ?: "";
 
-                            if (personProfilePictureDriveId != "") {
+                        if (personProfilePictureDriveId != "") {
 
-                                boolean|error deleted_person_profile_picture_response = driveClient->deleteFile(personProfilePictureDriveId);
+                            boolean|error deleted_person_profile_picture_response = driveClient->deleteFile(personProfilePictureDriveId);
 
-                                if (deleted_person_profile_picture_response is boolean) {
-                                    log:printInfo("person profile picture deleted.");
+                            if (deleted_person_profile_picture_response is boolean) {
+                                log:printInfo("person profile picture deleted.");
 
-                                    string person_profile_picture_name = person_profile_picture.nic_no.toString() + "_profile_picture";
+                                string person_profile_picture_name = person_profile_picture.nic_no.toString() + "_profile_picture";
 
-                                    create_profile_picture_file_response =
+                                create_profile_picture_file_response =
                                         driveClient->uploadFileUsingByteArray(base64DecodedPicture, person_profile_picture_name, personProfilePictureFolderId);
 
-                                    if (create_profile_picture_file_response is drive:File) {
+                                if (create_profile_picture_file_response is drive:File) {
 
-                                        created_profile_picture_file_id = create_profile_picture_file_response?.id.toString();
-                                    
-                                        sql:ExecutionResult res = check db_client->execute(
+                                    created_profile_picture_file_id = create_profile_picture_file_response?.id.toString();
+
+                                    sql:ExecutionResult res = check db_client->execute(
                                             `UPDATE person_profile_pictures SET
                                                 profile_picture_drive_id = ${created_profile_picture_file_id},
                                                 uploaded_by = ${person_profile_picture.uploaded_by}
                                             WHERE person_id =  ${person_profile_picture.person_id};`
                                         );
-                                        
-                                        if (res.affectedRowCount == sql:EXECUTION_FAILED) {
-                                            return error("Unable to update the profile picture drive id for the person record.");
-                                        }
-                                        return new(0,person_profile_picture.person_id);
-                                    }else{
-                                        return error(create_profile_picture_file_response.message());
-                                    }
 
+                                    if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+                                        return error("Unable to update the profile picture drive id for the person record.");
+                                    }
+                                    return new (0, person_profile_picture.person_id);
                                 } else {
-                                return error("Unable to delete person profile picture.");
+                                    return error(create_profile_picture_file_response.message());
                                 }
 
+                            } else {
+                                return error("Unable to delete person profile picture.");
                             }
-                        }else{
-                            return error(personProfilePictureRaw.message());
+
                         }
+                    } else {
+                        return error(personProfilePictureRaw.message());
+                    }
                 }
-            }else{
+            } else {
                 return error(countResult.message());
             }
         }
@@ -7345,15 +7365,15 @@ AND p.organization_id IN (
                                                 FROM person_profile_pictures
                                                 WHERE id = ${id};`
                                         );
-        
-        if(personProfilePictureRaw is PersonProfilePicture){
-        
-           personProfilePictureDriveId = personProfilePictureRaw.profile_picture_drive_id ?: "";
-        
-        }else{
+
+        if (personProfilePictureRaw is PersonProfilePicture) {
+
+            personProfilePictureDriveId = personProfilePictureRaw.profile_picture_drive_id ?: "";
+
+        } else {
 
             return error(personProfilePictureRaw.message());
-        
+
         }
 
         boolean|error deleted_profile_picture_response = driveClient->deleteFile(personProfilePictureDriveId.toString());
@@ -7755,9 +7775,9 @@ AND p.organization_id IN (
 
     remote function create_job_post(JobPost job_post) returns JobPostData|error? {
 
-        if(job_post.job_type == "text"){
+        if (job_post.job_type == "text") {
 
-           sql:ExecutionResult insert_job_post_res = check db_client->execute(
+            sql:ExecutionResult insert_job_post_res = check db_client->execute(
                                                 `INSERT INTO job_post(
                                                   job_type,
                                                   job_text,
@@ -7778,120 +7798,9 @@ AND p.organization_id IN (
                 io:println("Unable to insert text job post");
                 return error("Unable to insert text job post");
             }
-           return new(insert_job_post_record_id);
+            return new (insert_job_post_record_id);
 
-        }else if(job_post.job_type == "image"){
-
-           string mainJobPostsDirectoryId = "";
-           string createdJobPostPictureFileId = "";
-           string uploadContent = job_post.job_post_image.toString();
-           byte[] base64DecodedJobPostPicture = <byte[]>(check mime:base64Decode(uploadContent.toBytes()));
-           drive:Client driveClient = check getGoogleDriveClientForJobsAndCVs();
-
-            SystemGoogleDriveFolder|error googleDriveFolderRaw = db_client->queryRow(
-                                        `SELECT *
-                                        FROM system_google_drive_folder_mappings
-                                        WHERE  folder_key = "JobPosts";`
-                                    );
-
-            if (googleDriveFolderRaw is SystemGoogleDriveFolder) {
-                mainJobPostsDirectoryId = googleDriveFolderRaw.google_drive_folder_id ?: "";
-            } else {
-                return error(googleDriveFolderRaw.message());
-            }
-
-            string job_post_name = job_post.current_date_time.toString()+"_"+job_post.job_category.toString()+ "_job_post";
-        
-            drive:File|error  create_job_post_file_response =
-                driveClient->uploadFileUsingByteArray(base64DecodedJobPostPicture, job_post_name, mainJobPostsDirectoryId);
-
-                if (create_job_post_file_response is drive:File) {
-
-                    createdJobPostPictureFileId = create_job_post_file_response?.id.toString();
-
-                    sql:ExecutionResult insert_res = check db_client->execute(
-                            `INSERT INTO job_post(
-                                job_type,
-                                job_image_drive_id,
-                                job_category_id,
-                                application_deadline,
-                                uploaded_by
-                            ) VALUES (
-                                ${job_post.job_type},
-                                ${createdJobPostPictureFileId},
-                                ${job_post.job_category_id},
-                                ${job_post.application_deadline},
-                                ${job_post.uploaded_by}
-                            );`
-                        );
-
-                  int|string?  insert_job_post_record_id = insert_res.lastInsertId;
-                    if !(insert_job_post_record_id is int) {
-                        io:println("Unable to insert job post picture record");
-                        return error("Unable to insert job post picture record");
-                    }
-                    return new (insert_job_post_record_id);
-                } else {
-                    return error(create_job_post_file_response.message());
-                }
-
-        }else if(job_post.job_type == "text_with_link"){
-
-                sql:ExecutionResult insert_job_post_res = check db_client->execute(
-                                                `INSERT INTO job_post(
-                                                  job_type,
-                                                  job_text,
-                                                  job_link,
-                                                  job_category_id,
-                                                  application_deadline,
-                                                  uploaded_by
-                                                ) VALUES (
-                                                  ${job_post.job_type},
-                                                  ${job_post.job_text},
-                                                  ${job_post.job_link},
-                                                  ${job_post.job_category_id},
-                                                  ${job_post.application_deadline},
-                                                  ${job_post.uploaded_by}
-                                                );`);
-
-                int|string? insert_job_post_record_id = insert_job_post_res.lastInsertId;
-
-                if !(insert_job_post_record_id is int) {
-                    io:println("Unable to insert text with link job post");
-                   return error("Unable to insert text with link job post");
-               }
-               return new(insert_job_post_record_id);
-
-        }else{
-            return error("Invalid job type received");
-        }
-    }
-    
-    remote function update_job_post(JobPost job_post) returns JobPostData|error? {
-
-        int id = job_post.id ?: 0;
-        if (id == 0) {
-            return error("Unable to update Job Post");
-        }
-
-        if(job_post.job_type == "text"){
-        
-            sql:ExecutionResult res = check db_client->execute(
-                `UPDATE job_post SET
-                    job_type = ${job_post.job_type},
-                    job_text = ${job_post.job_text},
-                    job_category_id = ${job_post.job_category_id},
-                    application_deadline = ${job_post.application_deadline},
-                    uploaded_by = ${job_post.uploaded_by}
-                WHERE id = ${id};`
-               );
-
-            if (res.affectedRowCount == sql:EXECUTION_FAILED) {
-                return error("Unable to update text job post");
-            }
-
-            return new (id);
-        }else if(job_post.job_type == "image"){
+        } else if (job_post.job_type == "image") {
 
             string mainJobPostsDirectoryId = "";
             string createdJobPostPictureFileId = "";
@@ -7911,22 +7820,133 @@ AND p.organization_id IN (
                 return error(googleDriveFolderRaw.message());
             }
 
-            if(job_post.job_image_drive_id !=null){
+            string job_post_name = job_post.current_date_time.toString() + "_" + job_post.job_category.toString() + "_job_post";
 
-               string jobPostPictureGoogleDriveId = job_post.job_image_drive_id ?: "";
-               boolean|error delete_job_post_picture_response = driveClient->deleteFile(jobPostPictureGoogleDriveId);
-               
-               if (delete_job_post_picture_response is boolean) {
+            drive:File|error create_job_post_file_response =
+                driveClient->uploadFileUsingByteArray(base64DecodedJobPostPicture, job_post_name, mainJobPostsDirectoryId);
 
-                  string job_post_name = job_post.current_date_time.toString()+"_"+job_post.job_category.toString()+ "_job_post";
-        
-                  drive:File|error  create_job_post_file_response =
+            if (create_job_post_file_response is drive:File) {
+
+                createdJobPostPictureFileId = create_job_post_file_response?.id.toString();
+
+                sql:ExecutionResult insert_res = check db_client->execute(
+                            `INSERT INTO job_post(
+                                job_type,
+                                job_image_drive_id,
+                                job_category_id,
+                                application_deadline,
+                                uploaded_by
+                            ) VALUES (
+                                ${job_post.job_type},
+                                ${createdJobPostPictureFileId},
+                                ${job_post.job_category_id},
+                                ${job_post.application_deadline},
+                                ${job_post.uploaded_by}
+                            );`
+                        );
+
+                int|string? insert_job_post_record_id = insert_res.lastInsertId;
+                if !(insert_job_post_record_id is int) {
+                    io:println("Unable to insert job post picture record");
+                    return error("Unable to insert job post picture record");
+                }
+                return new (insert_job_post_record_id);
+            } else {
+                return error(create_job_post_file_response.message());
+            }
+
+        } else if (job_post.job_type == "text_with_link") {
+
+            sql:ExecutionResult insert_job_post_res = check db_client->execute(
+                                                `INSERT INTO job_post(
+                                                  job_type,
+                                                  job_text,
+                                                  job_link,
+                                                  job_category_id,
+                                                  application_deadline,
+                                                  uploaded_by
+                                                ) VALUES (
+                                                  ${job_post.job_type},
+                                                  ${job_post.job_text},
+                                                  ${job_post.job_link},
+                                                  ${job_post.job_category_id},
+                                                  ${job_post.application_deadline},
+                                                  ${job_post.uploaded_by}
+                                                );`);
+
+            int|string? insert_job_post_record_id = insert_job_post_res.lastInsertId;
+
+            if !(insert_job_post_record_id is int) {
+                io:println("Unable to insert text with link job post");
+                return error("Unable to insert text with link job post");
+            }
+            return new (insert_job_post_record_id);
+
+        } else {
+            return error("Invalid job type received");
+        }
+    }
+
+    remote function update_job_post(JobPost job_post) returns JobPostData|error? {
+
+        int id = job_post.id ?: 0;
+        if (id == 0) {
+            return error("Unable to update Job Post");
+        }
+
+        if (job_post.job_type == "text") {
+
+            sql:ExecutionResult res = check db_client->execute(
+                `UPDATE job_post SET
+                    job_type = ${job_post.job_type},
+                    job_text = ${job_post.job_text},
+                    job_category_id = ${job_post.job_category_id},
+                    application_deadline = ${job_post.application_deadline},
+                    uploaded_by = ${job_post.uploaded_by}
+                WHERE id = ${id};`
+                );
+
+            if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+                return error("Unable to update text job post");
+            }
+
+            return new (id);
+        } else if (job_post.job_type == "image") {
+
+            string mainJobPostsDirectoryId = "";
+            string createdJobPostPictureFileId = "";
+            string uploadContent = job_post.job_post_image.toString();
+            byte[] base64DecodedJobPostPicture = <byte[]>(check mime:base64Decode(uploadContent.toBytes()));
+            drive:Client driveClient = check getGoogleDriveClientForJobsAndCVs();
+
+            SystemGoogleDriveFolder|error googleDriveFolderRaw = db_client->queryRow(
+                                        `SELECT *
+                                        FROM system_google_drive_folder_mappings
+                                        WHERE  folder_key = "JobPosts";`
+                                    );
+
+            if (googleDriveFolderRaw is SystemGoogleDriveFolder) {
+                mainJobPostsDirectoryId = googleDriveFolderRaw.google_drive_folder_id ?: "";
+            } else {
+                return error(googleDriveFolderRaw.message());
+            }
+
+            if (job_post.job_image_drive_id != null) {
+
+                string jobPostPictureGoogleDriveId = job_post.job_image_drive_id ?: "";
+                boolean|error delete_job_post_picture_response = driveClient->deleteFile(jobPostPictureGoogleDriveId);
+
+                if (delete_job_post_picture_response is boolean) {
+
+                    string job_post_name = job_post.current_date_time.toString() + "_" + job_post.job_category.toString() + "_job_post";
+
+                    drive:File|error create_job_post_file_response =
                     driveClient->uploadFileUsingByteArray(base64DecodedJobPostPicture, job_post_name, mainJobPostsDirectoryId);
-                
-                   if (create_job_post_file_response is drive:File) {
+
+                    if (create_job_post_file_response is drive:File) {
 
                         createdJobPostPictureFileId = create_job_post_file_response?.id.toString();
-                        
+
                         sql:ExecutionResult res = check db_client->execute(
                                 `UPDATE job_post SET
                                     job_type = ${job_post.job_type},
@@ -7941,14 +7961,14 @@ AND p.organization_id IN (
                             return error("Unable to update job post picture record");
                         }
                         return new (id);
-                    }else{
-                     return error(create_job_post_file_response.message());
+                    } else {
+                        return error(create_job_post_file_response.message());
                     }
-               }else{
-                   return error(delete_job_post_picture_response.message());
-               }
+                } else {
+                    return error(delete_job_post_picture_response.message());
+                }
             }
-        }else if(job_post.job_type == "text_with_link"){
+        } else if (job_post.job_type == "text_with_link") {
 
             sql:ExecutionResult res = check db_client->execute(
                 `UPDATE job_post SET
@@ -7959,21 +7979,21 @@ AND p.organization_id IN (
                     application_deadline = ${job_post.application_deadline},
                     uploaded_by = ${job_post.uploaded_by}
                 WHERE id = ${id};`
-               );
+                );
 
             if (res.affectedRowCount == sql:EXECUTION_FAILED) {
                 return error("Unable to update text with link job post");
             }
-            return new (id); 
-        }else{
+            return new (id);
+        } else {
             return error("Invalid job type received");
         }
         return;
     }
 
     remote function delete_job_post(JobPost job_post) returns int?|error? {
-        
-        if(job_post.job_type == "text" || job_post.job_type == "text_with_link"){
+
+        if (job_post.job_type == "text" || job_post.job_type == "text_with_link") {
 
             sql:ExecutionResult res = check db_client->execute(
             `DELETE FROM job_post WHERE id = ${job_post.id};`
@@ -7987,16 +8007,16 @@ AND p.organization_id IN (
 
             return delete_id;
 
-        }else if(job_post.job_type == "image"){
+        } else if (job_post.job_type == "image") {
 
             drive:Client driveClient = check getGoogleDriveClientForJobsAndCVs();
-            
-            if(job_post.job_image_drive_id !=null){
 
-               string jobPostPictureGoogleDriveId = job_post.job_image_drive_id ?: "";
-               boolean|error delete_job_post_picture_response = driveClient->deleteFile(jobPostPictureGoogleDriveId);
-               
-               if (delete_job_post_picture_response is boolean) {
+            if (job_post.job_image_drive_id != null) {
+
+                string jobPostPictureGoogleDriveId = job_post.job_image_drive_id ?: "";
+                boolean|error delete_job_post_picture_response = driveClient->deleteFile(jobPostPictureGoogleDriveId);
+
+                if (delete_job_post_picture_response is boolean) {
                     sql:ExecutionResult res = check db_client->execute(
                                                 `DELETE FROM job_post WHERE id = ${job_post.id};`
                                                 );
@@ -8006,12 +8026,12 @@ AND p.organization_id IN (
                         return error("Unable to delete job post picture record with id: " + job_post.id.toString());
                     }
                     return delete_id;
-                }else{
-                 return error(delete_job_post_picture_response.message());
+                } else {
+                    return error(delete_job_post_picture_response.message());
                 }
             }
 
-        }else{
+        } else {
             return error("Invalid job type received");
         }
         return;
@@ -8019,27 +8039,27 @@ AND p.organization_id IN (
 
     isolated resource function get job_post(int? id) returns JobPostData|error? {
 
-      JobPost|error? job_post_raw = db_client->queryRow(
+        JobPost|error? job_post_raw = db_client->queryRow(
             `SELECT *
             FROM job_post
             WHERE id = ${id};`);
 
-        if(job_post_raw is JobPost){
+        if (job_post_raw is JobPost) {
 
-            if(job_post_raw.job_type == "text" || job_post_raw.job_type == "text_with_link"){
-            
+            if (job_post_raw.job_type == "text" || job_post_raw.job_type == "text_with_link") {
+
                 int? job_post_id = job_post_raw.id;
 
-                if(job_post_id !=null){
-                    return new(job_post_id);
-                }else{
+                if (job_post_id != null) {
+                    return new (job_post_id);
+                } else {
                     return error("Provide non-null value for id");
                 }
 
-            }else if(job_post_raw.job_type == "image"){
+            } else if (job_post_raw.job_type == "image") {
 
                 drive:Client driveClient = check getGoogleDriveClientForJobsAndCVs();
-                JobPost|error job_post_picture = getJobPostFile(driveClient,job_post_raw.job_image_drive_id.toString());
+                JobPost|error job_post_picture = getJobPostFile(driveClient, job_post_raw.job_image_drive_id.toString());
                 if (job_post_picture is JobPost) {
 
                     job_post_picture.id = job_post_raw.id;
@@ -8049,64 +8069,64 @@ AND p.organization_id IN (
                     job_post_picture.application_deadline = job_post_raw.application_deadline;
                     job_post_picture.uploaded_by = job_post_raw.uploaded_by;
 
-                    JobPostData|error jobPostPictureData = new JobPostData(0,job_post_picture);
+                    JobPostData|error jobPostPictureData = new JobPostData(0, job_post_picture);
                     if !(jobPostPictureData is error) {
                         return jobPostPictureData;
                     }
                 } else {
                     return error(job_post_picture.message());
                 }
-            }else{
-                    return error("Invalid job type received");
+            } else {
+                return error("Invalid job type received");
             }
-                return;
-        }else{
+            return;
+        } else {
             return error("Unable to find job post by id");
         }
     }
 
-    isolated resource function get job_posts(int result_limit=4,int offset=0) returns JobPostData[]|error? {
-        
+    isolated resource function get job_posts(int result_limit = 4, int offset = 0) returns JobPostData[]|error? {
+
         drive:Client driveClient = check getGoogleDriveClientForJobsAndCVs();
         stream<JobPost, error?> job_posts_data;
-        
+
         lock {
-                job_posts_data = db_client->query(
+            job_posts_data = db_client->query(
                     `SELECT *
                      FROM job_post
                      LIMIT ${result_limit} OFFSET ${offset};`
                     );
-         }
+        }
 
         JobPostData[] jobPostsData = [];
 
         check from JobPost job_post_data_record in job_posts_data
             do {
-               string? jobPostImageDriveId = job_post_data_record.job_image_drive_id;
-               if(jobPostImageDriveId.toString().trim() != ""){
+                string? jobPostImageDriveId = job_post_data_record.job_image_drive_id;
+                if (jobPostImageDriveId.toString().trim() != "") {
 
-                 JobPost|error job_post_picture = getJobPostFile(driveClient,jobPostImageDriveId.toString());
-                 if (job_post_picture is JobPost) {
-                    job_post_picture.id = job_post_data_record.id;
-                    job_post_picture.job_type = job_post_data_record.job_type;
-                    job_post_picture.job_image_drive_id = job_post_data_record.job_image_drive_id;
-                    job_post_picture.job_category_id = job_post_data_record.job_category_id;
-                    job_post_picture.application_deadline = job_post_data_record.application_deadline;
-                    job_post_picture.uploaded_by = job_post_data_record.uploaded_by;
-                    JobPostData|error jobPostPictureData = new JobPostData(0,job_post_picture);
-                    if !(jobPostPictureData is error) {
-                        jobPostsData.push(jobPostPictureData);
+                    JobPost|error job_post_picture = getJobPostFile(driveClient, jobPostImageDriveId.toString());
+                    if (job_post_picture is JobPost) {
+                        job_post_picture.id = job_post_data_record.id;
+                        job_post_picture.job_type = job_post_data_record.job_type;
+                        job_post_picture.job_image_drive_id = job_post_data_record.job_image_drive_id;
+                        job_post_picture.job_category_id = job_post_data_record.job_category_id;
+                        job_post_picture.application_deadline = job_post_data_record.application_deadline;
+                        job_post_picture.uploaded_by = job_post_data_record.uploaded_by;
+                        JobPostData|error jobPostPictureData = new JobPostData(0, job_post_picture);
+                        if !(jobPostPictureData is error) {
+                            jobPostsData.push(jobPostPictureData);
+                        }
+                    } else {
+                        return error(job_post_picture.message());
                     }
-                 } else {
-                    return error(job_post_picture.message());
-                 }
-               }else{
-               
-                JobPostData|error jobPostRecordData = new JobPostData(0,job_post_data_record);
-                if !(jobPostRecordData is error) {
-                    jobPostsData.push(jobPostRecordData);
+                } else {
+
+                    JobPostData|error jobPostRecordData = new JobPostData(0, job_post_data_record);
+                    if !(jobPostRecordData is error) {
+                        jobPostsData.push(jobPostRecordData);
+                    }
                 }
-               }
             };
 
         check job_posts_data.close();
@@ -8126,7 +8146,7 @@ AND p.organization_id IN (
 
         check from JobCategory job_category_data_record in job_categories_data
             do {
-                JobCategoryData|error jobCategoryData = new JobCategoryData(0,job_category_data_record);
+                JobCategoryData|error jobCategoryData = new JobCategoryData(0, job_category_data_record);
                 if !(jobCategoryData is error) {
                     jobCategoryDatas.push(jobCategoryData);
                 }
@@ -8135,6 +8155,614 @@ AND p.organization_id IN (
         check job_categories_data.close();
         return jobCategoryDatas;
     }
+
+    //Alumni cv feature functions implementation
+
+    //Add Alumni Cv Request to the DB. 
+    remote function addCvRequest(int personId, CvRequest cvRequest) returns CvRequestData|error? {
+
+        int id = personId;
+
+        if (id == 0) {
+            return error("Unable to add cv request");
+        }
+
+        email:SmtpClient|error gmail = createGmailClient(ALUMNI_CV_REQUEST_SENDER_EMAIL,ALUMNI_CV_REQUEST_SENDER_EMAIL_APP_PASSWORD);
+
+        if gmail is email:SmtpClient {
+
+            io:println("Gmail client created successfully!");
+
+            Person|error? personRaw = db_client->queryRow(
+                                        `SELECT *
+                                        FROM person p
+                                        WHERE p.id = ${id};`
+                                    );
+
+            if (personRaw is Person) {
+                io:println("Person already exists.");
+
+                string personFullName = personRaw.full_name != null ? personRaw.full_name.toString() : "";
+                string personNicNo = personRaw.nic_no != null ? personRaw.nic_no.toString() : "";
+                string personPhoneNo = personRaw.phone != null ? personRaw.phone.toString() : "";
+
+                EmailTemplate|error? emailTemplateRaw = db_client->queryRow(
+                                                    `SELECT *
+                                                    FROM email_template
+                                                    WHERE template_key = 'alumni_cv';`
+                                                    );
+
+                if (emailTemplateRaw is EmailTemplate) {
+
+                    string subject = emailTemplateRaw.subject.toString();
+                    string template = emailTemplateRaw.template.toString();
+                    string[] recipients = [ALUMNI_CV_REQUEST_EMAIL];
+
+                    // Replace {{name}}
+                    template = regex:replaceAll(template, "\\{\\{name\\}\\}", personFullName);
+
+                    // Replace {{nic}}
+                    template = regex:replaceAll(template, "\\{\\{nic\\}\\}", personNicNo);
+
+                    // Replace {{number}}
+                    template = regex:replaceAll(template, "\\{\\{number\\}\\}", personPhoneNo);
+
+                    boolean|error emailSent = sendEmail(gmail, recipients, subject, template);
+
+                    if emailSent is boolean {
+                        io:println("Email sent successfully!");
+
+                        sql:ExecutionResult insertCvRequestRes = check db_client->execute(
+                                                `INSERT INTO cv_request(
+                                                  person_id,
+                                                  phone,
+                                                  status
+                                                ) VALUES (
+                                                  ${cvRequest.person_id},
+                                                  ${cvRequest.phone},
+                                                  ${cvRequest.status}
+                                                );`);
+
+                        int|string? insertCvRequestId = insertCvRequestRes.lastInsertId;
+
+                        if !(insertCvRequestId is int) {
+                            log:printError(string `Unable to insert cv request record`);
+                            return error(string `Unable to insert cv request record`);
+                        }
+
+                        return new (insertCvRequestId);
+
+                    } else {
+                        log:printError(string `Email sending failed:${emailSent.message()}`);
+                        return error(string `Email failed: " + ${emailSent.message()}`);
+                    }
+                } else {
+                    return error(string `Email template with key alumni_cv does not exist`);
+                }
+            } else {
+                return error(string `Person with ${id} does not exist`);
+            }
+
+        } else {
+            return error(string `Email Client Creation Failed: ${gmail.message()}`);
+        }
+    }
+    //Get the most recent CV update request for an student
+    isolated resource function get fetchLatestCvRequest(int personId) returns CvRequestData|error? {
+        int id = personId;
+
+        if (id == 0) {
+            return error(string `Person with ${id} does not exist`);
+        }
+
+        CvRequest|error? cvRequestDataRaw = db_client->queryRow(
+            `SELECT *
+            FROM cv_request
+            WHERE person_id = ${id}
+            ORDER BY updated DESC
+            LIMIT 1;`);
+
+        if (cvRequestDataRaw is CvRequest) {
+
+            int? cvRequestId = cvRequestDataRaw.id;
+
+            if (cvRequestId != null) {
+                return new (cvRequestId);
+            } else {
+                return error("Provide non-null value for cv request id");
+            }
+
+        } else {
+            return error(string `No CV request found for person with ID ${id}`);
+        }
+    }
+
+    //upload the alumni person cv
+    remote function uploadCV(int personId, PersonCv personCv) returns PersonCvData|error? {
+
+        int id = personId;
+
+        if (id == 0) {
+            return error(string `Person with ${id} does not exist`);
+        }
+
+        string uploadCvContent = personCv.file_content.toString();
+        byte[] base64DecodedCv = <byte[]>(check mime:base64Decode(uploadCvContent.toBytes()));
+        string mainAlumniCvDriveFolderId = "";
+
+        drive:Client|error drive = getGoogleDriveClientForJobsAndCVs();
+
+        if (drive is drive:Client) {
+
+            io:println("drive client created successfully!");
+
+            SystemGoogleDriveFolder|error alumniCvFolderRaw = db_client->queryRow(
+                                        `SELECT *
+                                        FROM system_google_drive_folder_mappings
+                                        WHERE  folder_key = "AlumniCv";`
+                                    );
+
+            if (alumniCvFolderRaw is SystemGoogleDriveFolder) {
+                mainAlumniCvDriveFolderId = alumniCvFolderRaw.google_drive_folder_id ?: "";
+            } else {
+                return error(string `Failed to retrieve Alumni CV Google Drive folder`);
+            }
+
+            // First check if a record exists
+            int|error count = db_client->queryRow(
+                                        `SELECT COUNT(*) AS total
+                                        FROM person_cv
+                                        WHERE person_id = ${id};`
+                                );
+
+            if (count is int) {
+
+                if (count > 0) {
+
+                    PersonCv|error personCvRaw = db_client->queryRow(
+                                        `SELECT *
+                                        FROM person_cv
+                                        WHERE person_id = ${id};`
+                                );
+
+                    if (personCvRaw is PersonCv) {
+
+                      string? oldDriveFileId  = personCvRaw.drive_file_id ?: "";
+
+                        if (oldDriveFileId != null) {
+
+                                string cvFileName = personCv.nic_no.toString();
+
+                                drive:File|error createCvRes =
+                                    drive->uploadFileUsingByteArray(base64DecodedCv, cvFileName, mainAlumniCvDriveFolderId);
+
+                                if (createCvRes is drive:File) {
+
+                                    string createCvDriveFileId = createCvRes.id.toString();
+
+                                    sql:ExecutionResult res = check db_client->execute(
+                                                        `UPDATE person_cv SET
+                                                            drive_file_id = ${createCvDriveFileId},
+                                                            uploaded_by = ${personCv.uploaded_by}
+                                                        WHERE person_id =  ${id};`
+                                                    );
+
+                                    if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+                                        boolean|error deleteNewCvRes = drive->deleteFile(createCvDriveFileId);
+                                        if (deleteNewCvRes is boolean) {
+                                            log:printInfo("Newly upload cv deleted.");
+                                        } else {
+                                            log:printError("Unable to delete newly upload cv document.");
+                                        }
+                                        return error(string `Unable to update CV due to a server issue.`);
+                                    }else{
+                                        boolean|error deleteOldCvRes = drive->deleteFile(oldDriveFileId);
+                                        if (deleteOldCvRes is boolean) {
+                                            log:printInfo("Old cv deleted.");
+                                        } else {
+                                            log:printError("Unable to delete Old cv document.");
+                                        }
+                                        return new (0, id);
+                                    }
+                                } else {
+                                    return error(string `Failed to upload CV to Google Drive.`);
+                                }
+
+                        }
+
+                    } else if (personCvRaw is error) {
+                        return error(string `Database error:` + personCvRaw.message());
+                    }
+                } else if (count == 0) {
+
+                    string cvFileName = personCv.nic_no.toString();
+
+                    drive:File|error createCvRes =
+                                    drive->uploadFileUsingByteArray(base64DecodedCv, cvFileName, mainAlumniCvDriveFolderId);
+
+                    if (createCvRes is drive:File) {
+
+                        string createCvDriveFileId = createCvRes.id.toString();
+
+                        sql:ExecutionResult res = check db_client->execute(
+                                `INSERT INTO person_cv(
+                                    person_id,
+                                    drive_file_id,
+                                    uploaded_by
+                                ) VALUES (
+                                    ${id},
+                                    ${createCvDriveFileId},
+                                    ${personCv.uploaded_by}
+                                );`
+                            );
+
+                        int|string? generatedPersonCvId = res.lastInsertId;
+
+                        if !(generatedPersonCvId is int) {
+                            boolean|error deleteNewCvRes = drive->deleteFile(createCvDriveFileId);
+                            if (deleteNewCvRes is boolean) {
+                                log:printInfo("Newly upload cv deleted.");
+                            } else {
+                                log:printError("Unable to delete newly upload cv document.");
+                            }
+                            log:printError(string `Failed to create person cv record:could not retrieve insert ID`);
+                            return error(string `Error occurred while creating CV record for the person"`);
+                        }
+
+                        // NotificationRequest request = {
+                        //     title:"CV Updated!",
+                        //     body: "Your CV has been updated!"
+                        // };
+
+                       // check sendNotificationToUser(id,request);
+                        return new (generatedPersonCvId);
+                    } else {
+                        return error(string `Failed to upload New CV to Google Drive.`);
+                    }
+
+                }
+            }else{
+              return error(string `Failed to retrieve CV record count for the specified person.`);
+            }
+        } else {
+            return error(string `Drive Client Creation Failed: ${drive.message()}`);
+        }
+      return;
+    }
+    
+    //Fetch the CV of a specific student
+    isolated resource function get fetchPersonCV(int personId,string? driveFileId) returns PersonCvData|error? {
+              
+        int id = personId;
+        PersonCv|error personCvRaw;
+
+        if (id == 0) {
+            return error(string `Person with ${id} does not exist`);
+        }
+      
+        personCvRaw = db_client->queryRow(
+                                        `SELECT *
+                                        FROM person_cv
+                                        WHERE person_id = ${id};`
+                                );
+        
+        if(driveFileId !=null){
+
+         personCvRaw = db_client->queryRow(
+                                        `SELECT *
+                                        FROM person_cv
+                                        WHERE person_id = ${id} and drive_file_id= ${driveFileId};`
+                                );
+        }
+
+        if (personCvRaw is PersonCv) {
+
+            drive:Client drive = check getGoogleDriveClientForJobsAndCVs();
+            string|error base64PersonCv  = getDriveFileBase64(drive,personCvRaw.drive_file_id.toString());
+            if(base64PersonCv is string){
+              personCvRaw.file_content = base64PersonCv;
+              PersonCvData|error personCVData = new PersonCvData(0,0,personCvRaw);
+                    if !(personCVData is error) {
+                        return personCVData;
+                    }
+            }else{
+                return error(string `File not found`);
+            }
+        
+        }else{
+            return error(personCvRaw.message());
+        }
+        return;
+    }
+    
+     //Store FCM token for a specific student
+    remote function saveUserFCMToken(int personId,PersonFcmToken personFCMToken) returns PersonFcmTokenData|error? {
+
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO person_fcm_token(
+                person_id,
+                fcm_token
+            ) VALUES (
+                ${personId},
+                ${personFCMToken.fcm_token}
+            );`
+        );
+
+        int|string? insertId = res.lastInsertId;
+        if !(insertId is int) {
+            return error("Failed to save FCM token");
+        }
+        return new (insertId);
+    }
+    
+    //Update FCM token for a specific student
+    remote function updateUserFCMToken(int personId,PersonFcmToken personFCMToken) returns PersonFcmTokenData|error? {
+        
+        int id = personFCMToken.id ?:0;
+        
+        if (id == 0) {
+            return error(string `Person Fcm token record ID cannot be zero`);
+        }
+
+        sql:ExecutionResult res = check db_client->execute(
+            `UPDATE person_fcm_token SET
+                fcm_token = ${personFCMToken.fcm_token}
+            WHERE id = ${id};`
+        );
+
+        if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+            return error("Failed to update FCM token record");
+        }
+
+        return new (id);
+    }
+
+   //Get FCM token for a specific student
+    isolated resource function get fetchUserFCMToken(int? personId) returns PersonFcmTokenData|error? {
+        if (personId != null) {
+            return new (0,personId);
+        } else {
+            return error("Provide non-null value for person id.");
+        }
+    }
+    
+    
+    
+   //==============================Maintenance Module Api Implementation==============================//
+    
+    remote function saveOrganizationLocation(int organizationId,OrganizationLocation organizationLocation) returns OrganizationLocationData|error? {
+
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO organization_location(
+                organization_id,
+                location_name,
+                description
+            ) VALUES (
+                ${organizationLocation.organization_id},
+                ${organizationLocation.location_name},
+                ${organizationLocation.description}
+            );`
+        );
+
+        int|string? insertId = res.lastInsertId;
+        if !(insertId is int) {
+            return error("Failed to save Organization Location");
+        }
+        return new (insertId);
+    }
+
+    isolated resource function get locationsByOrganization(int? organizationId) returns OrganizationLocationData[]|error? {
+        stream<OrganizationLocation, error?> orgLocationsData;
+
+        if (organizationId != null) {
+
+            lock {
+                orgLocationsData = db_client->query(
+                    `SELECT *
+                        from organization_location
+                     where organization_id=${organizationId};`);
+            }
+
+            OrganizationLocationData[] locationDatas = [];
+
+            check from OrganizationLocation location_data_record in orgLocationsData
+                do {
+                    OrganizationLocationData|error locationData = new OrganizationLocationData(0,location_data_record);
+                    if !(locationData is error) {
+                        locationDatas.push(locationData);
+                    }
+                };
+
+            check orgLocationsData.close();
+            return locationDatas;
+        } else {
+            return error("Provide valid value for organization id.");
+        }
+    }
+
+    remote function createMaintenanceTask(int? organizationId,MaintenanceTask maintenanceTask) returns MaintenanceTaskData|error? {
+
+        //define the transactions
+        boolean taskInsertFailed = false;
+        boolean activityInstanceInsertFailed = false;
+        boolean participantInsertFailed = false;
+        boolean financeInsertFailed = false;
+        boolean materialCostInsertFailed  = false;
+        string message = "";
+        int|string? insertTaskActivityInstanceId= null;
+
+        transaction{
+
+            sql:ExecutionResult insertMaintenanceTaskTable = check db_client->execute(
+            `INSERT INTO maintenance_task(
+                title,
+                description,
+                task_type,
+                frequency,
+                location_id,
+                start_date,
+                exception_deadline,
+                has_financial_info,
+                modified_by
+            ) VALUES (
+                ${maintenanceTask.title},
+                ${maintenanceTask.description},
+                ${maintenanceTask.task_type},
+                ${maintenanceTask.frequency},
+                ${maintenanceTask.location_id},
+                ${maintenanceTask.start_date},
+                ${maintenanceTask.exception_deadline},
+                ${maintenanceTask.has_financial_info},
+                ${maintenanceTask.modified_by}
+            );`
+            );
+
+            int|string? insertTaskId = insertMaintenanceTaskTable.lastInsertId;
+            if !(insertTaskId is int) {
+                taskInsertFailed = true;
+                message = "Failed to save Maintenance Task.";
+            }
+
+            string taskStartDate = maintenanceTask.start_date?:"";
+            int deadlineInDays = maintenanceTask.exception_deadline ?: 0;
+
+            //Calculate and get the task end date
+            string|error taskEndDate = getEndDate(taskStartDate,deadlineInDays);
+            
+            if taskEndDate is string {
+
+                
+                //Save maintenance task in activity instance table
+                sql:ExecutionResult insertTaskActivityInstanceTable = check db_client->execute(
+                `INSERT INTO task_activity_instance(
+                    activity_id,
+                    task_id,
+                    start_date,
+                    end_date,
+                    task_status
+                ) VALUES (
+                    1,
+                    ${insertTaskId},
+                    ${maintenanceTask.start_date},
+                    ${taskEndDate},
+                    ${"Pending"}
+                );`
+                );
+
+                insertTaskActivityInstanceId = insertTaskActivityInstanceTable.lastInsertId;
+                if !(insertTaskActivityInstanceId is int) {
+                    activityInstanceInsertFailed = true;
+                    message = "Failed to save task activity instance.";
+                }
+
+            }else if(taskEndDate is error){
+             log:printError("Failed to calculate end date", taskEndDate);
+            }
+
+            //Save maintenance task participants in task activity participant table
+            int[] personIdList = maintenanceTask?.person_id_list ?: [];
+            if personIdList is int[] && personIdList.length()>0{
+               foreach int personId in personIdList {
+                   sql:ExecutionResult insertTaskActivityParticipantTable = check db_client->execute(
+                        `INSERT INTO task_activity_participant(
+                            task_activity_instance_id,
+                            person_id,
+                            task_status
+                        ) VALUES (
+                            ${insertTaskActivityInstanceId},
+                            ${personId},
+                            ${"Pending"}
+                        );`
+                        );
+
+                        int|string? insertTaskActivityParticipantId = insertTaskActivityParticipantTable.lastInsertId;
+                        if !(insertTaskActivityParticipantId is int) {
+                            participantInsertFailed = true;
+                            message = "Failed to save task activity participant.";
+                        }
+ 
+               }
+            }
+            
+            int hasFinanceInfo = maintenanceTask.has_financial_info ?:0;
+            
+            if(hasFinanceInfo == 1){
+                 
+                 MaintenanceFinance? maintenanceFinanceData = maintenanceTask.finance;
+
+                if(maintenanceFinanceData is MaintenanceFinance){
+
+                    sql:ExecutionResult insertMaintenanceFinanceTable = check db_client->execute(
+                            `INSERT INTO maintenance_finance(
+                                task_activity_instance_id,
+                                estimated_cost,
+                                labour_cost,
+                                status
+                            ) VALUES (
+                                ${insertTaskActivityInstanceId},
+                                ${maintenanceFinanceData.estimated_cost},
+                                ${maintenanceFinanceData.labour_cost}
+                                ${"Pending"}
+                            );`
+                            );
+
+                            int|string? insertMaintenanceFinanceId = insertMaintenanceFinanceTable.lastInsertId;
+                            if !(insertMaintenanceFinanceId is int) {
+                                financeInsertFailed = true;
+                                message = "Failed to save maintenance task finance info.";
+                            }
+                 
+
+                    //Save maintenance task material costs in table
+                    MaterialCost[] materialCostList = maintenanceFinanceData.material_costs ?: [];
+                    if materialCostList is MaterialCost[] && materialCostList.length()>0{
+                        foreach MaterialCost materialCost in materialCostList {
+                            sql:ExecutionResult insertMaterialCostTable = check db_client->execute(
+                                    `INSERT INTO material_cost(
+                                        financial_id,
+                                        item,
+                                        quantity,
+                                        unit,
+                                        unit_cost
+                                    ) VALUES (
+                                        ${insertMaintenanceFinanceId},
+                                        ${materialCost.item},
+                                        ${materialCost.quantity},
+                                        ${materialCost.unit},
+                                        ${materialCost.unit_cost}
+                                    );`
+                                    );
+
+                                    int|string? insertMaterialCostId = insertMaterialCostTable.lastInsertId;
+                                    if !(insertMaterialCostId is int) {
+                                        materialCostInsertFailed = true;
+                                        message = "Failed to save material cost.";
+                                    }
+            
+                        }
+                    }
+                }
+            
+            }
+
+            if (taskInsertFailed ||
+                activityInstanceInsertFailed ||
+                participantInsertFailed ||
+                financeInsertFailed ||
+                materialCostInsertFailed
+                ) {
+                rollback;
+                return error(message);
+            } else {
+
+                // Commit the transaction if all transactions are successful
+                check commit;
+                io:println("Transaction committed successfully!");
+                return new (<int?>insertTaskId);
+            }
+
+        }
+    }   
 }
 
 // isolated function getProfilePicture(drive:Client driveClient, string id) returns PersonProfilePicture|error {
@@ -8195,21 +8823,21 @@ isolated function getDocument(drive:Client driveClient, string id, string docume
     return user_document;
 }
 
-isolated function getJobPostFile(drive:Client driveClient,string id) returns JobPost|error {
+isolated function getJobPostFile(drive:Client driveClient, string id) returns JobPost|error {
     JobPost job_post = {
         id: 0,
         job_type: (),
         job_text: (),
         job_link: (),
         job_image_drive_id: (),
-        job_post_image:(),
-        current_date_time:(),
-        job_category:(),
-        job_category_id:-1,
-        application_deadline:(),
-        uploaded_by:(),
+        job_post_image: (),
+        current_date_time: (),
+        job_category: (),
+        job_category_id: -1,
+        application_deadline: (),
+        uploaded_by: (),
         created: (),
-        updated:()
+        updated: ()
     };
 
     drive:FileContent|error job_post_file_stream = check driveClient->getFileContent(id);
@@ -8225,7 +8853,18 @@ isolated function getJobPostFile(drive:Client driveClient,string id) returns Job
     return job_post;
 }
 
-isolated function getProfilePicture(drive:Client driveClient,string id) returns PersonProfilePicture|error {
+isolated function getDriveFileBase64(drive:Client driveClient, string fileId) returns string|error {
+
+    drive:FileContent|error fileStream = check driveClient->getFileContent(fileId);
+
+    if (fileStream is drive:FileContent) {
+       return fileStream.content.toBase64();
+    } 
+    return "";
+}
+
+
+isolated function getProfilePicture(drive:Client driveClient, string id) returns PersonProfilePicture|error {
     PersonProfilePicture profile_picture = {
         id: 0,
         person_id: 0,
@@ -8234,7 +8873,7 @@ isolated function getProfilePicture(drive:Client driveClient,string id) returns 
         nic_no: (),
         uploaded_by: (),
         created: (),
-        updated:()
+        updated: ()
     };
 
     drive:FileContent|error profile_picture_file_stream = check driveClient->getFileContent(id);
@@ -8274,9 +8913,34 @@ isolated function getGoogleDriveClientForJobsAndCVs() returns drive:Client|error
             refreshToken: GOOGLEDRIVEJOBSCVSREFRESHTOKEN
         }
     };
-  
+
     drive:Client driveClient = check new (config);
     return driveClient;
+}
+
+//Created gmail client
+isolated function createGmailClient(string senderEmailAddress,string appPassword) returns email:SmtpClient|error {
+
+    email:SmtpClient gmail = check new (
+    "smtp.gmail.com",
+    senderEmailAddress,
+    appPassword // NOT normal Gmail password
+   );
+
+    return gmail;
+}
+
+//Sends an email using the provided Gmail client.
+isolated function sendEmail(email:SmtpClient gmail, string[] recipients, string subject, string body) returns boolean|error {
+
+    // Send the email message.
+    check gmail->sendMessage({
+       to: recipients,
+       subject:subject,
+       body: body,
+       contentType:"text/html"
+    });
+     return true;
 }
 
 isolated function calculateWeekdays(time:Utc toDate, time:Utc fromDate) returns int {

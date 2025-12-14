@@ -405,6 +405,7 @@ public type ActivityInstance record {|
     readonly string? record_type = "activity_instance";
     int id?;
     int? activity_id;
+    int? task_id;
     string? name;
     int? place_id;
     string? location;
@@ -416,6 +417,7 @@ public type ActivityInstance record {|
     string? notes;
     string? start_time;
     string? end_time;
+    string? task_status;
     string? created;
     string? updated;
 |};
@@ -428,6 +430,7 @@ public type ActivityParticipant record {|
     int? organization_id;
     string? start_date;
     string? end_date;
+    string? task_status;
     string? role;
     string? notes;
     int? is_attending;
@@ -787,6 +790,7 @@ public type Alumni record {|
     string? facebook_id;
     string? instagram_id;
     string? tiktok_id;
+    string? canva_cv_url;
     string? updated_by;
     int? person_count;
     string? created;
@@ -877,4 +881,149 @@ public type JobCategory record {|
     int id?;
     string? name;
     string? description;
+|};
+
+public type CvRequest record {|
+    readonly string? record_type = "cv_request";
+    int id?;
+    int? person_id;
+    int? phone;
+    string? status;
+    string? created;
+    string? updated;
+|};
+
+public type PersonFcmToken record {|
+    readonly string? record_type = "person_fcm_token";
+    int id?;
+    int? person_id;
+    string? fcm_token;
+    string? created;
+    string? updated;
+|};
+
+public type PersonCv record {|
+    readonly string? record_type = "person_cv";
+    int id?;
+    int? person_id;
+    string? file_content;
+    string? nic_no;
+    string? drive_file_id;
+    string? uploaded_by;
+    string? created;
+    string? updated;
+|};
+
+public type EmailTemplate record {|
+    readonly string? record_type = "email_template";
+    int id?;
+    string? template_key;
+    string? subject;
+    string? template;
+    string? created;
+    string? updated;
+|};
+
+public type SmsTemplate record {|
+    readonly string? record_type = "sms_template";
+    int id?;
+    string? key;
+    string? title;
+    string? body;
+    string? created;
+    string? updated;
+|};
+
+public type NotificationRequest record {|
+    string? title;
+    string? body;
+|};
+
+public type ServiceAccount record {|
+    string project_id;
+    string private_key_id;
+    string private_key;
+    string client_email;
+    string client_id;
+    string auth_uri;
+    string token_uri;
+    string auth_provider_x509_cert_url;
+    string client_x509_cert_url;
+    string universe_domain;
+|};
+
+public type OrganizationLocation record {|
+    readonly string? record_type = "organization_location";
+    int id?;
+    int? organization_id;
+    string? location_name;
+    string? description;
+|};
+
+public type MaintenanceTask record {|
+    readonly string? record_type = "maintenance_task";
+    int id?;
+    string? title;
+    string? description;
+    string? task_type;
+    string? frequency;
+    int? location_id;
+    string? start_date;
+    int? exception_deadline;
+    int? has_financial_info;
+    string? modified_by;
+    boolean? is_deleted;
+    string? created;
+    string? updated;
+    MaintenanceFinance? finance; //maintenance task finance info
+    int[]? person_id_list?;
+|};
+
+public type MaintenanceFinance record {|
+    readonly string? record_type = "maintenance_finance";
+    int id?;
+    int? activity_instance_id;
+    decimal? estimated_cost;
+    decimal? labour_cost;
+    string? status;
+    string? rejection_reason;
+    string? reviewed_by;
+    string? reviewed_date;
+    string? created;
+    string? updated;
+    MaterialCost[]? material_costs; //maintenance task material costs
+|};
+
+public type MaterialCost record {|
+    readonly string? record_type = "material_cost";
+    int id?;
+    int? financial_id;
+    string? item;
+    decimal? quantity;
+    string? unit;
+    decimal? unit_cost;
+|};
+
+public type TaskActivityInstance record {|
+    readonly string? record_type = "task_activity_instance";
+    int id?;
+    int? activity_id;
+    int? task_id;
+    string? start_date;
+    string? end_date;
+    string? task_status;
+    string? created;
+    string? updated;
+|};
+
+public type TaskActivityParticipant record {|
+    readonly string? record_type = "task_activity_participant";
+    int id?;
+    int? task_activity_instance_id;
+    int? person_id;
+    string? start_date;
+    string? end_date;
+    string? task_status;
+    string? created;
+    string? updated;
 |};
