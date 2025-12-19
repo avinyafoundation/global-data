@@ -35,6 +35,7 @@ public isolated service class ActivityInstanceData {
                 return self.activity_instance.id;
         }
     }
+    
 
     isolated resource function get name() returns string? {
         lock {
@@ -57,6 +58,12 @@ public isolated service class ActivityInstanceData {
     isolated resource function get activity_id() returns int? {
         lock {
                 return self.activity_instance.activity_id;
+        }
+    }
+
+    isolated resource function get task_id() returns int? {
+        lock {
+            return self.activity_instance.task_id;
         }
     }
 
@@ -93,6 +100,12 @@ public isolated service class ActivityInstanceData {
     isolated resource function get end_time() returns string? {
         lock {
             return self.activity_instance.end_time;
+        }
+    }
+
+    isolated resource function get overall_task_status() returns string? {
+        lock {
+            return self.activity_instance.overall_task_status;
         }
     }
 
@@ -176,7 +189,7 @@ public isolated service class ActivityInstanceData {
                     organization_id: -1,
                     start_date: "",
                     end_date: "",
-                    task_status: "",
+                    participant_task_status: "",
                     role: "",
                     notes: "",
                     is_attending: -1,
