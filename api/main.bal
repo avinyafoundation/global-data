@@ -8580,7 +8580,7 @@ AND p.organization_id IN (
         }
     }
 
-    remote function createMaintenanceTask(int? organizationId,MaintenanceTask maintenanceTask) returns MaintenanceTaskData|error? {
+    remote function createMaintenanceTask(int? organizationId,MaintenanceTask maintenanceTask,MaintenanceFinance? finance,MaterialCost[]? materialCosts) returns MaintenanceTaskData|error? {
 
         //define the transactions
         boolean taskInsertFailed = false;
@@ -8590,7 +8590,8 @@ AND p.organization_id IN (
         boolean materialCostInsertFailed  = false;
         string message = "";
         int|string? insertTaskActivityInstanceId= null;
-
+        
+        io:println(`material cost:${materialCosts.toString()}`);
         transaction{
 
             sql:ExecutionResult insertMaintenanceTaskTable = check db_client->execute(
@@ -8627,22 +8628,24 @@ AND p.organization_id IN (
             int deadlineInDays = maintenanceTask.exception_deadline ?: 0;
 
             //Calculate and get the task end date
-            string|error taskEndDate = getEndDate(taskStartDate,deadlineInDays);
+            string|error taskEndDate = addDaysToDate(taskStartDate,deadlineInDays);
             
             if taskEndDate is string {
 
                 
                 //Save maintenance task in activity instance table
                 sql:ExecutionResult insertTaskActivityInstanceTable = check db_client->execute(
-                `INSERT INTO task_activity_instance(
+                `INSERT INTO activity_instance(
                     activity_id,
                     task_id,
-                    start_date,
-                    end_date,
-                    task_status
+                    name,
+                    start_time,
+                    end_time,
+                    overall_task_status
                 ) VALUES (
-                    1,
+                    21,
                     ${insertTaskId},
+                    ${maintenanceTask.title},
                     ${maintenanceTask.start_date},
                     ${taskEndDate},
                     ${"Pending"}
@@ -8659,15 +8662,15 @@ AND p.organization_id IN (
              log:printError("Failed to calculate end date", taskEndDate);
             }
 
-            //Save maintenance task participants in task activity participant table
+            //Save maintenance task participants in activity participant table
             int[] personIdList = maintenanceTask?.person_id_list ?: [];
             if personIdList is int[] && personIdList.length()>0{
                foreach int personId in personIdList {
                    sql:ExecutionResult insertTaskActivityParticipantTable = check db_client->execute(
-                        `INSERT INTO task_activity_participant(
-                            task_activity_instance_id,
+                        `INSERT INTO activity_participant(
+                            activity_instance_id,
                             person_id,
-                            task_status
+                            participant_task_status
                         ) VALUES (
                             ${insertTaskActivityInstanceId},
                             ${personId},
@@ -8688,20 +8691,20 @@ AND p.organization_id IN (
             
             if(hasFinanceInfo == 1){
                  
-                 MaintenanceFinance? maintenanceFinanceData = maintenanceTask.finance;
+                //MaintenanceFinance maintenanceFinanceData = <MaintenanceFinance>maintenanceTask.finance;
 
-                if(maintenanceFinanceData is MaintenanceFinance){
+                if(finance is MaintenanceFinance){
 
                     sql:ExecutionResult insertMaintenanceFinanceTable = check db_client->execute(
                             `INSERT INTO maintenance_finance(
-                                task_activity_instance_id,
+                                activity_instance_id,
                                 estimated_cost,
                                 labour_cost,
                                 status
                             ) VALUES (
                                 ${insertTaskActivityInstanceId},
-                                ${maintenanceFinanceData.estimated_cost},
-                                ${maintenanceFinanceData.labour_cost}
+                                ${finance.estimated_cost},
+                                ${finance.labour_cost},
                                 ${"Pending"}
                             );`
                             );
@@ -8711,12 +8714,10 @@ AND p.organization_id IN (
                                 financeInsertFailed = true;
                                 message = "Failed to save maintenance task finance info.";
                             }
-                 
-
+                    
                     //Save maintenance task material costs in table
-                    MaterialCost[] materialCostList = maintenanceFinanceData.material_costs ?: [];
-                    if materialCostList is MaterialCost[] && materialCostList.length()>0{
-                        foreach MaterialCost materialCost in materialCostList {
+                    if materialCosts is MaterialCost[] && materialCosts.length()>0{
+                        foreach MaterialCost materialCost in materialCosts {
                             sql:ExecutionResult insertMaterialCostTable = check db_client->execute(
                                     `INSERT INTO material_cost(
                                         financial_id,
@@ -8740,6 +8741,7 @@ AND p.organization_id IN (
                                     }
             
                         }
+
                     }
                 }
             

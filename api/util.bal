@@ -6,6 +6,7 @@ import ballerina/jwt;
 import ballerina/http;
 import ballerina/time;
 import ballerina/log;
+import ballerina/regex;
 
 # Database user
 configurable string USER = ?;
@@ -230,14 +231,33 @@ isolated  function sendNotificationToAllUsers(NotificationRequest request) retur
 
 }
 
-public function getEndDate(string startDate,int deadlineInDays) returns string|error{
-
-    time:Utc startDateInUtc = check time:utcFromString(startDate);
+//execution time for this below method:63.38 ms.Execution under 100 ms is excellent
+public function addDaysToDate(string date,int dayCount) returns string|error{
+                           
+    time:Utc startDateInUtc = check time:utcFromString(toIso8601Utc(date));
    
     // calculate ending date
-    time:Utc endDate = time:utcAddSeconds(startDateInUtc,deadlineInDays*86400); //86400=number of seconds in a single day
+    time:Utc endDate = time:utcAddSeconds(startDateInUtc,dayCount*86400); //86400=number of seconds in a single day
     
     string endDateInString = time:utcToString(endDate);
     
-    return endDateInString;
+    //convert dateTime into human-readable format
+    string removeIt = removeTandZ(endDateInString);
+    return removeIt;
+}
+
+function toIso8601Utc(string dateTime) returns string {
+    // Replace space with 'T' and append 'Z'
+   // Replace space between date and time with 'T'
+    string iso = regex:replaceAll(dateTime, "\\s+", "T");
+    // Append 'Z' to mark UTC
+    return iso + "Z";
+}
+
+function removeTandZ(string isoDateTime) returns string {
+    // Replace 'T' with space
+    string withoutT = regex:replaceAll(isoDateTime, "T", " ");
+
+    // Remove trailing 'Z'
+    return regex:replaceAll(withoutT, "Z$", "");
 }

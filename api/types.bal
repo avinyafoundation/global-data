@@ -417,7 +417,7 @@ public type ActivityInstance record {|
     string? notes;
     string? start_time;
     string? end_time;
-    string? task_status;
+    string? overall_task_status;
     string? created;
     string? updated;
 |};
@@ -430,7 +430,7 @@ public type ActivityParticipant record {|
     int? organization_id;
     string? start_date;
     string? end_date;
-    string? task_status;
+    string? participant_task_status;
     string? role;
     string? notes;
     int? is_attending;
@@ -972,11 +972,11 @@ public type MaintenanceTask record {|
     int? exception_deadline;
     int? has_financial_info;
     string? modified_by;
-    boolean? is_deleted;
+    boolean? is_active;
     string? created;
     string? updated;
-    MaintenanceFinance? finance; //maintenance task finance info
     int[]? person_id_list?;
+    MaintenanceFinance? finance;
 |};
 
 public type MaintenanceFinance record {|
@@ -991,7 +991,7 @@ public type MaintenanceFinance record {|
     string? reviewed_date;
     string? created;
     string? updated;
-    MaterialCost[]? material_costs; //maintenance task material costs
+    MaterialCost[]? materialCosts;
 |};
 
 public type MaterialCost record {|
@@ -1002,28 +1002,4 @@ public type MaterialCost record {|
     decimal? quantity;
     string? unit;
     decimal? unit_cost;
-|};
-
-public type TaskActivityInstance record {|
-    readonly string? record_type = "task_activity_instance";
-    int id?;
-    int? activity_id;
-    int? task_id;
-    string? start_date;
-    string? end_date;
-    string? task_status;
-    string? created;
-    string? updated;
-|};
-
-public type TaskActivityParticipant record {|
-    readonly string? record_type = "task_activity_participant";
-    int id?;
-    int? task_activity_instance_id;
-    int? person_id;
-    string? start_date;
-    string? end_date;
-    string? task_status;
-    string? created;
-    string? updated;
 |};

@@ -88,9 +88,9 @@ public isolated service class MaintenanceTaskData {
         }
     }
 
-    isolated resource function get is_deleted() returns boolean?|error {
+    isolated resource function get is_active() returns boolean?|error {
         lock {
-            return self.maintenance_task.is_deleted;
+            return self.maintenance_task.is_active;
         }
     }
 
