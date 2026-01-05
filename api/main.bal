@@ -1725,17 +1725,29 @@ service /graphql on new graphql:Listener(4000) {
         );
                         io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
 
+
                         if !(avinya_type_id is int) {
                             io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
                             return error("AvinyaType ID does not exist");
                         }
                         attendance_records = db_client->query(
-                        `SELECT *
-                        FROM activity_participant_attendance
-                        WHERE person_id IN (SELECT id FROM person WHERE organization_id = ${organization_id} AND avinya_type_id=${avinya_type_id})
-                        AND activity_instance_id IN (SELECT id FROM activity_instance WHERE activity_id = ${activity_id})
-                        AND DATE(sign_in_time) BETWEEN ${from_date} AND ${to_date}
-                        ORDER BY created DESC;`
+                        `SELECT apa.*
+                            FROM activity_participant_attendance apa
+                            JOIN (
+                                SELECT MIN(id) AS id
+                                FROM activity_participant_attendance
+                                WHERE DATE(sign_in_time) BETWEEN ${from_date} AND ${to_date}
+                                AND activity_instance_id IN (
+                                    SELECT id FROM activity_instance WHERE activity_id = ${activity_id}
+                                )
+                                AND person_id IN (
+                                    SELECT id FROM person 
+                                    WHERE organization_id = ${organization_id} AND avinya_type_id = ${avinya_type_id}
+                                )
+                                GROUP BY person_id, DATE(sign_in_time)
+                            ) one_per_day
+                            ON apa.id = one_per_day.id
+                            ORDER BY apa.created DESC;`
                     );
                     }
                 } else if (batch_id != null) {
@@ -1861,6 +1873,7 @@ LEFT JOIN person p ON apa.person_id = p.id
                     );
                     }
                 } else {
+                    io:print("execute the parent org blog");
                     lock {
                         attendance_records = db_client->query(
                             `SELECT apa.*,o.description,p.preferred_name,p.digital_id
@@ -4688,10 +4701,11 @@ AND p.organization_id IN (
                 daily_attendance_summary_report_records = db_client->query(
                                 `SELECT
                                     DATE(pa.sign_in_time) AS sign_in_date,
-                                    COUNT(pa.person_id) AS present_count,
-                                    COUNT(CASE WHEN TIME_FORMAT(pa.sign_in_time, '%H:%i:%s') > '08:30:59' THEN 1 END) AS late_count,
+                                    COUNT(DISTINCT pa.person_id) AS present_count,
+                                    (ts.total_count - COUNT(DISTINCT pa.person_id)) AS absent_count,
+                                    COUNT(CASE WHEN TIME_FORMAT(pa.sign_in_time, '%H:%i:%s') > '07:30:00' THEN 1 END) AS late_count,
                                     ts.total_count
-                                FROM
+                                    FROM
                                     activity_participant_attendance pa
                                     JOIN person p ON pa.person_id = p.id
                                     JOIN (
@@ -4706,11 +4720,11 @@ AND p.organization_id IN (
                                             WHERE id IN (
                                                 SELECT child_org_id
                                                 FROM parent_child_organization
-                                                WHERE parent_org_id =${organization_id}
+                                                WHERE parent_org_id = ${organization_id}
                                             )
                                         )
                                     ) ts
-                                WHERE
+                                    WHERE
                                     pa.sign_in_time IS NOT NULL
                                     AND pa.activity_instance_id IN (
                                         SELECT id
@@ -4718,62 +4732,60 @@ AND p.organization_id IN (
                                         WHERE activity_id = 4
                                     )
                                     AND p.avinya_type_id = ${avinya_type_id}
+                                    AND p.organization_id IN (
+                                        SELECT id
+                                        FROM organization
+                                        WHERE id IN (
+                                            SELECT child_org_id
+                                            FROM parent_child_organization
+                                            WHERE parent_org_id = ${organization_id}
+                                        )
+                                        )
                                     AND DATE(pa.sign_in_time) BETWEEN ${from_date} AND ${to_date}
-                                GROUP BY DATE(pa.sign_in_time), ts.total_count order by DATE(pa.sign_in_time) asc;`);
+                                    GROUP BY DATE(pa.sign_in_time), ts.total_count order by DATE(pa.sign_in_time) asc;`);
 
             }
 
             DailyActivityParticipantAttendanceSummaryReportData[] attendanceSummaryReportDatas = [];
-            decimal? present_attendance_percentage = 0.0;
-            decimal? late_attendance_percentage = 0.0;
+            decimal present_attendance_percentage = 0.0;
+            decimal late_attendance_percentage = 0.0;
+            decimal absent_attendance_percentage = 0.0;
 
             check from ActivityParticipantAttendanceSummaryReport attendance_summary_report_record in daily_attendance_summary_report_records
 
                 do {
 
-                    int? present_count = attendance_summary_report_record.present_count;
+                    int present_count = attendance_summary_report_record.present_count ?: 0;
 
-                    int? late_count = attendance_summary_report_record.late_count;
+                    int late_count = attendance_summary_report_record.late_count ?: 0;
 
-                    int? total_count = attendance_summary_report_record.total_count;
+                    int absent_count = attendance_summary_report_record.absent_count ?: 0;
+
+                    int total_count = attendance_summary_report_record.total_count ?: 0;
 
                     if (total_count > 0) {
 
-                        present_attendance_percentage = (present_count * 100) / total_count;
+                        present_attendance_percentage = (present_count * 100.0) / total_count;
 
-                        late_attendance_percentage = (late_count * 100) / total_count;
+                        absent_attendance_percentage = (absent_count * 100.0) / total_count;
 
-                    } else {
-                        present_attendance_percentage = 0;
+                        late_attendance_percentage = (late_count * 100.0) / total_count;
 
-                        late_attendance_percentage = 0;
+                    } 
 
-                    }
-
-                    // if (present_attendance_percentage is null) {
-                    //     present_attendance_percentage = 0;
-                    // }
-                    // if(late_attendance_percentage is null){
-                    //     late_attendance_percentage = 0;
-                    // }
-
-                    decimal roundedPresentAttendancePercentage = 0;
-                    decimal roundedLateAttendancePercentage = 0;
-
-                    if (present_attendance_percentage is decimal) {
-                        roundedPresentAttendancePercentage = decimal:round(present_attendance_percentage, 2);
-                    }
-
-                    if (late_attendance_percentage is decimal) {
-                        roundedLateAttendancePercentage = decimal:round(late_attendance_percentage, 2);
-                    }
+                    decimal  roundedPresentAttendancePercentage = decimal:round(present_attendance_percentage, 2);
+                    decimal  roundedAbsentAttendancePercentage = decimal:round(absent_attendance_percentage, 2);
+                    decimal  roundedLateAttendancePercentage = decimal:round(late_attendance_percentage, 2);
+                    
 
                     ActivityParticipantAttendanceSummaryReport attendanceSummaryData = {
                         sign_in_date: attendance_summary_report_record.sign_in_date,
                         present_count: present_count,
+                        absent_count: absent_count,
                         late_count: late_count,
                         total_count: total_count,
                         present_attendance_percentage: roundedPresentAttendancePercentage,
+                        absent_attendance_percentage:roundedAbsentAttendancePercentage,
                         late_attendance_percentage: roundedLateAttendancePercentage
                     };
 
@@ -6574,15 +6586,9 @@ AND p.organization_id IN (
 
         int? totalSchoolDays = monthly_leave_dates.total_days_in_month - totalLeaveDates;
 
-        CalendarMetadata|error? monthlyPaymentAmount = check db_client->queryRow(
-            `SELECT *
-            FROM calendar_metadata
-            WHERE organization_id = ${monthly_leave_dates.organization_id} and batch_id = ${monthly_leave_dates.batch_id};`
-        );
-
-        if (monthlyPaymentAmount is CalendarMetadata) {
-            dailyAmount = monthlyPaymentAmount.monthly_payment_amount / totalSchoolDays ?: 0.0;
-        }
+       
+        dailyAmount = monthly_leave_dates.monthly_payment_amount / totalSchoolDays ?: 0.0;
+        
 
         sql:ExecutionResult res = check db_client->execute(
             `INSERT INTO monthly_leave_dates (
@@ -6634,15 +6640,9 @@ AND p.organization_id IN (
 
         int? totalSchoolDays = monthly_leave_dates.total_days_in_month - totalLeaveDates;
 
-        CalendarMetadata|error? monthlyPaymentAmount = check db_client->queryRow(
-            `SELECT *
-            FROM calendar_metadata
-            WHERE organization_id = ${monthly_leave_dates.organization_id} and batch_id = ${monthly_leave_dates.batch_id};`
-        );
 
-        if (monthlyPaymentAmount is CalendarMetadata) {
-            dailyAmount = monthlyPaymentAmount.monthly_payment_amount / totalSchoolDays ?: 0.0;
-        }
+        dailyAmount = monthly_leave_dates.monthly_payment_amount / totalSchoolDays ?: 0.0;
+
 
         sql:ExecutionResult res = check db_client->execute(
             `UPDATE monthly_leave_dates SET
@@ -6686,33 +6686,38 @@ AND p.organization_id IN (
                     created: null,
                     updated: null,
                     total_days_in_month: null,
-                    leave_dates: null
+                    leave_dates: null,
+                    monthly_payment_amount: 0.0
                 };
                 return new (0, emptyLeaveDates);
             }
         }
     }
 
-    isolated resource function get calendar_metadata_by_org_id(int organization_id, int batch_id) returns CalendarMetaData|error? {
+    isolated resource function get batch_payment_plan_by_org_id(int organization_id, int batch_id,string selected_month_date) returns BatchPaymentPlanData|error? {
 
         if (organization_id is int && batch_id is int) {
 
-            CalendarMetadata|error? calendar_metadata_raw = db_client->queryRow(
+            BatchPaymentPlan|error? batch_payment_plan_raw = db_client->queryRow(
             `SELECT *
-            FROM calendar_metadata
-            WHERE organization_id = ${organization_id} and batch_id = ${batch_id};`);
+            FROM batch_payment_plan
+            WHERE organization_id = ${organization_id} and batch_id = ${batch_id}
+            and ${selected_month_date} BETWEEN valid_from AND valid_to;`);
 
-            if (calendar_metadata_raw is CalendarMetadata) {
-                return new (0, calendar_metadata_raw);
+            if (batch_payment_plan_raw is BatchPaymentPlan) {
+                return new (0, batch_payment_plan_raw);
             } else {
-                // Return a new empty Calendar Metadata object if no record is found
-                CalendarMetadata emptyCalendarMetadata = {
-                    id: null,
+                // Return a new empty batch payment plan object if no record is found
+                BatchPaymentPlan emptyBatchPaymentPlan = {
+                    id: -1,
                     organization_id: organization_id,
-                    batch_id: null,
-                    monthly_payment_amount: 0.0
+                    batch_id: -1,
+                    monthly_payment_amount: 0.0,
+                    valid_from: null,
+                    valid_to: null,
+                    created: null
                 };
-                return new (0, emptyCalendarMetadata);
+                return new (0, emptyBatchPaymentPlan);
             }
         }
     }

@@ -261,3 +261,4 @@ function removeTandZ(string isoDateTime) returns string {
     // Remove trailing 'Z'
     return regex:replaceAll(withoutT, "Z$", "");
 }
+
