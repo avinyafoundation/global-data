@@ -7,7 +7,6 @@ import ballerina/http;
 import ballerina/time;
 import ballerina/log;
 import ballerina/regex;
-import ballerina/task;
 
 # Database user
 configurable string USER = ?;
