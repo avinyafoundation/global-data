@@ -497,9 +497,11 @@ public type ActivityParticipantAttendanceSummaryReport record {|
     readonly string? record_type = "activity_participant_attendance_summary_report";
     string? sign_in_date;
     int? present_count;
+    int? absent_count;
     int? late_count;
     int? total_count;
     decimal? present_attendance_percentage;
+    decimal? absent_attendance_percentage;
     decimal? late_attendance_percentage;
 |};
 
@@ -704,12 +706,15 @@ public type VehicleFuelConsumption record{|
     string? updated;
 |};
 
-public type CalendarMetadata record {|
-    readonly string? record_type = "calendar_metadata";
+public type BatchPaymentPlan record {| 
+    readonly string? record_type = "batch_payment_plan";
     int id?;
     int? organization_id;
     int? batch_id;
     decimal? monthly_payment_amount;
+    string? valid_from;
+    string? valid_to;
+    string? created;
 |};
 
 public type MonthlyLeaveDates record {|
@@ -723,6 +728,7 @@ public type MonthlyLeaveDates record {|
     int[] leave_dates_list;
     string? leave_dates;
     decimal? daily_amount;
+    decimal? monthly_payment_amount;
     string? created;
     string? updated;
 |};
