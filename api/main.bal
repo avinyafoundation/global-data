@@ -8899,7 +8899,7 @@ AND p.organization_id IN (
 
     
     //Make task as inactive
-    remote function deactivate_maintenance_task(int taskId, string modifiedBy) returns boolean|error? {
+    remote function softDeactivateMaintenanceTask(int taskId, string modifiedBy) returns boolean|error? {
 
         if (taskId <= 0) {
             return error("Invalid taskId");
