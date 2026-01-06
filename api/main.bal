@@ -8896,6 +8896,44 @@ AND p.organization_id IN (
         return activityInstanceDatas;
     }
     
+
+    
+    //Make task as inactive
+    remote function deactivate_maintenance_task(int taskId, string modifiedBy) returns boolean|error? {
+
+        if (taskId <= 0) {
+            return error("Invalid taskId");
+        }
+
+        if (modifiedBy.length() == 0) {
+            return error("modifiedBy is required");
+        }
+
+        lock {
+            return deactivateMaintenanceTask(taskId, modifiedBy);
+        }
+    }
+
+}
+
+isolated function deactivateMaintenanceTask(int taskId, string modifiedBy) returns boolean|error? {
+
+        sql:ExecutionResult res = check db_client->execute(
+            `UPDATE maintenance_task SET
+                is_active = 0,
+                modified_by = ${modifiedBy}
+            WHERE id = ${taskId};`
+        );
+
+        if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+            return error("Failed to deactivate maintenance task record");
+        }
+
+        if (res.affectedRowCount == 0) {
+            return error("No task found with id: " + taskId.toString());
+        }
+
+        return true;
 }
 
 // isolated function getProfilePicture(drive:Client driveClient, string id) returns PersonProfilePicture|error {
