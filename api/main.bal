@@ -8770,6 +8770,97 @@ AND p.organization_id IN (
 
         }
     }   
+
+    isolated resource function get maintenanceTasks(
+        int organizationId,
+        int[]? personId = (),
+        string? fromDate = (),
+        string? toDate = (),
+        string? taskStatus = (),
+        string? financialStatus = (),
+        string? taskType = (),
+        int? location = (),
+        string? title = (),
+        int 'limit = 10,
+        int offset = 0,
+        boolean includeFinance = false
+    ) returns ActivityInstanceData[]|error? {
+
+        // Build the base query
+        sql:ParameterizedQuery query = `
+            SELECT ai.*
+            FROM activity_instance ai
+            INNER JOIN maintenance_task mt ON ai.task_id = mt.id
+            INNER JOIN organization_location ol ON mt.location_id = ol.id
+            WHERE ol.organization_id = ${organizationId}
+        `;
+
+        // Add optional filters
+        if fromDate is string {
+            query = sql:queryConcat(query, ` AND ai.start_time >= ${fromDate}`);
+        }
+        if toDate is string {
+            query = sql:queryConcat(query, ` AND ai.start_time <= ${toDate}`);
+        }
+        if taskStatus is string {
+            query = sql:queryConcat(query, ` AND ai.overall_task_status = ${taskStatus}`);
+        }
+        if taskType is string {
+            query = sql:queryConcat(query, ` AND mt.task_type = ${taskType}`);
+        }
+        if location is int {
+            query = sql:queryConcat(query, ` AND mt.location_id = ${location}`);
+        }
+        if title is string {
+            string searchTitle = "%" + title + "%";
+            query = sql:queryConcat(query, ` AND mt.title LIKE ${searchTitle}`);
+        }
+        if financialStatus is string {
+            query = sql:queryConcat(query, 
+                ` AND ai.id IN (SELECT activity_instance_id FROM maintenance_finance WHERE status = ${financialStatus})`
+            );
+        }
+
+        // Logic for personId array filter
+        if personId is int[] && personId.length() > 0 {
+            sql:ParameterizedQuery personIdListQuery = ``;
+            foreach int i in 0 ..< personId.length() {
+                if (i > 0) {
+                    personIdListQuery = sql:queryConcat(personIdListQuery, `,`, `${personId[i]}`);
+                } else {
+                    personIdListQuery = sql:queryConcat(`${personId[i]}`);
+                }
+            }
+            query = sql:queryConcat(query, 
+                ` AND ai.id IN (SELECT activity_instance_id FROM activity_participant WHERE person_id IN (`, 
+                personIdListQuery, `))`
+            );
+        }
+
+        // Add pagination
+        query = sql:queryConcat(query, ` LIMIT ${'limit} OFFSET ${offset}`);
+
+        stream<ActivityInstance, error?> maintenanceTasksStream;
+        
+        lock {
+            maintenanceTasksStream = db_client->query(query);
+        }
+
+        ActivityInstanceData[] activityInstanceDatas = [];
+
+        // Process the stream into the array
+        check from ActivityInstance instance in maintenanceTasksStream
+            do {
+                ActivityInstanceData|error activityInstanceData = new ActivityInstanceData((), instance.id, instance);
+                if !(activityInstanceData is error) {
+                    activityInstanceDatas.push(activityInstanceData);
+                }
+            };
+
+        check maintenanceTasksStream.close();
+        return activityInstanceDatas;
+    }
+    
 }
 
 // isolated function getProfilePicture(drive:Client driveClient, string id) returns PersonProfilePicture|error {

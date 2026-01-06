@@ -64,6 +64,17 @@ public isolated service class MaintenanceTaskData {
         }
     }
 
+    isolated resource function get location() returns OrganizationLocationData?|error {
+        lock {
+            if self.maintenance_task.location_id is int {
+                OrganizationLocationData locationData = check new (self.maintenance_task.location_id);
+                return locationData;
+            } else {
+                return null;
+            }
+        }
+    }
+
     isolated resource function get start_date() returns string?|error {
         lock {
             return self.maintenance_task.start_date;

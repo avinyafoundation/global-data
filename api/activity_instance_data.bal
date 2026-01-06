@@ -103,6 +103,31 @@ public isolated service class ActivityInstanceData {
         }
     }
 
+    //get task details
+    isolated resource function get task() returns MaintenanceTaskData|error? {
+        int id = 0;
+        lock {
+            id = self.activity_instance.task_id ?: 0;
+            if( id == 0) {
+                return null;
+            } 
+        }
+        
+        return new MaintenanceTaskData(id);
+    }
+
+    isolated resource function get finance() returns MaintenanceFinanceData|error? {
+        int id = 0;
+        lock {
+            id = self.activity_instance.id ?: 0;
+            if( id == 0) {
+                return null;
+            } 
+        }
+        
+        return new MaintenanceFinanceData(0, id);
+    }
+
     isolated resource function get overall_task_status() returns string? {
         lock {
             return self.activity_instance.overall_task_status;
