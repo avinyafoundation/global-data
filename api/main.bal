@@ -8914,6 +8914,30 @@ AND p.organization_id IN (
         }
     }
 
+    
+    //Update maintenance finance details
+    remote function updateMaintenanceFinance(int financeId, MaintenanceFinance maintenanceFinance) returns MaintenanceFinanceData|error? {
+
+        sql:ExecutionResult res = check db_client->execute(
+            `UPDATE maintenance_finance SET
+                status = ${maintenanceFinance.status},
+                rejection_reason = ${maintenanceFinance.rejection_reason},
+                reviewed_by = ${maintenanceFinance.reviewed_by},
+                reviewed_date = NOW()
+            WHERE id = ${financeId};`
+        );
+
+        if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+            return error("Failed to update maintenance finance record");
+        }
+
+        if (res.affectedRowCount == 0) {
+            return error("No finance record found with id: " + financeId.toString());
+        }
+
+        return new (financeId);
+    }
+
 }
 
 isolated function deactivateMaintenanceTask(int taskId, string modifiedBy) returns boolean|error? {
