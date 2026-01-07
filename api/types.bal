@@ -1009,3 +1009,19 @@ public type MaterialCost record {|
     string? unit;
     decimal? unit_cost;
 |};
+
+
+public type MonthlyReport record {|
+    int? totalTasks;
+    int? completedTasks;
+    int? pendingTasks;
+    int? inProgressTasks;
+    decimal? totalCosts;
+    int? totalUpcomingTasks;
+    decimal? nextMonthlyEstimatedCost;
+|};
+
+public type CostResult record {|
+    decimal? total;
+|};
+
