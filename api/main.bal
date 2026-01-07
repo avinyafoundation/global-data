@@ -8938,6 +8938,198 @@ AND p.organization_id IN (
         return new (financeId);
     }
 
+    // Get total tasks count, completed tasks count, pending tasks count, inprogress tasks count for a given month and year and get 
+    // upcoming no of tasks and it's esteemated cost for next month from the current month, all data are taken for given organization id
+    isolated resource function get monthlyMaintenanceReport(
+        int organizationId,
+        int year,
+        int month
+    ) returns MonthlyReport|error {
+
+        if (month < 1 || month > 12) {
+            return error("Invalid month");
+        }
+
+        // int nextMonth = month == 12 ? 1 : month + 1;
+        // int nextYear = month == 12 ? year + 1 : year;
+
+        int totalTasks = 0;
+        int completedTasks = 0;
+        int inProgressTasks = 0;
+        int pendingTasks = 0;
+        int upcomingTasks = 0;
+
+        decimal totalActualCost = 0.0;
+        decimal nextMonthEstimatedCost = 0.0;
+
+        lock {
+
+            // TOTAL TASKS (current month)
+            CountResult totalRes = check db_client->queryRow(
+                `SELECT COUNT(DISTINCT ai.id) AS total
+                FROM activity_instance ai
+                JOIN maintenance_task mt ON mt.id = ai.task_id
+                JOIN organization_location ol ON ol.id = mt.location_id
+                WHERE ol.organization_id = ${organizationId}
+                AND YEAR(ai.start_time) = ${year}
+                AND MONTH(ai.start_time) = ${month}`
+            );
+            totalTasks = <int>totalRes.total;
+
+            // COMPLETED TASKS (current month)
+            CountResult completedRes = check db_client->queryRow(
+                `SELECT COUNT(DISTINCT ai.id) AS total
+                FROM activity_instance ai
+                JOIN maintenance_task mt ON mt.id = ai.task_id
+                JOIN organization_location ol ON ol.id = mt.location_id
+                WHERE ol.organization_id = ${organizationId}
+                AND YEAR(ai.start_time) = ${year}
+                AND MONTH(ai.start_time) = ${month}
+                AND ai.overall_task_status = 'Completed'`
+            );
+            completedTasks = <int>completedRes.total;
+
+            // INPROGRESS TASKS (current month)
+            CountResult inProgressRes = check db_client->queryRow(
+                `SELECT COUNT(DISTINCT ai.id) AS total
+                FROM activity_instance ai
+                JOIN maintenance_task mt ON mt.id = ai.task_id
+                JOIN organization_location ol ON ol.id = mt.location_id
+                WHERE ol.organization_id = ${organizationId}
+                AND YEAR(ai.start_time) = ${year}
+                AND MONTH(ai.start_time) = ${month}
+                AND ai.overall_task_status = 'InProgress'`
+            );
+            inProgressTasks = <int>inProgressRes.total;
+
+            // PENDING TASKS (current month)
+            CountResult pendingRes = check db_client->queryRow(
+                `SELECT COUNT(DISTINCT ai.id) AS total
+                FROM activity_instance ai
+                JOIN maintenance_task mt ON mt.id = ai.task_id
+                JOIN organization_location ol ON ol.id = mt.location_id
+                WHERE ol.organization_id = ${organizationId}
+                AND YEAR(ai.start_time) = ${year}
+                AND MONTH(ai.start_time) = ${month}
+                AND ai.overall_task_status = 'Pending'`
+            );
+            pendingTasks = <int>pendingRes.total;
+
+            // ACTUAL COST (labour + material)
+            // CostResult costRes = check db_client->queryRow(
+            //     `SELECT
+            //         COALESCE(SUM(mf.labour_cost), 0)
+            //         + COALESCE(SUM(mc.cost), 0) AS total
+            //     FROM activity_instance ai
+            //     JOIN maintenance_task mt ON mt.id = ai.task_id
+            //     JOIN organization_location ol ON ol.id = mt.location_id
+            //     LEFT JOIN maintenance_finance mf ON mf.activity_instance_id = ai.id
+            //     LEFT JOIN material_cost mc ON mc.finance_id = mf.id
+            //     WHERE ol.organization_id = ${organizationId}
+            //     AND YEAR(ai.start_time) = ${year}
+            //     AND MONTH(ai.start_time) = ${month}`
+            // );
+            // totalActualCost = <decimal>costRes.total;
+
+            // Actual COST (labour only)
+            CostResult costRes = check db_client->queryRow(
+                `SELECT
+                    COALESCE(SUM(mf.labour_cost), 0) AS total
+                FROM activity_instance ai
+                JOIN maintenance_task mt ON mt.id = ai.task_id
+                JOIN organization_location ol ON ol.id = mt.location_id
+                LEFT JOIN maintenance_finance mf ON mf.activity_instance_id = ai.id
+                WHERE ol.organization_id = ${organizationId}
+                AND YEAR(ai.start_time) = ${year}
+                AND MONTH(ai.start_time) = ${month}
+                AND mf.status='Approved';`
+            );
+            decimal totalLabourCost = <decimal>costRes.total;
+
+            // Get total material quantity and unit cost for the month
+            CostResult materialCostRes = check db_client->queryRow(
+                `SELECT
+                    COALESCE(SUM(mc.quantity * mc.unit_cost), 0) AS total
+                FROM activity_instance ai
+                JOIN maintenance_task mt ON mt.id = ai.task_id
+                JOIN organization_location ol ON ol.id = mt.location_id
+                LEFT JOIN maintenance_finance mf ON mf.activity_instance_id = ai.id
+                LEFT JOIN material_cost mc ON mc.financial_id = mf.id
+                WHERE ol.organization_id = ${organizationId}
+                AND YEAR(ai.start_time) = ${year}
+                AND MONTH(ai.start_time) = ${month}
+                AND mf.status='Approved';`
+            );
+            decimal totalMaterialCost = <decimal>materialCostRes.total;
+
+            totalActualCost = totalLabourCost + totalMaterialCost;
+
+            // UPCOMING TASKS (next month)
+            CountResult upcomingRes = check db_client->queryRow(
+                `SELECT COUNT(DISTINCT ai.id) AS total
+                FROM activity_instance ai
+                JOIN maintenance_task mt ON mt.id = ai.task_id
+                JOIN organization_location ol ON ol.id = mt.location_id
+                JOIN maintenance_finance mf ON mf.activity_instance_id = ai.id
+                WHERE ol.organization_id = ${organizationId}
+                AND ai.start_time >= DATE_ADD(DATE_FORMAT(CURRENT_DATE, '%Y-%m-01'), INTERVAL 1 MONTH)
+                AND ai.start_time <  DATE_ADD(DATE_FORMAT(CURRENT_DATE, '%Y-%m-01'), INTERVAL 2 MONTH)
+                AND mf.status='Approved';`
+
+
+                // AND YEAR(ai.start_time) = ${nextYear}
+                // AND MONTH(ai.start_time) = ${nextMonth}
+            );
+            upcomingTasks = <int>upcomingRes.total;
+
+            // NEXT MONTH ESTIMATED COST
+            CostResult nextCostRes = check db_client->queryRow(
+                `SELECT COALESCE(SUM(mf.estimated_cost), 0) AS total
+                FROM activity_instance ai
+                JOIN maintenance_task mt ON mt.id = ai.task_id
+                JOIN organization_location ol ON ol.id = mt.location_id
+                JOIN maintenance_finance mf ON mf.activity_instance_id = ai.id
+                WHERE ol.organization_id = ${organizationId}
+                AND ai.start_time >= DATE_ADD(DATE_FORMAT(CURRENT_DATE, '%Y-%m-01'), INTERVAL 1 MONTH)
+                AND ai.start_time <  DATE_ADD(DATE_FORMAT(CURRENT_DATE, '%Y-%m-01'), INTERVAL 2 MONTH)
+                AND mf.status='Approved';`
+
+                // AND YEAR(ai.start_time) = ${nextYear}
+                // AND MONTH(ai.start_time) = ${nextMonth}
+            );
+            nextMonthEstimatedCost = <decimal>nextCostRes.total;
+        }
+
+        if (totalTasks == 0) {
+            //return error("No tasks found for the given period");
+            MonthlyReport emptyReport = {
+                totalTasks: 0,
+                completedTasks: 0,
+                inProgressTasks: 0,
+                pendingTasks: 0,
+                totalCosts: 0.0,
+                totalUpcomingTasks: upcomingTasks,
+                nextMonthlyEstimatedCost: nextMonthEstimatedCost
+            };
+
+            return emptyReport;
+        }
+
+        MonthlyReport monthlyReport = {
+            totalTasks: totalTasks,
+            completedTasks: completedTasks,
+            inProgressTasks: inProgressTasks,
+            pendingTasks: pendingTasks,
+            totalCosts: totalActualCost,
+            totalUpcomingTasks: upcomingTasks,
+            nextMonthlyEstimatedCost: nextMonthEstimatedCost
+        };
+
+        return monthlyReport;
+
+    }
+
+
 }
 
 isolated function deactivateMaintenanceTask(int taskId, string modifiedBy) returns boolean|error? {
