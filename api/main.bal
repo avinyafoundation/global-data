@@ -8860,6 +8860,41 @@ AND p.organization_id IN (
         check maintenanceTasksStream.close();
         return activityInstanceDatas;
     }
+
+    isolated resource function get overdueMaintenanceTasks(
+        int organizationId
+    ) returns ActivityInstanceData[]|error? {
+
+        string currentDate = time:utcToString(time:utcNow());
+
+        stream<ActivityInstance, error?> overdueTasksStream;
+
+        lock {
+            overdueTasksStream = db_client->query(
+                `SELECT ai.*
+                FROM activity_instance ai
+                INNER JOIN maintenance_task mt ON ai.task_id = mt.id
+                INNER JOIN organization_location ol ON mt.location_id = ol.id
+                WHERE ol.organization_id = ${organizationId}
+                AND ai.end_time < ${currentDate}
+                AND ai.overall_task_status != 'Completed';`
+            );
+        }
+
+        ActivityInstanceData[] activityInstanceDatas = [];
+
+        // Process the stream into the array
+        check from ActivityInstance instance in overdueTasksStream
+            do {
+                ActivityInstanceData|error activityInstanceData = new ActivityInstanceData((), instance.id, instance);
+                if !(activityInstanceData is error) {
+                    activityInstanceDatas.push(activityInstanceData);
+                }
+            };
+
+        check overdueTasksStream.close();
+        return activityInstanceDatas;
+    }
     
 }
 

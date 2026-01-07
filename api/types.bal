@@ -418,6 +418,7 @@ public type ActivityInstance record {|
     string? start_time;
     string? end_time;
     string? overall_task_status;
+    int? overdue_days;
     MaintenanceTask? maintenance_task;
     MaintenanceFinance? maintenance_finance;
     string? created;

@@ -134,6 +134,31 @@ public isolated service class ActivityInstanceData {
         }
     }
 
+    isolated resource function get overdue_days() returns int|error? {
+        int? activityInstanceId;
+        lock {
+            activityInstanceId = self.activity_instance.id;
+        }
+        
+        if activityInstanceId is int {
+            int|error overdueDays = db_client->queryRow(
+                `SELECT 
+                    CASE 
+                        WHEN overall_task_status = 'Completed' THEN 0
+                        WHEN end_time IS NULL THEN 0
+                        WHEN end_time < NOW() THEN FLOOR(TIMESTAMPDIFF(SECOND, end_time, NOW()) / 86400)
+                        ELSE 0
+                    END AS overdue_days
+                FROM activity_instance
+                WHERE id = ${activityInstanceId}`
+            );
+            
+            return overdueDays;
+        }
+        
+        return 0;
+    }
+
     isolated resource function get created() returns string? {
         lock {
             return self.activity_instance.created;
