@@ -418,9 +418,6 @@ public type ActivityInstance record {|
     string? start_time;
     string? end_time;
     string? overall_task_status;
-    int? overdue_days;
-    MaintenanceTask? maintenance_task;
-    MaintenanceFinance? maintenance_finance;
     string? created;
     string? updated;
 |};
@@ -977,7 +974,6 @@ public type MaintenanceTask record {|
     string? task_type;
     string? frequency;
     int? location_id;
-    OrganizationLocation? location;
     string? start_date;
     int? exception_deadline;
     int? has_financial_info;
