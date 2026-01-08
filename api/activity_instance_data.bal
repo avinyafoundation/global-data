@@ -124,6 +124,18 @@ public isolated service class ActivityInstanceData {
                 return null;
             } 
         }
+
+        MaintenanceFinance|error? financeCheck;
+        lock {
+            financeCheck = db_client->queryRow(
+                `SELECT * FROM maintenance_finance WHERE activity_instance_id = ${id}`
+            );
+        }
+        
+        // Return null if no finance record exists instead of throwing error
+        if financeCheck is error {
+            return null;
+        }
         
         return new MaintenanceFinanceData(0, id);
     }

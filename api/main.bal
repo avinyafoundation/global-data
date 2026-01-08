@@ -8773,14 +8773,14 @@ AND p.organization_id IN (
 
     isolated resource function get maintenanceTasks(
         int organizationId,
-        int[]? personId = null,
-        string? fromDate = null,
-        string? toDate = null,
-        string? taskStatus = null,
-        string? financialStatus = null,
-        string? taskType = null,
-        int? location = null,
-        string? title = null,
+        int[]? personId = (),
+        string? fromDate = (),
+        string? toDate = (),
+        string? taskStatus = (),
+        string? financialStatus = (),
+        string? taskType = (),
+        int? location = (),
+        string? title = (),
         int 'limit = 10,
         int offset = 0,
         boolean includeFinance = false
