@@ -59,6 +59,31 @@ public isolated service class MaintenanceFinanceData {
         }
     }
 
+    //get material costs object
+    isolated resource function get material_costs() returns MaterialCostData[]|error? {
+        stream<MaterialCost, error?> materialCostsStream;
+        lock {
+            materialCostsStream = db_client->query(
+                `SELECT *
+                FROM material_cost
+                WHERE financial_id = ${self.maintenance_finance.id}`
+            );
+        }
+
+        MaterialCostData[] materialCostDatas = [];
+
+        check from MaterialCost materialCost in materialCostsStream
+            do {
+                MaterialCostData|error materialCostData = new MaterialCostData((), materialCost);
+                if !(materialCostData is error) {
+                    materialCostDatas.push(materialCostData);
+                }
+            };
+
+        check materialCostsStream.close();
+        return materialCostDatas;
+    }
+
     isolated resource function get status() returns string?|error {
         lock {
             return self.maintenance_finance.status;
