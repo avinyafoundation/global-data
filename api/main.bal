@@ -9102,6 +9102,12 @@ AND p.organization_id IN (
 
     }
 
+    isolated resource function get monthlyCostSummary(
+        int organizationId,
+        int year
+    ) returns MonthlyCostSummaryData|error? {
+        return new MonthlyCostSummaryData(year, organizationId);
+    }
 
 }
 
