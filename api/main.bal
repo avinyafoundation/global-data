@@ -8944,14 +8944,11 @@ AND p.organization_id IN (
         int organizationId,
         int year,
         int month
-    ) returns MonthlyReport|error {
+    ) returns MonthlyReportData|error {
 
         if (month < 1 || month > 12) {
             return error("Invalid month");
         }
-
-        // int nextMonth = month == 12 ? 1 : month + 1;
-        // int nextYear = month == 12 ? year + 1 : year;
 
         int totalTasks = 0;
         int completedTasks = 0;
@@ -8964,9 +8961,18 @@ AND p.organization_id IN (
 
         lock {
 
-            // TOTAL TASKS (current month)
-            CountResult totalRes = check db_client->queryRow(
-                `SELECT COUNT(DISTINCT ai.id) AS total
+            MonthlyReport row = check db_client->queryRow(
+                `SELECT
+                    COUNT(DISTINCT ai.id) AS totalTasks,
+                    COUNT(DISTINCT CASE
+                        WHEN ai.overall_task_status = 'Completed' THEN ai.id
+                    END) AS completedTasks,
+                    COUNT(DISTINCT CASE
+                        WHEN ai.overall_task_status = 'Pending' THEN ai.id
+                    END) AS pendingTasks,
+                    COUNT(DISTINCT CASE
+                        WHEN ai.overall_task_status = 'InProgress' THEN ai.id
+                    END) AS inProgressTasks
                 FROM activity_instance ai
                 JOIN maintenance_task mt ON mt.id = ai.task_id
                 JOIN organization_location ol ON ol.id = mt.location_id
@@ -8974,82 +8980,30 @@ AND p.organization_id IN (
                 AND YEAR(ai.start_time) = ${year}
                 AND MONTH(ai.start_time) = ${month}`
             );
-            totalTasks = <int>totalRes.total;
 
-            // COMPLETED TASKS (current month)
-            CountResult completedRes = check db_client->queryRow(
-                `SELECT COUNT(DISTINCT ai.id) AS total
-                FROM activity_instance ai
-                JOIN maintenance_task mt ON mt.id = ai.task_id
-                JOIN organization_location ol ON ol.id = mt.location_id
-                WHERE ol.organization_id = ${organizationId}
-                AND YEAR(ai.start_time) = ${year}
-                AND MONTH(ai.start_time) = ${month}
-                AND ai.overall_task_status = 'Completed'`
-            );
-            completedTasks = <int>completedRes.total;
+            totalTasks = row.totalTasks ?: 0;
+            completedTasks = row.completedTasks ?: 0;
+            inProgressTasks = row.inProgressTasks ?: 0;
+            pendingTasks = row.pendingTasks ?: 0;
 
-            // INPROGRESS TASKS (current month)
-            CountResult inProgressRes = check db_client->queryRow(
-                `SELECT COUNT(DISTINCT ai.id) AS total
-                FROM activity_instance ai
-                JOIN maintenance_task mt ON mt.id = ai.task_id
-                JOIN organization_location ol ON ol.id = mt.location_id
-                WHERE ol.organization_id = ${organizationId}
-                AND YEAR(ai.start_time) = ${year}
-                AND MONTH(ai.start_time) = ${month}
-                AND ai.overall_task_status = 'InProgress'`
-            );
-            inProgressTasks = <int>inProgressRes.total;
 
-            // PENDING TASKS (current month)
-            CountResult pendingRes = check db_client->queryRow(
-                `SELECT COUNT(DISTINCT ai.id) AS total
-                FROM activity_instance ai
-                JOIN maintenance_task mt ON mt.id = ai.task_id
-                JOIN organization_location ol ON ol.id = mt.location_id
-                WHERE ol.organization_id = ${organizationId}
-                AND YEAR(ai.start_time) = ${year}
-                AND MONTH(ai.start_time) = ${month}
-                AND ai.overall_task_status = 'Pending'`
-            );
-            pendingTasks = <int>pendingRes.total;
-
-            // ACTUAL COST (labour + material)
-            // CostResult costRes = check db_client->queryRow(
-            //     `SELECT
-            //         COALESCE(SUM(mf.labour_cost), 0)
-            //         + COALESCE(SUM(mc.cost), 0) AS total
-            //     FROM activity_instance ai
-            //     JOIN maintenance_task mt ON mt.id = ai.task_id
-            //     JOIN organization_location ol ON ol.id = mt.location_id
-            //     LEFT JOIN maintenance_finance mf ON mf.activity_instance_id = ai.id
-            //     LEFT JOIN material_cost mc ON mc.finance_id = mf.id
-            //     WHERE ol.organization_id = ${organizationId}
-            //     AND YEAR(ai.start_time) = ${year}
-            //     AND MONTH(ai.start_time) = ${month}`
-            // );
-            // totalActualCost = <decimal>costRes.total;
-
-            // Actual COST (labour only)
-            CostResult costRes = check db_client->queryRow(
+            MonthlyReport costRes = check db_client->queryRow(
                 `SELECT
-                    COALESCE(SUM(mf.labour_cost), 0) AS total
-                FROM activity_instance ai
-                JOIN maintenance_task mt ON mt.id = ai.task_id
-                JOIN organization_location ol ON ol.id = mt.location_id
-                LEFT JOIN maintenance_finance mf ON mf.activity_instance_id = ai.id
-                WHERE ol.organization_id = ${organizationId}
-                AND YEAR(ai.start_time) = ${year}
-                AND MONTH(ai.start_time) = ${month}
-                AND mf.status='Approved';`
-            );
-            decimal totalLabourCost = <decimal>costRes.total;
-
-            // Get total material quantity and unit cost for the month
-            CostResult materialCostRes = check db_client->queryRow(
-                `SELECT
-                    COALESCE(SUM(mc.quantity * mc.unit_cost), 0) AS total
+                    COALESCE(SUM(
+                        CASE
+                            WHEN mf.status = 'Approved'
+                            THEN mf.labour_cost
+                            ELSE 0
+                        END
+                    ), 0)
+                    +
+                    COALESCE(SUM(
+                        CASE
+                            WHEN mf.status = 'Approved'
+                            THEN mc.quantity * mc.unit_cost
+                            ELSE 0
+                        END
+                    ), 0) AS totalCosts
                 FROM activity_instance ai
                 JOIN maintenance_task mt ON mt.id = ai.task_id
                 JOIN organization_location ol ON ol.id = mt.location_id
@@ -9057,16 +9011,15 @@ AND p.organization_id IN (
                 LEFT JOIN material_cost mc ON mc.financial_id = mf.id
                 WHERE ol.organization_id = ${organizationId}
                 AND YEAR(ai.start_time) = ${year}
-                AND MONTH(ai.start_time) = ${month}
-                AND mf.status='Approved';`
+                AND MONTH(ai.start_time) = ${month}`
             );
-            decimal totalMaterialCost = <decimal>materialCostRes.total;
 
-            totalActualCost = totalLabourCost + totalMaterialCost;
+            totalActualCost = costRes.totalCosts ?: 0.0;
 
-            // UPCOMING TASKS (next month)
-            CountResult upcomingRes = check db_client->queryRow(
-                `SELECT COUNT(DISTINCT ai.id) AS total
+            MonthlyReport upcomingRes = check db_client->queryRow(
+                `SELECT
+                    COUNT(DISTINCT ai.id) AS totalUpcomingTasks,
+                    COALESCE(SUM(mf.estimated_cost), 0) AS nextMonthlyEstimatedCost
                 FROM activity_instance ai
                 JOIN maintenance_task mt ON mt.id = ai.task_id
                 JOIN organization_location ol ON ol.id = mt.location_id
@@ -9074,45 +9027,11 @@ AND p.organization_id IN (
                 WHERE ol.organization_id = ${organizationId}
                 AND ai.start_time >= DATE_ADD(DATE_FORMAT(CURRENT_DATE, '%Y-%m-01'), INTERVAL 1 MONTH)
                 AND ai.start_time <  DATE_ADD(DATE_FORMAT(CURRENT_DATE, '%Y-%m-01'), INTERVAL 2 MONTH)
-                AND mf.status='Approved';`
-
-
-                // AND YEAR(ai.start_time) = ${nextYear}
-                // AND MONTH(ai.start_time) = ${nextMonth}
+                AND mf.status='Approved'`
             );
-            upcomingTasks = <int>upcomingRes.total;
 
-            // NEXT MONTH ESTIMATED COST
-            CostResult nextCostRes = check db_client->queryRow(
-                `SELECT COALESCE(SUM(mf.estimated_cost), 0) AS total
-                FROM activity_instance ai
-                JOIN maintenance_task mt ON mt.id = ai.task_id
-                JOIN organization_location ol ON ol.id = mt.location_id
-                JOIN maintenance_finance mf ON mf.activity_instance_id = ai.id
-                WHERE ol.organization_id = ${organizationId}
-                AND ai.start_time >= DATE_ADD(DATE_FORMAT(CURRENT_DATE, '%Y-%m-01'), INTERVAL 1 MONTH)
-                AND ai.start_time <  DATE_ADD(DATE_FORMAT(CURRENT_DATE, '%Y-%m-01'), INTERVAL 2 MONTH)
-                AND mf.status='Approved';`
-
-                // AND YEAR(ai.start_time) = ${nextYear}
-                // AND MONTH(ai.start_time) = ${nextMonth}
-            );
-            nextMonthEstimatedCost = <decimal>nextCostRes.total;
-        }
-
-        if (totalTasks == 0) {
-            //return error("No tasks found for the given period");
-            MonthlyReport emptyReport = {
-                totalTasks: 0,
-                completedTasks: 0,
-                inProgressTasks: 0,
-                pendingTasks: 0,
-                totalCosts: 0.0,
-                totalUpcomingTasks: upcomingTasks,
-                nextMonthlyEstimatedCost: nextMonthEstimatedCost
-            };
-
-            return emptyReport;
+            upcomingTasks = upcomingRes.totalUpcomingTasks ?: 0;
+            nextMonthEstimatedCost = upcomingRes.nextMonthlyEstimatedCost ?: 0.0;
         }
 
         MonthlyReport monthlyReport = {
@@ -9125,7 +9044,9 @@ AND p.organization_id IN (
             nextMonthlyEstimatedCost: nextMonthEstimatedCost
         };
 
-        return monthlyReport;
+        MonthlyReportData|error reportData = new MonthlyReportData(monthlyReport = monthlyReport);
+
+        return reportData;
 
     }
 
