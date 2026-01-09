@@ -8897,6 +8897,49 @@ AND p.organization_id IN (
     }
     
 
+    //Get Maintenance Task by organizationId, month, year and overall task status
+    isolated resource function get maintenanceTasksByMonthYearStatus(
+        int organizationId,
+        int month,
+        int year,
+        string overallTaskStatus,
+        int 'limit = 10,
+        int offset = 0
+    ) returns ActivityInstanceData[]|error? {
+
+        stream<ActivityInstance, error?> maintenanceTasksStream;
+
+        sql:ParameterizedQuery query = `SELECT ai.*
+                FROM activity_instance ai
+                INNER JOIN maintenance_task mt ON ai.task_id = mt.id
+                INNER JOIN organization_location ol ON mt.location_id = ol.id
+                WHERE ol.organization_id = ${organizationId}
+                AND MONTH(ai.start_time) = ${month}
+                AND YEAR(ai.start_time) = ${year}
+                AND ai.overall_task_status = ${overallTaskStatus}`;
+
+        // Add pagination
+        query = sql:queryConcat(query, ` LIMIT ${'limit} OFFSET ${offset}`);
+
+        lock {
+            maintenanceTasksStream = db_client->query(query);
+        }
+
+        ActivityInstanceData[] activityInstanceDatas = [];
+
+        // Process the stream into the array
+        check from ActivityInstance instance in maintenanceTasksStream
+            do {
+                ActivityInstanceData|error activityInstanceData = new ActivityInstanceData((), instance.id, instance);
+                if !(activityInstanceData is error) {
+                    activityInstanceDatas.push(activityInstanceData);
+                }
+            };
+
+        check maintenanceTasksStream.close();
+        return activityInstanceDatas;
+    }
+
     
     //Make task as inactive
     remote function softDeactivateMaintenanceTask(int taskId, string modifiedBy) returns boolean|error? {
