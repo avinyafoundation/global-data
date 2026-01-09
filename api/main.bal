@@ -8896,6 +8896,181 @@ AND p.organization_id IN (
         return activityInstanceDatas;
     }
     
+
+    
+    //Make task as inactive
+    remote function softDeactivateMaintenanceTask(int taskId, string modifiedBy) returns boolean|error? {
+
+        if (taskId <= 0) {
+            return error("Invalid taskId");
+        }
+
+        if (modifiedBy.length() == 0) {
+            return error("modifiedBy is required");
+        }
+
+        lock {
+            return deactivateMaintenanceTask(taskId, modifiedBy);
+        }
+    }
+
+    
+    //Update maintenance finance details
+    remote function updateMaintenanceFinance(int financeId, MaintenanceFinance maintenanceFinance) returns MaintenanceFinanceData|error? {
+
+        sql:ExecutionResult res = check db_client->execute(
+            `UPDATE maintenance_finance SET
+                status = ${maintenanceFinance.status},
+                rejection_reason = ${maintenanceFinance.rejection_reason},
+                reviewed_by = ${maintenanceFinance.reviewed_by},
+                reviewed_date = NOW()
+            WHERE id = ${financeId};`
+        );
+
+        if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+            return error("Failed to update maintenance finance record");
+        }
+
+        if (res.affectedRowCount == 0) {
+            return error("No finance record found with id: " + financeId.toString());
+        }
+
+        return new (financeId);
+    }
+
+    // Get total tasks count, completed tasks count, pending tasks count, inprogress tasks count for a given month and year and get 
+    // upcoming no of tasks and it's esteemated cost for next month from the current month, all data are taken for given organization id
+    isolated resource function get monthlyMaintenanceReport(
+        int organizationId,
+        int year,
+        int month
+    ) returns MonthlyReportData|error {
+
+        if (month < 1 || month > 12) {
+            return error("Invalid month");
+        }
+
+        int totalTasks = 0;
+        int completedTasks = 0;
+        int inProgressTasks = 0;
+        int pendingTasks = 0;
+        int upcomingTasks = 0;
+
+        decimal totalActualCost = 0.0;
+        decimal nextMonthEstimatedCost = 0.0;
+
+        lock {
+
+            MonthlyReport row = check db_client->queryRow(
+                `SELECT
+                    COUNT(DISTINCT ai.id) AS totalTasks,
+                    COUNT(DISTINCT CASE
+                        WHEN ai.overall_task_status = 'Completed' THEN ai.id
+                    END) AS completedTasks,
+                    COUNT(DISTINCT CASE
+                        WHEN ai.overall_task_status = 'Pending' THEN ai.id
+                    END) AS pendingTasks,
+                    COUNT(DISTINCT CASE
+                        WHEN ai.overall_task_status = 'InProgress' THEN ai.id
+                    END) AS inProgressTasks
+                FROM activity_instance ai
+                JOIN maintenance_task mt ON mt.id = ai.task_id
+                JOIN organization_location ol ON ol.id = mt.location_id
+                WHERE ol.organization_id = ${organizationId}
+                AND YEAR(ai.start_time) = ${year}
+                AND MONTH(ai.start_time) = ${month}`
+            );
+
+            totalTasks = row.totalTasks ?: 0;
+            completedTasks = row.completedTasks ?: 0;
+            inProgressTasks = row.inProgressTasks ?: 0;
+            pendingTasks = row.pendingTasks ?: 0;
+
+
+            MonthlyReport costRes = check db_client->queryRow(
+                `SELECT
+                    COALESCE(SUM(
+                        CASE
+                            WHEN mf.status = 'Approved'
+                            THEN mf.labour_cost
+                            ELSE 0
+                        END
+                    ), 0)
+                    +
+                    COALESCE(SUM(
+                        CASE
+                            WHEN mf.status = 'Approved'
+                            THEN mc.quantity * mc.unit_cost
+                            ELSE 0
+                        END
+                    ), 0) AS totalCosts
+                FROM activity_instance ai
+                JOIN maintenance_task mt ON mt.id = ai.task_id
+                JOIN organization_location ol ON ol.id = mt.location_id
+                LEFT JOIN maintenance_finance mf ON mf.activity_instance_id = ai.id
+                LEFT JOIN material_cost mc ON mc.financial_id = mf.id
+                WHERE ol.organization_id = ${organizationId}
+                AND YEAR(ai.start_time) = ${year}
+                AND MONTH(ai.start_time) = ${month}`
+            );
+
+            totalActualCost = costRes.totalCosts ?: 0.0;
+
+            MonthlyReport upcomingRes = check db_client->queryRow(
+                `SELECT
+                    COUNT(DISTINCT ai.id) AS totalUpcomingTasks,
+                    COALESCE(SUM(mf.estimated_cost), 0) AS nextMonthlyEstimatedCost
+                FROM activity_instance ai
+                JOIN maintenance_task mt ON mt.id = ai.task_id
+                JOIN organization_location ol ON ol.id = mt.location_id
+                JOIN maintenance_finance mf ON mf.activity_instance_id = ai.id
+                WHERE ol.organization_id = ${organizationId}
+                AND ai.start_time >= DATE_ADD(DATE_FORMAT(CURRENT_DATE, '%Y-%m-01'), INTERVAL 1 MONTH)
+                AND ai.start_time <  DATE_ADD(DATE_FORMAT(CURRENT_DATE, '%Y-%m-01'), INTERVAL 2 MONTH)
+                AND mf.status='Approved'`
+            );
+
+            upcomingTasks = upcomingRes.totalUpcomingTasks ?: 0;
+            nextMonthEstimatedCost = upcomingRes.nextMonthlyEstimatedCost ?: 0.0;
+        }
+
+        MonthlyReport monthlyReport = {
+            totalTasks: totalTasks,
+            completedTasks: completedTasks,
+            inProgressTasks: inProgressTasks,
+            pendingTasks: pendingTasks,
+            totalCosts: totalActualCost,
+            totalUpcomingTasks: upcomingTasks,
+            nextMonthlyEstimatedCost: nextMonthEstimatedCost
+        };
+
+        MonthlyReportData|error reportData = new MonthlyReportData(monthlyReport = monthlyReport);
+
+        return reportData;
+
+    }
+
+
+}
+
+isolated function deactivateMaintenanceTask(int taskId, string modifiedBy) returns boolean|error? {
+
+        sql:ExecutionResult res = check db_client->execute(
+            `UPDATE maintenance_task SET
+                is_active = 0,
+                modified_by = ${modifiedBy}
+            WHERE id = ${taskId};`
+        );
+
+        if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+            return error("Failed to deactivate maintenance task record");
+        }
+
+        if (res.affectedRowCount == 0) {
+            return error("No task found with id: " + taskId.toString());
+        }
+
+        return true;
 }
 
 // isolated function getProfilePicture(drive:Client driveClient, string id) returns PersonProfilePicture|error {
