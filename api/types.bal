@@ -1021,7 +1021,3 @@ public type MonthlyReport record {|
     decimal? nextMonthlyEstimatedCost;
 |};
 
-public type CostResult record {|
-    decimal? total;
-|};
-
