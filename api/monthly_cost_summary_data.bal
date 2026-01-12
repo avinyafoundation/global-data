@@ -14,7 +14,6 @@ public isolated service class MonthlyCostSummaryData {
             monthlyCosts.push(monthlyCost);
         }
 
-        // Corrected Query to get monthly cost summary
         // 1. Group by month of ai.start_time
         // 2. Sum estimated_cost for all approved finances
         // 3. Sum (labour_cost + total_material_cost) for actual_cost
@@ -31,7 +30,6 @@ public isolated service class MonthlyCostSummaryData {
                 INNER JOIN organization_location ol ON mt.location_id = ol.id
                 INNER JOIN maintenance_finance mf ON ai.id = mf.activity_instance_id
                 LEFT JOIN (
-                    /* Subquery to calculate material cost per financial record to prevent row duplication */
                     SELECT financial_id, SUM(quantity * unit_cost) as total_material_cost
                     FROM material_cost
                     GROUP BY financial_id
