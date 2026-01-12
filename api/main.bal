@@ -9102,11 +9102,66 @@ AND p.organization_id IN (
 
     }
 
-    isolated resource function get monthlyCostSummary(
-        int organizationId,
-        int year
-    ) returns MonthlyCostSummaryData|error? {
-        return new MonthlyCostSummaryData(year, organizationId);
+    isolated resource function get monthlyCostSummary(int year, int organizationId) returns MonthlyCostSummaryData|error? {
+
+        MonthlyCost[] monthlyCosts = [];
+        
+        foreach int month in 1 ... 12 {
+            MonthlyCost monthlyCost = {
+                month: month,
+                estimated_cost: 0,
+                actual_cost: 0
+            };
+            monthlyCosts.push(monthlyCost);
+        }
+
+        stream<MonthlyCost, error?> costStream;
+
+        lock {
+            costStream = db_client->query(
+                `SELECT 
+                    MONTH(ai.start_time) as month,
+                    COALESCE(SUM(mf.estimated_cost), 0) as estimated_cost,
+                    COALESCE(SUM(mf.labour_cost + COALESCE(mc.total_material_cost, 0)), 0) as actual_cost
+                FROM activity_instance ai
+                INNER JOIN maintenance_task mt ON ai.task_id = mt.id
+                INNER JOIN organization_location ol ON mt.location_id = ol.id
+                INNER JOIN maintenance_finance mf ON ai.id = mf.activity_instance_id
+                LEFT JOIN (
+                    SELECT financial_id, SUM(quantity * unit_cost) as total_material_cost
+                    FROM material_cost
+                    GROUP BY financial_id
+                ) mc ON mf.id = mc.financial_id
+                WHERE ol.organization_id = ${organizationId}
+                AND YEAR(ai.start_time) = ${year}
+                AND mf.status = 'Approved'
+                GROUP BY MONTH(ai.start_time)
+                ORDER BY month`
+            );
+        }
+
+        check from MonthlyCost costRecord in costStream
+            do {
+                int? month = costRecord.month;
+
+                if (month is int) {
+                    int monthIndex = month - 1;
+                    monthlyCosts[monthIndex] = {
+                        month: costRecord.month,
+                        estimated_cost: costRecord.estimated_cost,
+                        actual_cost: costRecord.actual_cost
+                    };
+                }
+            };
+
+        check costStream.close();
+
+        MonthlyCostSummary summary = {
+            year: year,
+            monthly_costs: monthlyCosts
+        };
+
+        return new MonthlyCostSummaryData(summary);
     }
 
 }
