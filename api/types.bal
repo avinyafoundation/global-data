@@ -1021,3 +1021,19 @@ public type MonthlyReport record {|
     decimal? nextMonthlyEstimatedCost;
 |};
 
+public type CostResult record {|
+    decimal? total;
+|};
+
+public type MonthlyCost record {|
+    readonly string? record_type = "monthly_cost";
+    int? month;
+    decimal? estimated_cost;
+    decimal? actual_cost;
+|};
+
+public type MonthlyCostSummary record {|
+    readonly string? record_type = "monthly_cost_summary";
+    int? year;
+    MonthlyCost[]? monthly_costs;
+|};
