@@ -8913,10 +8913,12 @@ AND p.organization_id IN (
                 FROM activity_instance ai
                 INNER JOIN maintenance_task mt ON ai.task_id = mt.id
                 INNER JOIN organization_location ol ON mt.location_id = ol.id
+                LEFT JOIN maintenance_finance mf ON mf.activity_instance_id = ai.id
                 WHERE ol.organization_id = ${organizationId}
                 AND MONTH(ai.start_time) = ${month}
                 AND YEAR(ai.start_time) = ${year}
-                AND ai.overall_task_status = ${overallTaskStatus}`;
+                AND ai.overall_task_status = ${overallTaskStatus}
+                AND (mf.status = 'Approved' OR mf.activity_instance_id IS NULL)`;
 
         // Add pagination
         query = sql:queryConcat(query, ` LIMIT ${'limit} OFFSET ${offset}`);
