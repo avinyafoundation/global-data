@@ -9021,9 +9021,11 @@ AND p.organization_id IN (
                 FROM activity_instance ai
                 JOIN maintenance_task mt ON mt.id = ai.task_id
                 JOIN organization_location ol ON ol.id = mt.location_id
+                LEFT JOIN maintenance_finance mf ON mf.activity_instance_id = ai.id
                 WHERE ol.organization_id = ${organizationId}
                 AND YEAR(ai.start_time) = ${year}
-                AND MONTH(ai.start_time) = ${month}`
+                AND MONTH(ai.start_time) = ${month}
+                AND (mf.status = 'Approved' OR mf.activity_instance_id IS NULL)`
             );
 
             totalTasks = row.totalTasks ?: 0;
@@ -9034,29 +9036,34 @@ AND p.organization_id IN (
 
             MonthlyReport costRes = check db_client->queryRow(
                 `SELECT
-                    COALESCE(SUM(
-                        CASE
-                            WHEN mf.status = 'Approved'
-                            THEN mf.labour_cost
-                            ELSE 0
-                        END
-                    ), 0)
-                    +
-                    COALESCE(SUM(
-                        CASE
-                            WHEN mf.status = 'Approved'
-                            THEN mc.quantity * mc.unit_cost
-                            ELSE 0
-                        END
-                    ), 0) AS totalCosts
+                    COALESCE(SUM(labour.labour_cost), 0)
+                + COALESCE(SUM(material.material_cost), 0) AS totalCosts
                 FROM activity_instance ai
                 JOIN maintenance_task mt ON mt.id = ai.task_id
                 JOIN organization_location ol ON ol.id = mt.location_id
-                LEFT JOIN maintenance_finance mf ON mf.activity_instance_id = ai.id
-                LEFT JOIN material_cost mc ON mc.financial_id = mf.id
+
+                LEFT JOIN (
+                    SELECT
+                        id,
+                        activity_instance_id,
+                        labour_cost
+                    FROM maintenance_finance
+                    WHERE status = 'Approved'
+                ) labour ON labour.activity_instance_id = ai.id
+
+                LEFT JOIN (
+                    SELECT
+                        mf.activity_instance_id,
+                        SUM(mc.quantity * mc.unit_cost) AS material_cost
+                    FROM maintenance_finance mf
+                    JOIN material_cost mc ON mc.financial_id = mf.id
+                    WHERE mf.status = 'Approved'
+                    GROUP BY mf.activity_instance_id
+                ) material ON material.activity_instance_id = ai.id
+
                 WHERE ol.organization_id = ${organizationId}
                 AND YEAR(ai.start_time) = ${year}
-                AND MONTH(ai.start_time) = ${month}`
+                AND MONTH(ai.start_time) = ${month};`
             );
 
             totalActualCost = costRes.totalCosts ?: 0.0;
