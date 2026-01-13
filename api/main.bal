@@ -8902,7 +8902,7 @@ AND p.organization_id IN (
         int organizationId,
         int month,
         int year,
-        string overallTaskStatus,
+        string? overallTaskStatus = (),
         int 'limit = 10,
         int offset = 0
     ) returns ActivityInstanceData[]|error? {
@@ -8917,8 +8917,11 @@ AND p.organization_id IN (
                 WHERE ol.organization_id = ${organizationId}
                 AND MONTH(ai.start_time) = ${month}
                 AND YEAR(ai.start_time) = ${year}
-                AND ai.overall_task_status = ${overallTaskStatus}
                 AND (mf.status = 'Approved' OR mf.activity_instance_id IS NULL)`;
+
+        if overallTaskStatus is string {
+            query = sql:queryConcat(query, ` AND ai.overall_task_status = ${overallTaskStatus}`);
+        }
 
         // Add pagination
         query = sql:queryConcat(query, ` LIMIT ${'limit} OFFSET ${offset}`);
