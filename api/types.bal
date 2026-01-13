@@ -1056,3 +1056,9 @@ public type TaskStatusRecord record {|
     string? completion_date;
     decimal overdue_days_calc;
 |};
+
+//this result type for get the final result of material cost updation.
+public type MaintenanceTaskUpdateFinanceResult record {|
+    boolean? success;
+    string? message;
+|};
