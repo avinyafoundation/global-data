@@ -8902,7 +8902,7 @@ AND p.organization_id IN (
         int organizationId,
         int month,
         int year,
-        string overallTaskStatus,
+        string? overallTaskStatus = (),
         int 'limit = 10,
         int offset = 0
     ) returns ActivityInstanceData[]|error? {
@@ -8917,8 +8917,11 @@ AND p.organization_id IN (
                 WHERE ol.organization_id = ${organizationId}
                 AND MONTH(ai.start_time) = ${month}
                 AND YEAR(ai.start_time) = ${year}
-                AND ai.overall_task_status = ${overallTaskStatus}
                 AND (mf.status = 'Approved' OR mf.activity_instance_id IS NULL)`;
+
+        if overallTaskStatus is string {
+            query = sql:queryConcat(query, ` AND ai.overall_task_status = ${overallTaskStatus}`);
+        }
 
         // Add pagination
         query = sql:queryConcat(query, ` LIMIT ${'limit} OFFSET ${offset}`);
@@ -8944,7 +8947,7 @@ AND p.organization_id IN (
 
     
     //Make task as inactive
-    remote function softDeactivateMaintenanceTask(int taskId, string modifiedBy) returns boolean|error? {
+    remote function softDeactivateMaintenanceTask(int taskId, string modifiedBy) returns MaintenanceTaskData|error? {
 
         if (taskId <= 0) {
             return error("Invalid taskId");
@@ -9166,7 +9169,7 @@ AND p.organization_id IN (
 
 }
 
-isolated function deactivateMaintenanceTask(int taskId, string modifiedBy) returns boolean|error? {
+isolated function deactivateMaintenanceTask(int taskId, string modifiedBy) returns MaintenanceTaskData|error? {
 
         sql:ExecutionResult res = check db_client->execute(
             `UPDATE maintenance_task SET
@@ -9183,7 +9186,7 @@ isolated function deactivateMaintenanceTask(int taskId, string modifiedBy) retur
             return error("No task found with id: " + taskId.toString());
         }
 
-        return true;
+        return new(taskId);
 }
 
 // isolated function getProfilePicture(drive:Client driveClient, string id) returns PersonProfilePicture|error {
