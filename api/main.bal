@@ -9164,6 +9164,115 @@ AND p.organization_id IN (
         return new MonthlyCostSummaryData(summary);
     }
 
+    isolated resource function get maintenanceTasksByStatus(
+        int organizationId,
+        int? personId = (),
+        string? fromDate = (),
+        string? toDate = (),
+        string? taskType = (),
+        int? location = ()
+    ) returns GroupedTasks|error {
+
+        TaskGroup pendingGroup = {
+            groupId: "pending",
+            groupName: "Pending",
+            tasks: []
+        };
+        
+        TaskGroup inProgressGroup = {
+            groupId: "progress",
+            groupName: "In Progress",
+            tasks: []
+        };
+        
+        TaskGroup completedGroup = {
+            groupId: "completed",
+            groupName: "Completed",
+            tasks: []
+        };
+
+        sql:ParameterizedQuery query = `
+            SELECT
+                ai.id AS instance_id,
+                ap.participant_task_status,
+                ai.end_time,
+                ai.start_time,
+                ap.end_date as completion_date,
+                CASE 
+                    WHEN ai.end_time < NOW() THEN FLOOR(TIMESTAMPDIFF(SECOND, ai.end_time, NOW()) / 86400)
+                    WHEN ai.end_time >= NOW() THEN -FLOOR(TIMESTAMPDIFF(SECOND, NOW(), ai.end_time) / 86400)
+                    ELSE 0
+                END AS overdue_days_calc
+            FROM activity_instance ai
+            INNER JOIN maintenance_task mt ON ai.task_id = mt.id
+            INNER JOIN organization_location ol ON mt.location_id = ol.id
+            INNER JOIN activity_participant ap ON ap.activity_instance_id = ai.id
+            WHERE ol.organization_id = ${organizationId}
+            AND mt.is_active = 1
+        `;
+
+        if (personId is int) {
+            query = sql:queryConcat(query, ` AND ap.person_id = ${personId}`);
+        }
+        if (fromDate is string) {
+            query = sql:queryConcat(query, ` AND ai.start_time >= ${fromDate}`);
+        }
+        if (toDate is string) {
+            query = sql:queryConcat(query, ` AND ai.start_time <= ${toDate}`);
+        }
+        if (taskType is string) {
+            query = sql:queryConcat(query, ` AND mt.task_type = ${taskType}`);
+        }
+        if (location is int) {
+            query = sql:queryConcat(query, ` AND mt.location_id = ${location}`);
+        }
+
+        // Order by participant_task_status and appropriate sorting
+        query = sql:queryConcat(query, ` 
+            ORDER BY 
+                ap.participant_task_status,
+                CASE 
+                    WHEN ap.participant_task_status IN ('Pending', 'InProgress') THEN overdue_days_calc
+                    ELSE NULL
+                END DESC,
+                CASE 
+                    WHEN ap.participant_task_status IN ('Pending', 'InProgress') THEN ai.start_time
+                    ELSE NULL
+                END ASC,
+                CASE 
+                    WHEN ap.participant_task_status = 'Completed' THEN completion_date
+                    ELSE NULL
+                END DESC
+        `);
+
+        stream<TaskStatusRecord, error?> taskStream;
+    
+        lock {
+            taskStream = db_client->query(query);
+        }
+
+        check from TaskStatusRecord taskRecord in taskStream
+            do {
+                ActivityInstanceData activityInstanceData = check new ActivityInstanceData((), taskRecord.instance_id, (), personId);
+                
+                if (taskRecord.participant_task_status == "Pending") {
+                    pendingGroup.tasks.push(activityInstanceData);
+                } else if (taskRecord.participant_task_status == "InProgress") {
+                    inProgressGroup.tasks.push(activityInstanceData);
+                } else if (taskRecord.participant_task_status == "Completed") {
+                    if (completedGroup.tasks.length() < 10) {
+                        completedGroup.tasks.push(activityInstanceData);
+                    }
+                }
+            };
+
+        check taskStream.close();
+
+        return {
+            groups: [pendingGroup, inProgressGroup, completedGroup]
+        };
+    }
+
 }
 
 isolated function deactivateMaintenanceTask(int taskId, string modifiedBy) returns boolean|error? {
