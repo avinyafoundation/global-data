@@ -9694,11 +9694,7 @@ isolated function deactivateMaintenanceTask(int taskId, string modifiedBy) retur
         return error("No task found with id: " + taskId.toString());
     }
 
-<<<<<<< HEAD
         return new(taskId);
-=======
-    return true;
->>>>>>> adfece3 (Task Edit Graphql method implementation)
 }
 
 // isolated function getProfilePicture(drive:Client driveClient, string id) returns PersonProfilePicture|error {
