@@ -262,3 +262,11 @@ function removeTandZ(string isoDateTime) returns string {
     return regex:replaceAll(withoutT, "Z$", "");
 }
 
+function contains(int[] arr, int value) returns boolean {
+    foreach int i in arr {
+        if i == value {
+            return true;
+        }
+    }
+    return false;
+}

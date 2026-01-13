@@ -1,3 +1,4 @@
+import ballerina/email;
 import ballerina/graphql;
 import ballerina/io;
 import ballerina/log;
@@ -6,7 +7,6 @@ import ballerina/regex;
 import ballerina/sql;
 import ballerina/time;
 import ballerinax/googleapis.drive as drive;
-import ballerina/email;
 
 // @display {
 //     label: "Global Data API",
@@ -1724,7 +1724,6 @@ service /graphql on new graphql:Listener(4000) {
             `SELECT p.avinya_type_id FROM organization o left join person p on o.id = p.organization_id WHERE o.id = ${organization_id} AND p.avinya_type_id NOT IN (99, 100) ORDER BY p.avinya_type_id LIMIT 1;`
         );
                         io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
-
 
                         if !(avinya_type_id is int) {
                             io:println("Eval Criteria ID: ", (check avinya_type_id).toString());
@@ -4771,12 +4770,11 @@ AND p.organization_id IN (
 
                         late_attendance_percentage = (late_count * 100.0) / total_count;
 
-                    } 
+                    }
 
-                    decimal  roundedPresentAttendancePercentage = decimal:round(present_attendance_percentage, 2);
-                    decimal  roundedAbsentAttendancePercentage = decimal:round(absent_attendance_percentage, 2);
-                    decimal  roundedLateAttendancePercentage = decimal:round(late_attendance_percentage, 2);
-                    
+                    decimal roundedPresentAttendancePercentage = decimal:round(present_attendance_percentage, 2);
+                    decimal roundedAbsentAttendancePercentage = decimal:round(absent_attendance_percentage, 2);
+                    decimal roundedLateAttendancePercentage = decimal:round(late_attendance_percentage, 2);
 
                     ActivityParticipantAttendanceSummaryReport attendanceSummaryData = {
                         sign_in_date: attendance_summary_report_record.sign_in_date,
@@ -4785,7 +4783,7 @@ AND p.organization_id IN (
                         late_count: late_count,
                         total_count: total_count,
                         present_attendance_percentage: roundedPresentAttendancePercentage,
-                        absent_attendance_percentage:roundedAbsentAttendancePercentage,
+                        absent_attendance_percentage: roundedAbsentAttendancePercentage,
                         late_attendance_percentage: roundedLateAttendancePercentage
                     };
 
@@ -5628,8 +5626,8 @@ AND p.organization_id IN (
                         where 
                         p.avinya_type_id = ${avinya_type_id};`);
             }
-        } else if(organization_id != null && organization_id != -1 && avinya_type_id == null){
-            
+        } else if (organization_id != null && organization_id != -1 && avinya_type_id == null) {
+
             //get people by organization id[ex:- Need to get the bandaragama employees]
             lock {
                 persons_data = db_client->query(
@@ -5638,7 +5636,7 @@ AND p.organization_id IN (
                         where 
                         p.organization_id = ${organization_id};`);
             }
-        }else {
+        } else {
             return error("Provide non-null values for both 'organization_id' and 'avinya_type_id'.");
         }
         PersonData[] personDatas = [];
@@ -6586,9 +6584,7 @@ AND p.organization_id IN (
 
         int? totalSchoolDays = monthly_leave_dates.total_days_in_month - totalLeaveDates;
 
-       
         dailyAmount = monthly_leave_dates.monthly_payment_amount / totalSchoolDays ?: 0.0;
-        
 
         sql:ExecutionResult res = check db_client->execute(
             `INSERT INTO monthly_leave_dates (
@@ -6640,9 +6636,7 @@ AND p.organization_id IN (
 
         int? totalSchoolDays = monthly_leave_dates.total_days_in_month - totalLeaveDates;
 
-
         dailyAmount = monthly_leave_dates.monthly_payment_amount / totalSchoolDays ?: 0.0;
-
 
         sql:ExecutionResult res = check db_client->execute(
             `UPDATE monthly_leave_dates SET
@@ -6694,7 +6688,7 @@ AND p.organization_id IN (
         }
     }
 
-    isolated resource function get batch_payment_plan_by_org_id(int organization_id, int batch_id,string selected_month_date) returns BatchPaymentPlanData|error? {
+    isolated resource function get batch_payment_plan_by_org_id(int organization_id, int batch_id, string selected_month_date) returns BatchPaymentPlanData|error? {
 
         if (organization_id is int && batch_id is int) {
 
@@ -8172,7 +8166,7 @@ AND p.organization_id IN (
             return error("Unable to add cv request");
         }
 
-        email:SmtpClient|error gmail = createGmailClient(ALUMNI_CV_REQUEST_SENDER_EMAIL,ALUMNI_CV_REQUEST_SENDER_EMAIL_APP_PASSWORD);
+        email:SmtpClient|error gmail = createGmailClient(ALUMNI_CV_REQUEST_SENDER_EMAIL, ALUMNI_CV_REQUEST_SENDER_EMAIL_APP_PASSWORD);
 
         if gmail is email:SmtpClient {
 
@@ -8332,46 +8326,46 @@ AND p.organization_id IN (
 
                     if (personCvRaw is PersonCv) {
 
-                      string? oldDriveFileId  = personCvRaw.drive_file_id ?: "";
+                        string? oldDriveFileId = personCvRaw.drive_file_id ?: "";
 
                         if (oldDriveFileId != null) {
 
-                                string cvFileName = personCv.nic_no.toString();
+                            string cvFileName = personCv.nic_no.toString();
 
-                                drive:File|error createCvRes =
+                            drive:File|error createCvRes =
                                     drive->uploadFileUsingByteArray(base64DecodedCv, cvFileName, mainAlumniCvDriveFolderId);
 
-                                if (createCvRes is drive:File) {
+                            if (createCvRes is drive:File) {
 
-                                    string createCvDriveFileId = createCvRes.id.toString();
+                                string createCvDriveFileId = createCvRes.id.toString();
 
-                                    sql:ExecutionResult res = check db_client->execute(
+                                sql:ExecutionResult res = check db_client->execute(
                                                         `UPDATE person_cv SET
                                                             drive_file_id = ${createCvDriveFileId},
                                                             uploaded_by = ${personCv.uploaded_by}
                                                         WHERE person_id =  ${id};`
                                                     );
 
-                                    if (res.affectedRowCount == sql:EXECUTION_FAILED) {
-                                        boolean|error deleteNewCvRes = drive->deleteFile(createCvDriveFileId);
-                                        if (deleteNewCvRes is boolean) {
-                                            log:printInfo("Newly upload cv deleted.");
-                                        } else {
-                                            log:printError("Unable to delete newly upload cv document.");
-                                        }
-                                        return error(string `Unable to update CV due to a server issue.`);
-                                    }else{
-                                        boolean|error deleteOldCvRes = drive->deleteFile(oldDriveFileId);
-                                        if (deleteOldCvRes is boolean) {
-                                            log:printInfo("Old cv deleted.");
-                                        } else {
-                                            log:printError("Unable to delete Old cv document.");
-                                        }
-                                        return new (0, id);
+                                if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+                                    boolean|error deleteNewCvRes = drive->deleteFile(createCvDriveFileId);
+                                    if (deleteNewCvRes is boolean) {
+                                        log:printInfo("Newly upload cv deleted.");
+                                    } else {
+                                        log:printError("Unable to delete newly upload cv document.");
                                     }
+                                    return error(string `Unable to update CV due to a server issue.`);
                                 } else {
-                                    return error(string `Failed to upload CV to Google Drive.`);
+                                    boolean|error deleteOldCvRes = drive->deleteFile(oldDriveFileId);
+                                    if (deleteOldCvRes is boolean) {
+                                        log:printInfo("Old cv deleted.");
+                                    } else {
+                                        log:printError("Unable to delete Old cv document.");
+                                    }
+                                    return new (0, id);
                                 }
+                            } else {
+                                return error(string `Failed to upload CV to Google Drive.`);
+                            }
 
                         }
 
@@ -8419,41 +8413,41 @@ AND p.organization_id IN (
                         //     body: "Your CV has been updated!"
                         // };
 
-                       // check sendNotificationToUser(id,request);
+                        // check sendNotificationToUser(id,request);
                         return new (generatedPersonCvId);
                     } else {
                         return error(string `Failed to upload New CV to Google Drive.`);
                     }
 
                 }
-            }else{
-              return error(string `Failed to retrieve CV record count for the specified person.`);
+            } else {
+                return error(string `Failed to retrieve CV record count for the specified person.`);
             }
         } else {
             return error(string `Drive Client Creation Failed: ${drive.message()}`);
         }
-      return;
+        return;
     }
-    
+
     //Fetch the CV of a specific student
-    isolated resource function get fetchPersonCV(int personId,string? driveFileId) returns PersonCvData|error? {
-              
+    isolated resource function get fetchPersonCV(int personId, string? driveFileId) returns PersonCvData|error? {
+
         int id = personId;
         PersonCv|error personCvRaw;
 
         if (id == 0) {
             return error(string `Person with ${id} does not exist`);
         }
-      
+
         personCvRaw = db_client->queryRow(
                                         `SELECT *
                                         FROM person_cv
                                         WHERE person_id = ${id};`
                                 );
-        
-        if(driveFileId !=null){
 
-         personCvRaw = db_client->queryRow(
+        if (driveFileId != null) {
+
+            personCvRaw = db_client->queryRow(
                                         `SELECT *
                                         FROM person_cv
                                         WHERE person_id = ${id} and drive_file_id= ${driveFileId};`
@@ -8463,25 +8457,25 @@ AND p.organization_id IN (
         if (personCvRaw is PersonCv) {
 
             drive:Client drive = check getGoogleDriveClientForJobsAndCVs();
-            string|error base64PersonCv  = getDriveFileBase64(drive,personCvRaw.drive_file_id.toString());
-            if(base64PersonCv is string){
-              personCvRaw.file_content = base64PersonCv;
-              PersonCvData|error personCVData = new PersonCvData(0,0,personCvRaw);
-                    if !(personCVData is error) {
-                        return personCVData;
-                    }
-            }else{
+            string|error base64PersonCv = getDriveFileBase64(drive, personCvRaw.drive_file_id.toString());
+            if (base64PersonCv is string) {
+                personCvRaw.file_content = base64PersonCv;
+                PersonCvData|error personCVData = new PersonCvData(0, 0, personCvRaw);
+                if !(personCVData is error) {
+                    return personCVData;
+                }
+            } else {
                 return error(string `File not found`);
             }
-        
-        }else{
+
+        } else {
             return error(personCvRaw.message());
         }
         return;
     }
-    
-     //Store FCM token for a specific student
-    remote function saveUserFCMToken(int personId,PersonFcmToken personFCMToken) returns PersonFcmTokenData|error? {
+
+    //Store FCM token for a specific student
+    remote function saveUserFCMToken(int personId, PersonFcmToken personFCMToken) returns PersonFcmTokenData|error? {
 
         sql:ExecutionResult res = check db_client->execute(
             `INSERT INTO person_fcm_token(
@@ -8499,12 +8493,12 @@ AND p.organization_id IN (
         }
         return new (insertId);
     }
-    
+
     //Update FCM token for a specific student
-    remote function updateUserFCMToken(int personId,PersonFcmToken personFCMToken) returns PersonFcmTokenData|error? {
-        
-        int id = personFCMToken.id ?:0;
-        
+    remote function updateUserFCMToken(int personId, PersonFcmToken personFCMToken) returns PersonFcmTokenData|error? {
+
+        int id = personFCMToken.id ?: 0;
+
         if (id == 0) {
             return error(string `Person Fcm token record ID cannot be zero`);
         }
@@ -8522,20 +8516,18 @@ AND p.organization_id IN (
         return new (id);
     }
 
-   //Get FCM token for a specific student
+    //Get FCM token for a specific student
     isolated resource function get fetchUserFCMToken(int? personId) returns PersonFcmTokenData|error? {
         if (personId != null) {
-            return new (0,personId);
+            return new (0, personId);
         } else {
             return error("Provide non-null value for person id.");
         }
     }
-    
-    
-    
-   //==============================Maintenance Module Api Implementation==============================//
-    
-    remote function saveOrganizationLocation(int organizationId,OrganizationLocation organizationLocation) returns OrganizationLocationData|error? {
+
+    //==============================Maintenance Module Api Implementation==============================//
+
+    remote function saveOrganizationLocation(int organizationId, OrganizationLocation organizationLocation) returns OrganizationLocationData|error? {
 
         sql:ExecutionResult res = check db_client->execute(
             `INSERT INTO organization_location(
@@ -8572,7 +8564,7 @@ AND p.organization_id IN (
 
             check from OrganizationLocation location_data_record in orgLocationsData
                 do {
-                    OrganizationLocationData|error locationData = new OrganizationLocationData(0,location_data_record);
+                    OrganizationLocationData|error locationData = new OrganizationLocationData(0, location_data_record);
                     if !(locationData is error) {
                         locationDatas.push(locationData);
                     }
@@ -8585,19 +8577,20 @@ AND p.organization_id IN (
         }
     }
 
-    remote function createMaintenanceTask(int? organizationId,MaintenanceTask maintenanceTask,MaintenanceFinance? finance,MaterialCost[]? materialCosts) returns MaintenanceTaskData|error? {
+    // Create Maintenance Task
+    remote function createMaintenanceTask(int? organizationId, MaintenanceTask maintenanceTask, MaintenanceFinance? finance, MaterialCost[]? materialCosts) returns MaintenanceTaskData|error? {
 
         //define the transactions
         boolean taskInsertFailed = false;
         boolean activityInstanceInsertFailed = false;
         boolean participantInsertFailed = false;
         boolean financeInsertFailed = false;
-        boolean materialCostInsertFailed  = false;
+        boolean materialCostInsertFailed = false;
         string message = "";
-        int|string? insertTaskActivityInstanceId= null;
-        
+        int|string? insertTaskActivityInstanceId = null;
+
         io:println(`material cost:${materialCosts.toString()}`);
-        transaction{
+        transaction {
 
             sql:ExecutionResult insertMaintenanceTaskTable = check db_client->execute(
             `INSERT INTO maintenance_task(
@@ -8629,15 +8622,14 @@ AND p.organization_id IN (
                 message = "Failed to save Maintenance Task.";
             }
 
-            string taskStartDate = maintenanceTask.start_date?:"";
+            string taskStartDate = maintenanceTask.start_date ?: "";
             int deadlineInDays = maintenanceTask.exception_deadline ?: 0;
 
             //Calculate and get the task end date
-            string|error taskEndDate = addDaysToDate(taskStartDate,deadlineInDays);
-            
+            string|error taskEndDate = addDaysToDate(taskStartDate, deadlineInDays);
+
             if taskEndDate is string {
 
-                
                 //Save maintenance task in activity instance table
                 sql:ExecutionResult insertTaskActivityInstanceTable = check db_client->execute(
                 `INSERT INTO activity_instance(
@@ -8663,15 +8655,15 @@ AND p.organization_id IN (
                     message = "Failed to save task activity instance.";
                 }
 
-            }else if(taskEndDate is error){
-             log:printError("Failed to calculate end date", taskEndDate);
+            } else if (taskEndDate is error) {
+                log:printError("Failed to calculate end date", taskEndDate);
             }
 
             //Save maintenance task participants in activity participant table
             int[] personIdList = maintenanceTask?.person_id_list ?: [];
-            if personIdList is int[] && personIdList.length()>0{
-               foreach int personId in personIdList {
-                   sql:ExecutionResult insertTaskActivityParticipantTable = check db_client->execute(
+            if personIdList is int[] && personIdList.length() > 0 {
+                foreach int personId in personIdList {
+                    sql:ExecutionResult insertTaskActivityParticipantTable = check db_client->execute(
                         `INSERT INTO activity_participant(
                             activity_instance_id,
                             person_id,
@@ -8683,22 +8675,22 @@ AND p.organization_id IN (
                         );`
                         );
 
-                        int|string? insertTaskActivityParticipantId = insertTaskActivityParticipantTable.lastInsertId;
-                        if !(insertTaskActivityParticipantId is int) {
-                            participantInsertFailed = true;
-                            message = "Failed to save task activity participant.";
-                        }
- 
-               }
+                    int|string? insertTaskActivityParticipantId = insertTaskActivityParticipantTable.lastInsertId;
+                    if !(insertTaskActivityParticipantId is int) {
+                        participantInsertFailed = true;
+                        message = "Failed to save task activity participant.";
+                    }
+
+                }
             }
-            
-            int hasFinanceInfo = maintenanceTask.has_financial_info ?:0;
-            
-            if(hasFinanceInfo == 1){
-                 
+
+            int hasFinanceInfo = maintenanceTask.has_financial_info ?: 0;
+
+            if (hasFinanceInfo == 1) {
+
                 //MaintenanceFinance maintenanceFinanceData = <MaintenanceFinance>maintenanceTask.finance;
 
-                if(finance is MaintenanceFinance){
+                if (finance is MaintenanceFinance) {
 
                     sql:ExecutionResult insertMaintenanceFinanceTable = check db_client->execute(
                             `INSERT INTO maintenance_finance(
@@ -8714,14 +8706,14 @@ AND p.organization_id IN (
                             );`
                             );
 
-                            int|string? insertMaintenanceFinanceId = insertMaintenanceFinanceTable.lastInsertId;
-                            if !(insertMaintenanceFinanceId is int) {
-                                financeInsertFailed = true;
-                                message = "Failed to save maintenance task finance info.";
-                            }
-                    
+                    int|string? insertMaintenanceFinanceId = insertMaintenanceFinanceTable.lastInsertId;
+                    if !(insertMaintenanceFinanceId is int) {
+                        financeInsertFailed = true;
+                        message = "Failed to save maintenance task finance info.";
+                    }
+
                     //Save maintenance task material costs in table
-                    if materialCosts is MaterialCost[] && materialCosts.length()>0{
+                    if materialCosts is MaterialCost[] && materialCosts.length() > 0 {
                         foreach MaterialCost materialCost in materialCosts {
                             sql:ExecutionResult insertMaterialCostTable = check db_client->execute(
                                     `INSERT INTO material_cost(
@@ -8739,17 +8731,17 @@ AND p.organization_id IN (
                                     );`
                                     );
 
-                                    int|string? insertMaterialCostId = insertMaterialCostTable.lastInsertId;
-                                    if !(insertMaterialCostId is int) {
-                                        materialCostInsertFailed = true;
-                                        message = "Failed to save material cost.";
-                                    }
-            
+                            int|string? insertMaterialCostId = insertMaterialCostTable.lastInsertId;
+                            if !(insertMaterialCostId is int) {
+                                materialCostInsertFailed = true;
+                                message = "Failed to save material cost.";
+                            }
+
                         }
 
                     }
                 }
-            
+
             }
 
             if (taskInsertFailed ||
@@ -8769,21 +8761,199 @@ AND p.organization_id IN (
             }
 
         }
-    }   
+    }
+
+    //Update the Maintenance Task
+    remote function updateMaintenanceTask(int organizationId,
+            ActivityInstance maintenanceTaskActivityInstance,
+            MaintenanceTask maintenanceTask,
+            int[] maintenanceTaskParticipantList,
+            MaintenanceFinance? finance,
+            MaterialCost[]? materialCosts) returns MaintenanceTaskData|error? {
+
+        boolean taskUpdateFailed = false;
+        string message = "";
+        int exceptionDeadline = 0;
+        int hasPreviousFinanceInfo = 0;
+
+        int id = maintenanceTask.id ?: 0;
+
+        if (id == 0) {
+            return error(string `Maintenance Task record ID cannot be zero`);
+        }
+
+        transaction {
+
+            MaintenanceTask|error? maintenanceTaskRow = check db_client->queryRow(
+                `SELECT *
+                 FROM maintenance_task
+                WHERE id = ${id}`
+            );
+
+            if (maintenanceTaskRow is MaintenanceTask) {
+
+                exceptionDeadline = maintenanceTaskRow.exception_deadline ?: 0;
+                hasPreviousFinanceInfo = maintenanceTaskRow.has_financial_info ?: 0;
+            }
+
+            sql:ExecutionResult res = check db_client->execute(
+            `UPDATE maintenance_task SET
+                description = ${maintenanceTask.description},
+                frequency = ${maintenanceTask.frequency},
+                location_id = ${maintenanceTask.location_id},
+                exception_deadline = ${maintenanceTask.exception_deadline},
+                has_financial_info = ${maintenanceTask.has_financial_info},
+                modified_by = ${maintenanceTask.modified_by}
+            WHERE id = ${id};`
+            );
+
+            if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+                taskUpdateFailed = true;
+                message = "Failed to update maintenance task record";
+            }
+
+            int taskActivityInstanceId = maintenanceTaskActivityInstance.id ?: 0;
+            int updatedTaskExceptionDeadline = maintenanceTask.exception_deadline ?: 0;
+
+            if (exceptionDeadline != updatedTaskExceptionDeadline) {
+
+                ActivityInstance|error? taskActivityInstanceRow = check db_client->queryRow(
+                    `SELECT *
+                    FROM activity_instance
+                    WHERE id = ${taskActivityInstanceId} 
+                    AND activity_id = 21`
+                );
+
+                if (taskActivityInstanceRow is ActivityInstance) {
+
+                    string taskStartDate = taskActivityInstanceRow.start_time ?: "";
+
+                    //Calculate and get the task end date
+                    string|error taskEndDate = addDaysToDate(taskStartDate, updatedTaskExceptionDeadline);
+
+                    if taskEndDate is string {
+
+                        sql:ExecutionResult taskActivityInstanceRes = check db_client->execute(
+                        `UPDATE activity_instance SET
+                            end_time = ${taskEndDate}
+                        WHERE id = ${taskActivityInstanceId};`
+                        );
+
+                        if (taskActivityInstanceRes.affectedRowCount == sql:EXECUTION_FAILED) {
+                            taskUpdateFailed = true;
+                            message = "Failed to update maintenance task activity instance record";
+                        }
+                    } else if (taskEndDate is error) {
+                        log:printError("Failed to calculate end date", taskEndDate);
+                    }
+                }
+
+            }
+
+            int[] existingPersonIds = [];
+            stream<ActivityParticipant, error?> taskActivityPartipantsData;
+
+            lock {
+                taskActivityPartipantsData = db_client->query(
+                    `SELECT *
+                        from activity_participant
+                     where activity_instance_id=${taskActivityInstanceId};`);
+            }
+
+            check taskActivityPartipantsData.forEach(function(ActivityParticipant p) {
+                if p.person_id is int {
+                    existingPersonIds.push(p.person_id ?: 0);
+                }
+            });
+
+            int[] newParticipantsIds = []; //add new participants
+            int[] deleteParticipantsIds = []; //delete participants
+
+            foreach int existingId in existingPersonIds {
+                if !contains(maintenanceTaskParticipantList, existingId) {
+                    deleteParticipantsIds.push(existingId);
+                }
+            }
+
+            foreach int taskParticiapntId in maintenanceTaskParticipantList {
+                if !contains(existingPersonIds, taskParticiapntId) {
+                    newParticipantsIds.push(taskParticiapntId);
+                }
+            }
+
+            //Add new task participants
+            foreach int newParticipantId in newParticipantsIds {
+                sql:ExecutionResult insertNewParticipantsRes = check db_client->execute(
+                    `INSERT INTO activity_participant(
+                        activity_instance_id,
+                        person_id,
+                        participant_task_status
+                    ) VALUES (
+                        ${taskActivityInstanceId},
+                        ${newParticipantId},
+                        ${"Pending"}
+                    );`
+                );
+
+                int|string? insertNewParticipantId = insertNewParticipantsRes.lastInsertId;
+                if !(insertNewParticipantId is int) {
+                    taskUpdateFailed = true;
+                    message = "Failed to save task activity participant.";
+                }
+            }
+
+            //Delete existing task participants
+            foreach int participantId in deleteParticipantsIds {
+
+                sql:ExecutionResult deleteTaskParticipantRes = check db_client->execute(
+                    `DELETE FROM activity_participant WHERE activity_instance_id = ${taskActivityInstanceId}
+                     AND person_id = ${participantId};`
+                );
+
+                int? delete_id = deleteTaskParticipantRes.affectedRowCount;
+                if (delete_id <= 0) {
+                    taskUpdateFailed = true;
+                    message = "Unable to delete task activity participant";
+                }
+            }
+
+            //Update Maintenance Task Finance Information
+            MaintenanceTaskUpdateFinanceResult|error financeInfoUpdateResult = updateMaintenanceTaskFinanceInfo(id, maintenanceTask,
+                                            hasPreviousFinanceInfo, taskActivityInstanceId,
+                                            finance, materialCosts);
+
+
+            if(financeInfoUpdateResult is MaintenanceTaskUpdateFinanceResult){
+                taskUpdateFailed = !(financeInfoUpdateResult.success ?: false);
+                message = <string>financeInfoUpdateResult.message;
+            }
+
+            if (taskUpdateFailed) {
+                rollback;
+                return error(message);
+            } else {
+
+                // Commit the transaction if all transactions are successful
+                check commit;
+                io:println("Transaction committed successfully!");
+                return new (<int?>id);
+            }
+        }
+    }
 
     isolated resource function get maintenanceTasks(
-        int organizationId,
-        int[]? personId = (),
-        string? fromDate = (),
-        string? toDate = (),
-        string? taskStatus = (),
-        string? financialStatus = (),
-        string? taskType = (),
-        int? location = (),
-        string? title = (),
-        int 'limit = 10,
-        int offset = 0,
-        boolean includeFinance = false
+            int organizationId,
+            int[]? personId = (),
+            string? fromDate = (),
+            string? toDate = (),
+            string? taskStatus = (),
+            string? financialStatus = (),
+            string? taskType = (),
+            int? location = (),
+            string? title = (),
+            int 'limit = 10,
+            int offset = 0,
+            boolean includeFinance = false
     ) returns ActivityInstanceData[]|error? {
 
         // Build the base query
@@ -8816,7 +8986,7 @@ AND p.organization_id IN (
             query = sql:queryConcat(query, ` AND mt.title LIKE ${searchTitle}`);
         }
         if financialStatus is string {
-            query = sql:queryConcat(query, 
+            query = sql:queryConcat(query,
                 ` AND ai.id IN (SELECT activity_instance_id FROM maintenance_finance WHERE status = ${financialStatus})`
             );
         }
@@ -8831,8 +9001,8 @@ AND p.organization_id IN (
                     personIdListQuery = sql:queryConcat(`${personId[i]}`);
                 }
             }
-            query = sql:queryConcat(query, 
-                ` AND ai.id IN (SELECT activity_instance_id FROM activity_participant WHERE person_id IN (`, 
+            query = sql:queryConcat(query,
+                ` AND ai.id IN (SELECT activity_instance_id FROM activity_participant WHERE person_id IN (`,
                 personIdListQuery, `))`
             );
         }
@@ -8841,7 +9011,7 @@ AND p.organization_id IN (
         query = sql:queryConcat(query, ` LIMIT ${'limit} OFFSET ${offset}`);
 
         stream<ActivityInstance, error?> maintenanceTasksStream;
-        
+
         lock {
             maintenanceTasksStream = db_client->query(query);
         }
@@ -8862,7 +9032,7 @@ AND p.organization_id IN (
     }
 
     isolated resource function get overdueMaintenanceTasks(
-        int organizationId
+            int organizationId
     ) returns ActivityInstanceData[]|error? {
 
         string currentDate = time:utcToString(time:utcNow());
@@ -8895,7 +9065,6 @@ AND p.organization_id IN (
         check overdueTasksStream.close();
         return activityInstanceDatas;
     }
-    
 
     //Get Maintenance Task by organizationId, month, year and overall task status
     isolated resource function get maintenanceTasksByMonthYearStatus(
@@ -8945,7 +9114,6 @@ AND p.organization_id IN (
         return activityInstanceDatas;
     }
 
-    
     //Make task as inactive
     remote function softDeactivateMaintenanceTask(int taskId, string modifiedBy) returns MaintenanceTaskData|error? {
 
@@ -8962,7 +9130,6 @@ AND p.organization_id IN (
         }
     }
 
-    
     //Update maintenance finance details
     remote function updateMaintenanceFinance(int financeId, MaintenanceFinance maintenanceFinance) returns MaintenanceFinanceData|error? {
 
@@ -8989,9 +9156,9 @@ AND p.organization_id IN (
     // Get total tasks count, completed tasks count, pending tasks count, inprogress tasks count for a given month and year and get 
     // upcoming no of tasks and it's esteemated cost for next month from the current month, all data are taken for given organization id
     isolated resource function get monthlyMaintenanceReport(
-        int organizationId,
-        int year,
-        int month
+            int organizationId,
+            int year,
+            int month
     ) returns MonthlyReportData|error {
 
         if (month < 1 || month > 12) {
@@ -9035,7 +9202,6 @@ AND p.organization_id IN (
             completedTasks = row.completedTasks ?: 0;
             inProgressTasks = row.inProgressTasks ?: 0;
             pendingTasks = row.pendingTasks ?: 0;
-
 
             MonthlyReport costRes = check db_client->queryRow(
                 `SELECT
@@ -9275,27 +9441,264 @@ AND p.organization_id IN (
             groups: [pendingGroup, inProgressGroup, completedGroup]
         };
     }
+}
 
+function updateMaintenanceTaskFinanceInfo
+    (int id, MaintenanceTask maintenanceTask,
+        int hasPreviousFinanceInfo, int taskActivityInstanceId,
+        MaintenanceFinance? finance, MaterialCost[]? materialCosts) returns MaintenanceTaskUpdateFinanceResult|error {
+
+    int hasFinanceInfoValue = maintenanceTask.has_financial_info is int ? maintenanceTask.has_financial_info ?: 0 : 0;
+    int hasPreviousFinanceInfoValue =  hasPreviousFinanceInfo is int ? hasPreviousFinanceInfo : 0;
+
+    // Narrow and assign properly
+
+    if (hasFinanceInfoValue == 1 && hasPreviousFinanceInfoValue == 1) {
+    
+
+        if (finance is MaintenanceFinance) {
+
+            sql:ExecutionResult updateTaskFinanceDetails = check db_client->execute(
+                        `UPDATE maintenance_finance SET
+                            estimated_cost = ${finance.estimated_cost},
+                            labour_cost = ${finance.labour_cost},
+                            status =  ${"Pending"}
+                        WHERE activity_instance_id = ${taskActivityInstanceId};`
+                        );
+
+            if (updateTaskFinanceDetails.affectedRowCount == sql:EXECUTION_FAILED) {
+
+                return {
+                    success: false,
+                    message: "Failed to update maintenance task finance record"
+                };
+            }
+           
+            if materialCosts is MaterialCost[] && materialCosts.length() > 0 {
+
+                int[] existingMaterialCostIds = [];
+                stream<MaterialCost, error?> materialCostsData;
+
+                lock {
+                    materialCostsData = db_client->query(
+                            `SELECT *
+                                from material_cost
+                            where financial_id=${finance.id};`);
+                }
+
+                check materialCostsData.forEach(function(MaterialCost materialCost) {
+                    if materialCost.id is int {
+                        existingMaterialCostIds.push(materialCost.id ?: 0);
+                    }
+                });
+                
+                MaterialCost[] newMaterialCosts = materialCosts.filter(cost => cost.id == 0);
+                
+                //need to get the existing cost from the list that coming from the frontend update it in the database
+                MaterialCost[] existingCosts = materialCosts.filter(m => m.id is int && m.id !=0);
+                
+                //get the ids from the cost list came from frontend
+                int[] frontendIds = materialCosts
+                                            .filter(m => m.id is int)
+                                            .map(m => <int>m.id);
+                int[] deleteMaterialCostIds = []; //delete material cost
+
+                foreach int existingMaterialCostId in existingMaterialCostIds {
+                    if !contains(frontendIds, existingMaterialCostId) {
+                        deleteMaterialCostIds.push(existingMaterialCostId);
+                    }
+                }
+                io:println(`Before executing Material Costs:${newMaterialCosts}`);
+                
+                //Add new material cost
+                foreach MaterialCost materialCost in newMaterialCosts {
+                    {
+                        sql:ExecutionResult insertMaterialCostRes = check db_client->execute(
+                                            `INSERT INTO material_cost(
+                                            financial_id,
+                                            item,
+                                            quantity,
+                                            unit,
+                                            unit_cost
+                                        ) VALUES (
+                                            ${finance.id},
+                                            ${materialCost.item},
+                                            ${materialCost.quantity},
+                                            ${materialCost.unit},
+                                            ${materialCost.unit_cost}
+                                        );`
+                                    );
+                        io:println(`insert material cost:${materialCost}`);
+                        int|string? insertNewMaterialCostId = insertMaterialCostRes.lastInsertId;
+                        if !(insertNewMaterialCostId is int) {
+                            return {
+                                success: false,
+                                message: "Failed to save material cost."
+                            };
+                        }
+                    }
+                }
+                
+                io:println(`Already existing cost:${existingCosts}`);
+
+                //updating existing material cost
+                foreach MaterialCost updateMaterialCost in existingCosts {
+                    {
+                        sql:ExecutionResult updateMaterialCostRes = check db_client->execute(
+                                                                        `UPDATE material_cost SET
+                                                                            item = ${updateMaterialCost.item},
+                                                                            quantity = ${updateMaterialCost.quantity},
+                                                                            unit =  ${updateMaterialCost.unit},
+                                                                            unit_cost = ${updateMaterialCost.unit_cost}
+                                                                        WHERE id = ${updateMaterialCost.id};`
+                                                                        );
+                        io:println(`update material cost:${updateMaterialCost}`);
+
+                        if (updateMaterialCostRes.affectedRowCount == sql:EXECUTION_FAILED) {
+                            return {
+                                success: false,
+                                message: "Failed to update material Cost record"
+                            };
+                        }
+                    }
+                }
+
+                io:println(`deleteMaterialCostIds existing cost:${deleteMaterialCostIds}`);
+
+                //delete material cost
+                foreach int materialCostId in deleteMaterialCostIds {
+                    {
+                        sql:ExecutionResult deleteMaterialCostRes = check db_client->execute(
+                                            `DELETE FROM material_cost WHERE id = ${materialCostId};`
+                                        );
+
+                        int? delete_id = deleteMaterialCostRes.affectedRowCount;
+                        if (delete_id <= 0) {
+                            return {
+                                success: false,
+                                message: "Unable to delete  material cost records"
+                            };
+                        }
+                    }
+
+                }
+            }
+
+        }
+    } else if (hasFinanceInfoValue == 1 && hasPreviousFinanceInfoValue == 0) {
+
+        if (finance is MaintenanceFinance) {
+
+            sql:ExecutionResult insertMaintenanceFinance = check db_client->execute(
+                            `INSERT INTO maintenance_finance(
+                                activity_instance_id,
+                                estimated_cost,
+                                labour_cost,
+                                status
+                            ) VALUES (
+                                ${taskActivityInstanceId},
+                                ${finance.estimated_cost},
+                                ${finance.labour_cost},
+                                ${"Pending"}
+                            );`
+                            );
+
+            int|string? insertMaintenanceFinanceId = insertMaintenanceFinance.lastInsertId;
+            if !(insertMaintenanceFinanceId is int) {
+                return {
+                    success: false,
+                    message: "Failed to save maintenance task finance info."
+                };
+            }
+
+            //Save maintenance task material costs in table
+            if materialCosts is MaterialCost[] && materialCosts.length() > 0 {
+                foreach MaterialCost materialCost in materialCosts {
+                    sql:ExecutionResult insertMaterialCost = check db_client->execute(
+                                    `INSERT INTO material_cost(
+                                        financial_id,
+                                        item,
+                                        quantity,
+                                        unit,
+                                        unit_cost
+                                    ) VALUES (
+                                        ${insertMaintenanceFinanceId},
+                                        ${materialCost.item},
+                                        ${materialCost.quantity},
+                                        ${materialCost.unit},
+                                        ${materialCost.unit_cost}
+                                    );`
+                                    );
+
+                    int|string? insertMaterialCostId = insertMaterialCost.lastInsertId;
+                    if !(insertMaterialCostId is int) {
+                        return {
+                            success: false,
+                            message: "Failed to save material cost."
+                        };
+                    }
+
+                }
+
+            }
+        }
+    } else if (hasFinanceInfoValue == 0 && hasPreviousFinanceInfoValue == 1) {
+
+        if (finance is MaintenanceFinance) {
+
+            sql:ExecutionResult deleteMaterialCostRes = check db_client->execute(
+                    `DELETE FROM material_cost WHERE financial_id = ${finance.id};`);
+
+            int? delete_id = deleteMaterialCostRes.affectedRowCount;
+            if (delete_id <= 0) {
+                return {
+                    success: false,
+                    message: "Unable to delete  material cost record."
+                };
+            }
+
+            sql:ExecutionResult deleteFinanceInfoRes = check db_client->execute(
+                    `DELETE FROM maintenance_finance WHERE activity_instance_id = ${taskActivityInstanceId};`);
+
+            int? delete_finance_info_id = deleteFinanceInfoRes.affectedRowCount;
+            if (delete_finance_info_id <= 0) {
+                return {
+                    success: false,
+                    message: "Unable to delete task finance record with id"
+                };
+            }
+
+        }
+
+    }
+    return {
+        success: true,
+        message: "Updated Successfully"
+    };
 }
 
 isolated function deactivateMaintenanceTask(int taskId, string modifiedBy) returns MaintenanceTaskData|error? {
 
-        sql:ExecutionResult res = check db_client->execute(
+    sql:ExecutionResult res = check db_client->execute(
             `UPDATE maintenance_task SET
                 is_active = 0,
                 modified_by = ${modifiedBy}
             WHERE id = ${taskId};`
         );
 
-        if (res.affectedRowCount == sql:EXECUTION_FAILED) {
-            return error("Failed to deactivate maintenance task record");
-        }
+    if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+        return error("Failed to deactivate maintenance task record");
+    }
 
-        if (res.affectedRowCount == 0) {
-            return error("No task found with id: " + taskId.toString());
-        }
+    if (res.affectedRowCount == 0) {
+        return error("No task found with id: " + taskId.toString());
+    }
 
+<<<<<<< HEAD
         return new(taskId);
+=======
+    return true;
+>>>>>>> adfece3 (Task Edit Graphql method implementation)
 }
 
 // isolated function getProfilePicture(drive:Client driveClient, string id) returns PersonProfilePicture|error {
@@ -9391,11 +9794,10 @@ isolated function getDriveFileBase64(drive:Client driveClient, string fileId) re
     drive:FileContent|error fileStream = check driveClient->getFileContent(fileId);
 
     if (fileStream is drive:FileContent) {
-       return fileStream.content.toBase64();
-    } 
+        return fileStream.content.toBase64();
+    }
     return "";
 }
-
 
 isolated function getProfilePicture(drive:Client driveClient, string id) returns PersonProfilePicture|error {
     PersonProfilePicture profile_picture = {
@@ -9452,13 +9854,13 @@ isolated function getGoogleDriveClientForJobsAndCVs() returns drive:Client|error
 }
 
 //Created gmail client
-isolated function createGmailClient(string senderEmailAddress,string appPassword) returns email:SmtpClient|error {
+isolated function createGmailClient(string senderEmailAddress, string appPassword) returns email:SmtpClient|error {
 
     email:SmtpClient gmail = check new (
-    "smtp.gmail.com",
-    senderEmailAddress,
-    appPassword // NOT normal Gmail password
-   );
+        "smtp.gmail.com",
+        senderEmailAddress,
+        appPassword // NOT normal Gmail password
+    );
 
     return gmail;
 }
@@ -9468,12 +9870,12 @@ isolated function sendEmail(email:SmtpClient gmail, string[] recipients, string 
 
     // Send the email message.
     check gmail->sendMessage({
-       to: recipients,
-       subject:subject,
-       body: body,
-       contentType:"text/html"
+        to: recipients,
+        subject: subject,
+        body: body,
+        contentType: "text/html"
     });
-     return true;
+    return true;
 }
 
 isolated function calculateWeekdays(time:Utc toDate, time:Utc fromDate) returns int {
