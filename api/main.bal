@@ -8944,7 +8944,7 @@ AND p.organization_id IN (
 
     
     //Make task as inactive
-    remote function softDeactivateMaintenanceTask(int taskId, string modifiedBy) returns boolean|error? {
+    remote function softDeactivateMaintenanceTask(int taskId, string modifiedBy) returns MaintenanceTaskData|error? {
 
         if (taskId <= 0) {
             return error("Invalid taskId");
@@ -9166,7 +9166,7 @@ AND p.organization_id IN (
 
 }
 
-isolated function deactivateMaintenanceTask(int taskId, string modifiedBy) returns boolean|error? {
+isolated function deactivateMaintenanceTask(int taskId, string modifiedBy) returns MaintenanceTaskData|error? {
 
         sql:ExecutionResult res = check db_client->execute(
             `UPDATE maintenance_task SET
@@ -9183,7 +9183,7 @@ isolated function deactivateMaintenanceTask(int taskId, string modifiedBy) retur
             return error("No task found with id: " + taskId.toString());
         }
 
-        return true;
+        return new(taskId);
 }
 
 // isolated function getProfilePicture(drive:Client driveClient, string id) returns PersonProfilePicture|error {
