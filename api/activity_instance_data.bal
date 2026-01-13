@@ -30,6 +30,36 @@ public isolated service class ActivityInstanceData {
         self.activity_instance = activity_instance_raw.cloneReadOnly();
     }
 
+    private isolated function calculate_overdue_days() returns int|error? {
+        int? activityInstanceId;
+        lock {
+            activityInstanceId = self.activity_instance.id;
+        }
+        
+        if activityInstanceId is int {
+            record {|decimal overdue_days;|}|error overdueDaysRecord = db_client->queryRow(
+                `SELECT 
+                    CASE 
+                        WHEN overall_task_status = 'Completed' THEN 0
+                        WHEN end_time IS NULL THEN 0
+                        WHEN end_time < NOW() THEN FLOOR(TIMESTAMPDIFF(SECOND, end_time, NOW()) / 86400)
+                        WHEN end_time >= NOW() THEN -FLOOR(TIMESTAMPDIFF(SECOND, NOW(), end_time) / 86400)
+                        ELSE 0
+                    END AS overdue_days
+                FROM activity_instance
+                WHERE id = ${activityInstanceId}`
+            );
+            
+            if overdueDaysRecord is record {|decimal overdue_days;|} {
+                return <int>overdueDaysRecord.overdue_days;
+            }
+            
+            return 0;
+        }
+        
+        return 0;
+    }
+
     isolated resource function get id() returns int? {
         lock {
                 return self.activity_instance.id;
@@ -147,28 +177,28 @@ public isolated service class ActivityInstanceData {
     }
 
     isolated resource function get overdue_days() returns int|error? {
-        int? activityInstanceId;
-        lock {
-            activityInstanceId = self.activity_instance.id;
+        return self.calculate_overdue_days();
+    }
+
+    isolated resource function get statusText() returns string|error? {
+        int overdueDays = check self.calculate_overdue_days() ?: 0;
+        
+        if overdueDays > 0 {
+            // Task is overdue
+            string dayText = overdueDays == 1 ? "day" : "days";
+            return string `Overdue by ${overdueDays} ${dayText}`;
+        } else if overdueDays < 0 {
+            // Task is due soon (within next 2 days)
+            int daysUntilDue = -overdueDays;
+            if daysUntilDue == 0 {
+                return "Overdue today";
+            } else if daysUntilDue <= 2 {
+                string dayText = daysUntilDue == 1 ? "day" : "days";
+                return string `Overdue in ${daysUntilDue} ${dayText}`;
+            }
         }
         
-        if activityInstanceId is int {
-            int|error overdueDays = db_client->queryRow(
-                `SELECT 
-                    CASE 
-                        WHEN overall_task_status = 'Completed' THEN 0
-                        WHEN end_time IS NULL THEN 0
-                        WHEN end_time < NOW() THEN FLOOR(TIMESTAMPDIFF(SECOND, end_time, NOW()) / 86400)
-                        ELSE 0
-                    END AS overdue_days
-                FROM activity_instance
-                WHERE id = ${activityInstanceId}`
-            );
-            
-            return overdueDays;
-        }
-        
-        return 0;
+        return "On Schedule";
     }
 
     isolated resource function get created() returns string? {

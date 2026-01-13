@@ -1037,3 +1037,22 @@ public type MonthlyCostSummary record {|
     int? year;
     MonthlyCost[]? monthly_costs;
 |};
+
+public type TaskGroup record {|
+    string groupId;
+    string groupName;
+    ActivityInstanceData[] tasks;
+|};
+
+public type GroupedTasks record {|
+    TaskGroup[] groups;
+|};
+
+public type TaskStatusRecord record {|
+    int instance_id;
+    string participant_task_status;
+    string? end_time;
+    string? start_time;
+    string? completion_date;
+    decimal overdue_days_calc;
+|};
