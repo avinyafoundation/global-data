@@ -420,6 +420,11 @@ public type ActivityInstance record {|
     string? overall_task_status;
     string? created;
     string? updated;
+
+    //These 3 properties are optional
+    MaintenanceTask maintenanceTask?;
+    MaintenanceFinance? financialInformation?;
+    ActivityParticipant[] activityParticipants?;
 |};
 
 public type ActivityParticipant record {|
@@ -436,6 +441,9 @@ public type ActivityParticipant record {|
     int? is_attending;
     string? created;
     string? updated;
+
+    //The person field is optional
+    Person? person?;
 |};
 
 public type ActivityParticipantAttendance record {|

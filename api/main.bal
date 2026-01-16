@@ -8769,7 +8769,7 @@ AND p.organization_id IN (
             MaintenanceTask maintenanceTask,
             int[] maintenanceTaskParticipantList,
             MaintenanceFinance? finance,
-            MaterialCost[]? materialCosts) returns MaintenanceTaskData|error? {
+            MaterialCost[]? materialCosts) returns ActivityInstanceData|error? {
 
         boolean taskUpdateFailed = false;
         string message = "";
@@ -8922,23 +8922,165 @@ AND p.organization_id IN (
                                             hasPreviousFinanceInfo, taskActivityInstanceId,
                                             finance, materialCosts);
 
-
-            if(financeInfoUpdateResult is MaintenanceTaskUpdateFinanceResult){
+            if (financeInfoUpdateResult is MaintenanceTaskUpdateFinanceResult) {
                 taskUpdateFailed = !(financeInfoUpdateResult.success ?: false);
                 message = <string>financeInfoUpdateResult.message;
             }
 
             if (taskUpdateFailed) {
                 rollback;
+                if (message == "") {
+                    message = "Transaction failed";
+                }
                 return error(message);
             } else {
 
                 // Commit the transaction if all transactions are successful
                 check commit;
                 io:println("Transaction committed successfully!");
-                return new (<int?>id);
+                return new (null, <int?>taskActivityInstanceId);
             }
         }
+    }
+
+    //Update the Task Participant task Progress
+    remote function updateTaskProgress(int activityInstanceId, int taskParticipantId,
+            ActivityParticipant taskParticipant
+    ) returns ActivityParticipantData|error? {
+
+        int participantId = taskParticipant.person_id ?: 0;
+        int taskActivityInstanceId = taskParticipant.activity_instance_id ?: 0;
+        string taskStatus = taskParticipant.participant_task_status ?: "";
+
+        int taskId;
+
+        if (participantId == 0 || taskActivityInstanceId == 0) {
+
+            return error(string `Maintenance Task Pariticipant ID or Activity Instance Id cannot be zero`);
+
+        }
+
+        ActivityInstance|error? taskActivityInstanceRow = check db_client->queryRow(
+            `SELECT *
+                FROM activity_instance
+            WHERE id = ${taskActivityInstanceId}`
+        );
+
+        if (taskActivityInstanceRow is ActivityInstance) {
+            taskId = taskActivityInstanceRow.task_id ?: 0;
+        }
+
+        map<string> taskParticipantStatusByPersonId = {};
+        stream<ActivityParticipant, error?> taskActivityPartipantsData;
+
+        lock {
+            taskActivityPartipantsData = db_client->query(
+                `SELECT *
+                    from activity_participant
+                    where activity_instance_id=${taskActivityInstanceId};`);
+        }
+
+        check taskActivityPartipantsData.forEach(function(ActivityParticipant p) {
+            if p.person_id is int && p.participant_task_status is string {
+                taskParticipantStatusByPersonId[p.person_id.toString()] =
+                    <string>p.participant_task_status;
+            }
+        });
+
+        io:println(string `Task Participants Data :${taskParticipantStatusByPersonId.toString()}`);
+
+        if (taskStatus == "Pending") {
+
+            boolean hasStarted = true;
+            stream<record {|int has_started;|}, error?> results;
+            lock {
+                results = db_client->query(
+                                    `SELECT 1 AS has_started
+                                        FROM activity_participant
+                                        WHERE activity_instance_id=${taskActivityInstanceId}
+                                        AND participant_task_status IN ('InProgress','Completed')
+                                        LIMIT 1;`);
+            }
+
+            var firstRow = results.next();
+            hasStarted = firstRow is record {|record {|int has_started;|} value;|};
+
+            if (hasStarted) {
+
+                sql:ExecutionResult taskActivityParticipantRes = check db_client->execute(
+                `UPDATE activity_participant SET
+                    start_date = NULL,
+                    participant_task_status = Pending
+                WHERE person_id=${participantId} AND activity_instance_id = ${taskActivityInstanceId};`
+                );
+
+                if (taskActivityParticipantRes.affectedRowCount == sql:EXECUTION_FAILED) {
+                    return error("Failed to update task activity participant record");
+                }
+            } else {
+                sql:ExecutionResult taskActivityInstanceRes = check db_client->execute(
+                                    `UPDATE activity_instance SET
+                                        overall_task_status = Pending
+                                    WHERE id = ${taskActivityInstanceId} AND activity_id=21;`
+                );
+
+                if (taskActivityInstanceRes.affectedRowCount == sql:EXECUTION_FAILED) {
+                    return error("Failed to update task activity instance record");
+                }
+
+                sql:ExecutionResult taskParticipantRes = check db_client->execute(
+                `UPDATE activity_participant SET
+                    start_date = NULL,
+                    participant_task_status = Pending
+                WHERE person_id=${participantId} AND activity_instance_id = ${taskActivityInstanceId};`
+                );
+
+                if (taskParticipantRes.affectedRowCount == sql:EXECUTION_FAILED) {
+                    return error("Failed to update task activity participant record");
+                }
+            }
+
+            return new (participantId);
+
+        } else if (taskStatus == "InProgress") {
+
+            sql:ExecutionResult taskActivityInstanceRes = check db_client->execute(
+                                    `UPDATE activity_instance SET
+                                        overall_task_status = InProgress
+                                    WHERE id = ${taskActivityInstanceId} AND activity_id=21;`
+                );
+
+            if (taskActivityInstanceRes.affectedRowCount == sql:EXECUTION_FAILED) {
+                return error("Failed to update task activity instance record");
+            }
+
+            sql:ExecutionResult taskParticipantRes = check db_client->execute(
+                `UPDATE activity_participant SET
+                    start_date = CURDATE(),
+                    participant_task_status = InProgress
+                WHERE person_id=${participantId} AND activity_instance_id = ${taskActivityInstanceId};`
+                );
+
+            if (taskParticipantRes.affectedRowCount == sql:EXECUTION_FAILED) {
+                return error("Failed to update task activity participant record");
+            }
+            return new (participantId);
+
+        } else if (taskStatus == "Completed") {
+
+            sql:ExecutionResult taskParticipantRes = check db_client->execute(
+                `UPDATE activity_participant SET
+                    end_date = CURDATE(),
+                    participant_task_status = Completed
+                WHERE person_id=${participantId} AND activity_instance_id = ${taskActivityInstanceId};`
+                );
+
+            if (taskParticipantRes.affectedRowCount == sql:EXECUTION_FAILED) {
+                return error("Failed to update task activity participant record");
+            }
+
+        }
+
     }
 
     isolated resource function get maintenanceTasks(
@@ -9068,12 +9210,12 @@ AND p.organization_id IN (
 
     //Get Maintenance Task by organizationId, month, year and overall task status
     isolated resource function get maintenanceTasksByMonthYearStatus(
-        int organizationId,
-        int month,
-        int year,
-        string? overallTaskStatus = (),
-        int 'limit = 10,
-        int offset = 0
+            int organizationId,
+            int month,
+            int year,
+            string? overallTaskStatus = (),
+            int 'limit = 10,
+            int offset = 0
     ) returns ActivityInstanceData[]|error? {
 
         stream<ActivityInstance, error?> maintenanceTasksStream;
@@ -9274,7 +9416,7 @@ AND p.organization_id IN (
     isolated resource function get monthlyCostSummary(int year, int organizationId) returns MonthlyCostSummaryData|error? {
 
         MonthlyCost[] monthlyCosts = [];
-        
+
         foreach int month in 1 ... 12 {
             MonthlyCost monthlyCost = {
                 month: month,
@@ -9334,12 +9476,12 @@ AND p.organization_id IN (
     }
 
     isolated resource function get maintenanceTasksByStatus(
-        int organizationId,
-        int? personId = (),
-        string? fromDate = (),
-        string? toDate = (),
-        string? taskType = (),
-        int? location = ()
+            int organizationId,
+            int? personId = (),
+            string? fromDate = (),
+            string? toDate = (),
+            string? taskType = (),
+            int? location = ()
     ) returns GroupedTasks|error {
 
         TaskGroup pendingGroup = {
@@ -9347,13 +9489,13 @@ AND p.organization_id IN (
             groupName: "Pending",
             tasks: []
         };
-        
+
         TaskGroup inProgressGroup = {
             groupId: "progress",
             groupName: "In Progress",
             tasks: []
         };
-        
+
         TaskGroup completedGroup = {
             groupId: "completed",
             groupName: "Completed",
@@ -9415,7 +9557,7 @@ AND p.organization_id IN (
         `);
 
         stream<TaskStatusRecord, error?> taskStream;
-    
+
         lock {
             taskStream = db_client->query(query);
         }
@@ -9423,7 +9565,7 @@ AND p.organization_id IN (
         check from TaskStatusRecord taskRecord in taskStream
             do {
                 ActivityInstanceData activityInstanceData = check new ActivityInstanceData((), taskRecord.instance_id, (), personId);
-                
+
                 if (taskRecord.participant_task_status == "Pending") {
                     pendingGroup.tasks.push(activityInstanceData);
                 } else if (taskRecord.participant_task_status == "InProgress") {
@@ -9449,12 +9591,11 @@ function updateMaintenanceTaskFinanceInfo
         MaintenanceFinance? finance, MaterialCost[]? materialCosts) returns MaintenanceTaskUpdateFinanceResult|error {
 
     int hasFinanceInfoValue = maintenanceTask.has_financial_info is int ? maintenanceTask.has_financial_info ?: 0 : 0;
-    int hasPreviousFinanceInfoValue =  hasPreviousFinanceInfo is int ? hasPreviousFinanceInfo : 0;
+    int hasPreviousFinanceInfoValue = hasPreviousFinanceInfo is int ? hasPreviousFinanceInfo : 0;
 
     // Narrow and assign properly
 
     if (hasFinanceInfoValue == 1 && hasPreviousFinanceInfoValue == 1) {
-    
 
         if (finance is MaintenanceFinance) {
 
@@ -9473,7 +9614,7 @@ function updateMaintenanceTaskFinanceInfo
                     message: "Failed to update maintenance task finance record"
                 };
             }
-           
+
             if materialCosts is MaterialCost[] && materialCosts.length() > 0 {
 
                 int[] existingMaterialCostIds = [];
@@ -9491,12 +9632,12 @@ function updateMaintenanceTaskFinanceInfo
                         existingMaterialCostIds.push(materialCost.id ?: 0);
                     }
                 });
-                
+
                 MaterialCost[] newMaterialCosts = materialCosts.filter(cost => cost.id == 0);
-                
+
                 //need to get the existing cost from the list that coming from the frontend update it in the database
-                MaterialCost[] existingCosts = materialCosts.filter(m => m.id is int && m.id !=0);
-                
+                MaterialCost[] existingCosts = materialCosts.filter(m => m.id is int && m.id != 0);
+
                 //get the ids from the cost list came from frontend
                 int[] frontendIds = materialCosts
                                             .filter(m => m.id is int)
@@ -9509,7 +9650,7 @@ function updateMaintenanceTaskFinanceInfo
                     }
                 }
                 io:println(`Before executing Material Costs:${newMaterialCosts}`);
-                
+
                 //Add new material cost
                 foreach MaterialCost materialCost in newMaterialCosts {
                     {
@@ -9538,7 +9679,7 @@ function updateMaintenanceTaskFinanceInfo
                         }
                     }
                 }
-                
+
                 io:println(`Already existing cost:${existingCosts}`);
 
                 //updating existing material cost
@@ -9644,10 +9785,18 @@ function updateMaintenanceTaskFinanceInfo
         }
     } else if (hasFinanceInfoValue == 0 && hasPreviousFinanceInfoValue == 1) {
 
-        if (finance is MaintenanceFinance) {
+        MaintenanceFinance|error? maintenanceFinanceRow = check db_client->queryRow(
+                    `SELECT *
+                    FROM maintenance_finance
+                    WHERE activity_instance_id = ${taskActivityInstanceId}`
+                );
+
+        if (maintenanceFinanceRow is MaintenanceFinance) {
+
+            int financeRowId = <int>maintenanceFinanceRow.id;
 
             sql:ExecutionResult deleteMaterialCostRes = check db_client->execute(
-                    `DELETE FROM material_cost WHERE financial_id = ${finance.id};`);
+                    `DELETE FROM material_cost WHERE financial_id = ${financeRowId};`);
 
             int? delete_id = deleteMaterialCostRes.affectedRowCount;
             if (delete_id <= 0) {
@@ -9658,7 +9807,7 @@ function updateMaintenanceTaskFinanceInfo
             }
 
             sql:ExecutionResult deleteFinanceInfoRes = check db_client->execute(
-                    `DELETE FROM maintenance_finance WHERE activity_instance_id = ${taskActivityInstanceId};`);
+                    `DELETE FROM maintenance_finance WHERE id = ${financeRowId};`);
 
             int? delete_finance_info_id = deleteFinanceInfoRes.affectedRowCount;
             if (delete_finance_info_id <= 0) {
@@ -9673,7 +9822,7 @@ function updateMaintenanceTaskFinanceInfo
     }
     return {
         success: true,
-        message: "Updated Successfully"
+        message: ""
     };
 }
 
@@ -9694,7 +9843,7 @@ isolated function deactivateMaintenanceTask(int taskId, string modifiedBy) retur
         return error("No task found with id: " + taskId.toString());
     }
 
-        return new(taskId);
+    return new (taskId);
 }
 
 // isolated function getProfilePicture(drive:Client driveClient, string id) returns PersonProfilePicture|error {
