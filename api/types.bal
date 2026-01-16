@@ -1062,3 +1062,31 @@ public type MaintenanceTaskUpdateFinanceResult record {|
     boolean? success;
     string? message;
 |};
+
+type MaintenanceTaskCostSummary record {|
+    int taskId;
+    string taskTitle;
+    decimal actualCost;
+    decimal estimatedCost;
+|};
+
+type MaintenanceMonthlyTaskCostReport record {|
+    int organizationId;
+    int year;
+    int month;
+    decimal totalActualCost;
+    decimal totalEstimatedCost;
+    MaintenanceTaskCostSummary[] tasks;
+|};
+
+
+type TaskCostRow record {
+    int task_id;
+    string task_title;
+    decimal actual_cost;
+    decimal estimated_cost;
+};
+
+type TotalCostRow record {
+    decimal total;
+};
