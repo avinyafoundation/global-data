@@ -270,3 +270,24 @@ function contains(int[] arr, int value) returns boolean {
     }
     return false;
 }
+
+function getRecurrenceDays(string scheduleType) returns int {
+    // Normalize input (trim spaces, make uppercase)
+    string frequency = scheduleType.trim().toUpperAscii();
+
+    if frequency == "DAILY" {
+        return 1;
+    } else if frequency == "WEEKLY" {
+        return 7;
+    } else if frequency == "BIWEEKLY" {
+        return 14;
+    } else if frequency == "MONTHLY" {
+        return 30;
+    } else if frequency == "QUARTERLY" {
+        return 90;
+    } else if frequency == "ANNUALLY" || frequency == "YEARLY" {
+        return 365;
+    } else {
+        return 0; // default/fallback
+    }
+}
