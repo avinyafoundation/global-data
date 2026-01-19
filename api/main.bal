@@ -9583,6 +9583,80 @@ AND p.organization_id IN (
             groups: [pendingGroup, inProgressGroup, completedGroup]
         };
     }
+
+    //Get Activity Instance title and total actual costs by organizationId, year and month. group by task id
+    resource function get monthlyTaskCostReport(
+        int organizationId,
+        int year,
+        int month
+    ) returns MaintenanceMonthlyTaskCostReportData|error {
+
+        if (month < 1 || month > 12) {
+            return error("Invalid month");
+        }
+
+        MaintenanceTaskCostSummary[] taskSummaries = [];
+        decimal totalActualCost = 0.0;
+        decimal totalEstimatedCost = 0.0;
+
+        lock {
+            stream<TaskCostRow, error?> rows = db_client->query(
+                `
+                SELECT
+                    mt.id AS task_id,
+                    mt.title AS task_title,
+                    COALESCE(SUM(mf.labour_cost + COALESCE(mc_total.total_material_cost, 0)), 0) AS actual_cost,
+                    COALESCE(SUM(mf.estimated_cost), 0) AS estimated_cost
+                FROM maintenance_task mt
+                JOIN organization_location ol ON ol.id = mt.location_id
+                JOIN activity_instance ai ON ai.task_id = mt.id
+                LEFT JOIN maintenance_finance mf ON mf.activity_instance_id = ai.id
+                LEFT JOIN (
+                    SELECT financial_id, SUM(quantity * unit_cost) AS total_material_cost
+                    FROM material_cost
+                    GROUP BY financial_id
+                ) mc_total ON mc_total.financial_id = mf.id
+                WHERE ol.organization_id = ${organizationId}
+                AND YEAR(ai.start_time) = ${year}
+                AND MONTH(ai.start_time) = ${month}
+                GROUP BY mt.id, mt.title
+
+                `
+            );
+
+            check from TaskCostRow row in rows
+                do {
+                    MaintenanceTaskCostSummary summary = {
+                        taskId: row.task_id,
+                        taskTitle: row.task_title,
+                        actualCost: row.actual_cost,
+                        estimatedCost: row.estimated_cost
+                    };
+
+                    taskSummaries.push(summary);
+                    totalActualCost += row.actual_cost;
+                    totalEstimatedCost += row.estimated_cost;
+                };
+
+            check rows.close();
+        }
+
+        if (taskSummaries.length() == 0) {
+            return error("No tasks found for the given period");
+        }
+
+        MaintenanceMonthlyTaskCostReport report = {
+            organizationId: organizationId,
+            year: year,
+            month: month,
+            totalActualCost: totalActualCost,
+            totalEstimatedCost: totalEstimatedCost,
+            tasks: taskSummaries
+        };
+
+        return new MaintenanceMonthlyTaskCostReportData(report);
+    }
+
 }
 
 function updateMaintenanceTaskFinanceInfo
