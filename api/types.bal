@@ -1094,7 +1094,3 @@ type TaskCostRow record {
     decimal actual_cost;
     decimal estimated_cost;
 };
-
-type TotalCostRow record {
-    decimal total;
-};
