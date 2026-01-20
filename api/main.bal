@@ -8953,12 +8953,23 @@ AND p.organization_id IN (
         string taskStatus = taskParticipant.participant_task_status ?: "";
 
         int taskId = 0;
+        int taskParticipantRowId = 0;
         int|string? insertTaskActivityInstanceId = null;
 
         if (participantId == 0 || taskActivityInstanceId == 0) {
 
             return error(string `Maintenance Task Pariticipant ID or Activity Instance Id cannot be zero`);
 
+        }
+
+        ActivityParticipant|error? taskActivityParticipantRow = check db_client->queryRow(
+            `SELECT *
+                FROM activity_participant
+            WHERE activity_instance_id = ${taskActivityInstanceId} and person_id= ${participantId};`
+        );
+
+        if (taskActivityParticipantRow is ActivityParticipant) {
+            taskParticipantRowId = taskActivityParticipantRow.id ?: 0;
         }
 
         ActivityInstance|error? taskActivityInstanceRow = check db_client->queryRow(
@@ -8991,6 +9002,18 @@ AND p.organization_id IN (
 
             boolean hasStarted = true;
             stream<record {|int has_started;|}, error?> results;
+
+            sql:ExecutionResult taskActivityParticipantRes = check db_client->execute(
+                `UPDATE activity_participant SET
+                    start_date = NULL,
+                    participant_task_status = ${"Pending"}
+                WHERE person_id=${participantId} AND activity_instance_id = ${taskActivityInstanceId};`
+                );
+
+            if (taskActivityParticipantRes.affectedRowCount == sql:EXECUTION_FAILED) {
+                return error("Failed to update task activity participant record");
+            }
+
             lock {
                 results = db_client->query(
                                     `SELECT 1 AS has_started
@@ -9003,22 +9026,13 @@ AND p.organization_id IN (
             var firstRow = results.next();
             hasStarted = firstRow is record {|record {|int has_started;|} value;|};
 
-            sql:ExecutionResult taskActivityParticipantRes = check db_client->execute(
-                `UPDATE activity_participant SET
-                    start_date = NULL,
-                    participant_task_status = Pending
-                WHERE person_id=${participantId} AND activity_instance_id = ${taskActivityInstanceId};`
-                );
-
-            if (taskActivityParticipantRes.affectedRowCount == sql:EXECUTION_FAILED) {
-                return error("Failed to update task activity participant record");
-            }
+            io:print(`has started:${hasStarted}`);
 
             if (!hasStarted) {
 
                 sql:ExecutionResult taskActivityInstanceRes = check db_client->execute(
                                     `UPDATE activity_instance SET
-                                        overall_task_status = Pending
+                                        overall_task_status = ${"Pending"}
                                     WHERE id = ${taskActivityInstanceId} AND activity_id=21;`
                 );
 
@@ -9026,13 +9040,13 @@ AND p.organization_id IN (
                     return error("Failed to update task activity instance record");
                 }
             }
-            return new (participantId);
+            return new (taskParticipantRowId);
 
         } else if (taskStatus == "InProgress") {
 
             sql:ExecutionResult taskActivityInstanceRes = check db_client->execute(
                                     `UPDATE activity_instance SET
-                                        overall_task_status = InProgress
+                                        overall_task_status = ${"InProgress"}
                                     WHERE id = ${taskActivityInstanceId} AND activity_id=21;`
                 );
 
@@ -9043,14 +9057,14 @@ AND p.organization_id IN (
             sql:ExecutionResult taskParticipantRes = check db_client->execute(
                 `UPDATE activity_participant SET
                     start_date = CURDATE(),
-                    participant_task_status = InProgress
+                    participant_task_status = ${"InProgress"}
                 WHERE person_id=${participantId} AND activity_instance_id = ${taskActivityInstanceId};`
                 );
 
             if (taskParticipantRes.affectedRowCount == sql:EXECUTION_FAILED) {
                 return error("Failed to update task activity participant record");
             }
-            return new (participantId);
+            return new (taskParticipantRowId);
 
         } else if (taskStatus == "Completed") {
 
@@ -9066,7 +9080,7 @@ AND p.organization_id IN (
                 sql:ExecutionResult taskParticipantRes = check db_client->execute(
                 `UPDATE activity_participant SET
                     end_date = CURDATE(),
-                    participant_task_status = Completed
+                    participant_task_status = ${"Completed"}
                 WHERE person_id=${participantId} AND activity_instance_id = ${taskActivityInstanceId};`
                 );
 
@@ -9097,7 +9111,7 @@ AND p.organization_id IN (
 
                     sql:ExecutionResult taskActivityInstanceRes = check db_client->execute(
                                                         `UPDATE activity_instance SET
-                                                            overall_task_status = Completed
+                                                            overall_task_status = ${"Completed"}
                                                         WHERE id = ${taskActivityInstanceId} 
                                                         AND activity_id=21;`);
 
@@ -9118,8 +9132,20 @@ AND p.organization_id IN (
                     }
 
                     int recurrenceDays = getRecurrenceDays(taskFrequency);
+
+                    //current time in utc
                     time:Utc currentDateInUtc = time:utcNow();
-                    string remove = removeTandZ(currentDateInUtc.toString());
+
+                    // add 19800 seconds = 5 hours and 30 min(india standard time)
+                    time:Utc utcAddSeconds = time:utcAddSeconds(currentDateInUtc, 19800);
+
+                    //utc to string
+                    string formatted = time:utcToString(utcAddSeconds);
+
+                    //transform the date time to this format = YYYY-MM-DDTHH:MM:SSZ
+                    string formated = regex:replaceAll(formatted, "\\.\\d+Z", "Z");
+
+                    string remove = removeTandZ(formated);
 
                     //Calculate and get the task start date
                     string|error taskStartDate = addDaysToDate(remove, recurrenceDays);
@@ -9128,6 +9154,13 @@ AND p.organization_id IN (
                         //Calculate and get the task end date
                         taskEndDate = addDaysToDate(taskStartDate, exceptionDeadlineDaysCount);
                     }
+
+                    io:println(`recurrenceDays:${recurrenceDays}`);
+                    io:println(`currentDateInUtc:${currentDateInUtc}`);
+                    io:println(`remove:${remove}`);
+                    io:println(`taskStartDate:${taskStartDate}`);
+                    io:println(`exceptionDeadlineDaysCount:${exceptionDeadlineDaysCount}`);
+                    io:println(`taskEndDate:${taskEndDate}`);
 
                     if (taskStartDate is string) && (taskEndDate is string) {
                         //Save maintenance task in activity instance table
@@ -9184,7 +9217,7 @@ AND p.organization_id IN (
                 } else {
                     sql:ExecutionResult taskActivityInstanceRes = check db_client->execute(
                                         `UPDATE activity_instance SET
-                                            overall_task_status = InProgress
+                                            overall_task_status = ${"InProgress"}
                                         WHERE id = ${taskActivityInstanceId} AND activity_id=21;`);
 
                     if (taskActivityInstanceRes.affectedRowCount == sql:EXECUTION_FAILED) {
@@ -9197,7 +9230,7 @@ AND p.organization_id IN (
                 } else {
                     // Commit the transaction if all transactions are successful
                     check commit;
-                    return new (participantId);
+                    return new (taskParticipantRowId);
                 }
             }
         }
@@ -9708,9 +9741,9 @@ AND p.organization_id IN (
 
     //Get Activity Instance title and total actual costs by organizationId, year and month. group by task id
     resource function get monthlyTaskCostReport(
-        int organizationId,
-        int year,
-        int month
+            int organizationId,
+            int year,
+            int month
     ) returns MaintenanceMonthlyTaskCostReportData|error {
 
         if (month < 1 || month > 12) {
@@ -10010,6 +10043,20 @@ function updateMaintenanceTaskFinanceInfo
                 return {
                     success: false,
                     message: "Unable to delete task finance record with id"
+                };
+            }
+
+            sql:ExecutionResult res = check db_client->execute(
+                                    `UPDATE maintenance_task SET
+                                        has_financial_info = 0,
+                                        modified_by = ${maintenanceTask.modified_by}
+                                    WHERE id = ${id};`
+                                    );
+
+            if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+                return {
+                    success: false,
+                    message: "Failed to update maintenance task record"
                 };
             }
 
