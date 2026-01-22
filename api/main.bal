@@ -8774,7 +8774,6 @@ AND p.organization_id IN (
         boolean taskUpdateFailed = false;
         string message = "";
         int exceptionDeadline = 0;
-        int hasPreviousFinanceInfo = 0;
 
         int id = maintenanceTask.id ?: 0;
 
@@ -8791,9 +8790,7 @@ AND p.organization_id IN (
             );
 
             if (maintenanceTaskRow is MaintenanceTask) {
-
                 exceptionDeadline = maintenanceTaskRow.exception_deadline ?: 0;
-                hasPreviousFinanceInfo = maintenanceTaskRow.has_financial_info ?: 0;
             }
 
             sql:ExecutionResult res = check db_client->execute(
@@ -8802,7 +8799,6 @@ AND p.organization_id IN (
                 frequency = ${maintenanceTask.frequency},
                 location_id = ${maintenanceTask.location_id},
                 exception_deadline = ${maintenanceTask.exception_deadline},
-                has_financial_info = ${maintenanceTask.has_financial_info},
                 modified_by = ${maintenanceTask.modified_by}
             WHERE id = ${id};`
             );
@@ -8919,7 +8915,7 @@ AND p.organization_id IN (
 
             //Update Maintenance Task Finance Information
             MaintenanceTaskUpdateFinanceResult|error financeInfoUpdateResult = updateMaintenanceTaskFinanceInfo(id, maintenanceTask,
-                                            hasPreviousFinanceInfo, taskActivityInstanceId,
+                                            taskActivityInstanceId,
                                             finance, materialCosts);
 
             if (financeInfoUpdateResult is MaintenanceTaskUpdateFinanceResult) {
@@ -9816,15 +9812,12 @@ AND p.organization_id IN (
 
 function updateMaintenanceTaskFinanceInfo
     (int id, MaintenanceTask maintenanceTask,
-        int hasPreviousFinanceInfo, int taskActivityInstanceId,
+        int taskActivityInstanceId,
         MaintenanceFinance? finance, MaterialCost[]? materialCosts) returns MaintenanceTaskUpdateFinanceResult|error {
-
-    int hasFinanceInfoValue = maintenanceTask.has_financial_info is int ? maintenanceTask.has_financial_info ?: 0 : 0;
-    int hasPreviousFinanceInfoValue = hasPreviousFinanceInfo is int ? hasPreviousFinanceInfo : 0;
 
     // Narrow and assign properly
 
-    if (hasFinanceInfoValue == 1 && hasPreviousFinanceInfoValue == 1) {
+    if (finance !=null && finance.id !=null && finance.id is int) {
 
         if (finance is MaintenanceFinance) {
 
@@ -9955,7 +9948,7 @@ function updateMaintenanceTaskFinanceInfo
             }
 
         }
-    } else if (hasFinanceInfoValue == 1 && hasPreviousFinanceInfoValue == 0) {
+    } else if (finance !=null && finance.id == null) {
 
         if (finance is MaintenanceFinance) {
 
@@ -10012,8 +10005,8 @@ function updateMaintenanceTaskFinanceInfo
 
             }
         }
-    } else if (hasFinanceInfoValue == 0 && hasPreviousFinanceInfoValue == 1) {
-
+    } else{
+       io:println("in this block");
         MaintenanceFinance|error? maintenanceFinanceRow = check db_client->queryRow(
                     `SELECT *
                     FROM maintenance_finance
@@ -10021,7 +10014,6 @@ function updateMaintenanceTaskFinanceInfo
                 );
 
         if (maintenanceFinanceRow is MaintenanceFinance) {
-
             int financeRowId = <int>maintenanceFinanceRow.id;
 
             sql:ExecutionResult deleteMaterialCostRes = check db_client->execute(
@@ -10045,21 +10037,12 @@ function updateMaintenanceTaskFinanceInfo
                     message: "Unable to delete task finance record with id"
                 };
             }
-
-            sql:ExecutionResult res = check db_client->execute(
-                                    `UPDATE maintenance_task SET
-                                        has_financial_info = 0,
-                                        modified_by = ${maintenanceTask.modified_by}
-                                    WHERE id = ${id};`
-                                    );
-
-            if (res.affectedRowCount == sql:EXECUTION_FAILED) {
-                return {
-                    success: false,
-                    message: "Failed to update maintenance task record"
-                };
-            }
-
+        }else if(maintenanceFinanceRow is ()){
+            
+            return {
+                success: true,
+                message: "No finance record found. Skipping deletion."
+            };
         }
 
     }
