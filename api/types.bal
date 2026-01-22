@@ -422,9 +422,9 @@ public type ActivityInstance record {|
     string? updated;
 
     //These 3 properties are optional
-    MaintenanceTask maintenanceTask?;
-    MaintenanceFinance? financialInformation?;
-    ActivityParticipant[] activityParticipants?;
+    MaintenanceTask task?;
+    MaintenanceFinance? finance?;
+    ActivityParticipant[] activity_participants?;
 |};
 
 public type ActivityParticipant record {|
