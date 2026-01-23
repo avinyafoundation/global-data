@@ -9339,8 +9339,11 @@ AND p.organization_id IN (
                 INNER JOIN maintenance_task mt ON ai.task_id = mt.id
                 INNER JOIN organization_location ol ON mt.location_id = ol.id
                 WHERE ol.organization_id = ${organizationId}
-                AND ai.end_time < ${currentDate}
-                AND ai.overall_task_status != 'Completed';`
+                AND ai.overall_task_status != 'Completed'
+                AND CASE 
+                    WHEN ai.end_time < NOW() THEN FLOOR(TIMESTAMPDIFF(SECOND, ai.end_time, NOW()) / 86400)
+                    ELSE 0
+                END > 0;`
             );
         }
 
