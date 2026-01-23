@@ -5628,13 +5628,13 @@ AND p.organization_id IN (
             }
         } else if (organization_id != null && organization_id != -1 && avinya_type_id == null) {
 
-            //get people by organization id[ex:- Need to get the bandaragama employees]
+            //get people by organization id[ex:- Need to get the bandaragama current working employees]
             lock {
                 persons_data = db_client->query(
                     `SELECT *
                         from person p
                         where 
-                        p.organization_id = ${organization_id};`);
+                        p.organization_id = ${organization_id} and p.avinya_type_id !=128;`);
             }
         } else {
             return error("Provide non-null values for both 'organization_id' and 'avinya_type_id'.");
