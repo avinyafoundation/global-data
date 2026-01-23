@@ -999,6 +999,7 @@ public type MaintenanceFinance record {|
     int? activity_instance_id;
     decimal? estimated_cost;
     decimal? labour_cost;
+    decimal? total_cost;
     string? status;
     string? rejection_reason;
     string? reviewed_by;
