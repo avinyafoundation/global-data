@@ -9255,7 +9255,7 @@ AND p.organization_id IN (
             FROM activity_instance ai
             INNER JOIN maintenance_task mt ON ai.task_id = mt.id
             INNER JOIN organization_location ol ON mt.location_id = ol.id
-            WHERE ol.organization_id = ${organizationId}
+            WHERE ol.organization_id = ${organizationId} AND mt.is_active = 1
         `;
 
         // Add optional filters

@@ -120,4 +120,29 @@ public isolated service class MaintenanceFinanceData {
         }
     }
 
+    //total cost = labour cost + sum of material costs
+    isolated resource function get total_cost() returns decimal|error {
+        decimal totalCost = 0.0d;
+        lock {
+            totalCost += self.maintenance_finance.labour_cost ?: 0.0d;
+        }
+
+        stream<MaterialCost, error?> materialCostsStream;
+        lock {
+            materialCostsStream = db_client->query(
+                `SELECT *
+                FROM material_cost
+                WHERE financial_id = ${self.maintenance_finance.id}`
+            );
+        }
+
+        check from MaterialCost materialCost in materialCostsStream
+            do {
+                totalCost += (materialCost.quantity ?: 0.0d) * (materialCost.unit_cost ?: 0.0d);
+            };
+
+        check materialCostsStream.close();
+        return totalCost;
+    }
+
 }
