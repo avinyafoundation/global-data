@@ -9759,8 +9759,16 @@ AND p.organization_id IN (
                 SELECT
                     mt.id AS task_id,
                     mt.title AS task_title,
-                    COALESCE(SUM(mf.labour_cost + COALESCE(mc_total.total_material_cost, 0)), 0) AS actual_cost,
-                    COALESCE(SUM(mf.estimated_cost), 0) AS estimated_cost
+                    COALESCE(SUM(CASE
+                        WHEN mf.status = 'Approved'
+                        THEN mf.labour_cost + COALESCE(mc_total.total_material_cost, 0)
+                        ELSE 0
+                    END), 0) AS actual_cost,
+                    COALESCE(SUM(CASE
+                        WHEN mf.status = 'Approved'
+                        THEN mf.estimated_cost
+                        ELSE 0
+                    END), 0) AS estimated_cost
                 FROM maintenance_task mt
                 JOIN organization_location ol ON ol.id = mt.location_id
                 JOIN activity_instance ai ON ai.task_id = mt.id
@@ -9787,9 +9795,11 @@ AND p.organization_id IN (
                         estimatedCost: row.estimated_cost
                     };
 
-                    taskSummaries.push(summary);
-                    totalActualCost += row.actual_cost;
-                    totalEstimatedCost += row.estimated_cost;
+                    if row.actual_cost != 0d {
+                        taskSummaries.push(summary);
+                        totalActualCost += row.actual_cost;
+                        totalEstimatedCost += row.estimated_cost;
+                    }
                 };
 
             check rows.close();
