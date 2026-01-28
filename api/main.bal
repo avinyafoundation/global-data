@@ -9674,6 +9674,7 @@ AND p.organization_id IN (
             INNER JOIN activity_participant ap ON ap.activity_instance_id = ai.id
             WHERE ol.organization_id = ${organizationId}
             AND mt.is_active = 1
+            AND ai.start_time <= DATE_ADD(CURRENT_DATE, INTERVAL 7 DAY)
         `;
 
         if (personId is int) {
