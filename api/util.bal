@@ -284,10 +284,12 @@ function getRecurrenceDays(string scheduleType) returns int {
     } else if frequency == "MONTHLY" {
         return 30;
     } else if frequency == "QUARTERLY" {
-        return 90;
-    } else if frequency == "ANNUALLY" || frequency == "YEARLY" {
+        return 120;
+    } else if frequency == "BIANNUALLY"{
+        return 180;
+    } else if frequency == "ANNUALLY"{
         return 365;
-    } else {
+    }else {
         return 0; // default/fallback
     }
 }
