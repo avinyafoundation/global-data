@@ -9802,7 +9802,7 @@ AND p.organization_id IN (
                         estimatedCost: row.estimated_cost
                     };
 
-                    if row.actual_cost != 0d {
+                    if row.actual_cost != 0d || row.estimated_cost != 0d {
                         taskSummaries.push(summary);
                         totalActualCost += row.actual_cost;
                         totalEstimatedCost += row.estimated_cost;
