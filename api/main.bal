@@ -9536,15 +9536,21 @@ AND p.organization_id IN (
             MonthlyReport upcomingRes = check db_client->queryRow(
                 `SELECT
                     COUNT(DISTINCT ai.id) AS totalUpcomingTasks,
-                    COALESCE(SUM(mf.estimated_cost), 0) AS nextMonthlyEstimatedCost
+                    COALESCE(SUM(CASE
+                    WHEN mf.status = 'Approved' THEN mf.estimated_cost
+                    ELSE 0
+                END), 0) AS nextMonthlyEstimatedCost
                 FROM activity_instance ai
                 JOIN maintenance_task mt ON mt.id = ai.task_id
                 JOIN organization_location ol ON ol.id = mt.location_id
-                JOIN maintenance_finance mf ON mf.activity_instance_id = ai.id
+                LEFT JOIN maintenance_finance mf ON mf.activity_instance_id = ai.id
                 WHERE ol.organization_id = ${organizationId}
                 AND ai.start_time >= DATE_ADD(DATE_FORMAT(CURRENT_DATE, '%Y-%m-01'), INTERVAL 1 MONTH)
                 AND ai.start_time <  DATE_ADD(DATE_FORMAT(CURRENT_DATE, '%Y-%m-01'), INTERVAL 2 MONTH)
-                AND mf.status='Approved'`
+                AND (
+                    mf.status = 'Approved'
+                    OR mf.activity_instance_id IS NULL
+                );`
             );
 
             upcomingTasks = upcomingRes.totalUpcomingTasks ?: 0;
