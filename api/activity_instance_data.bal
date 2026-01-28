@@ -42,8 +42,8 @@ public isolated service class ActivityInstanceData {
                     CASE 
                         WHEN overall_task_status = 'Completed' THEN 0
                         WHEN end_time IS NULL THEN 0
-                        WHEN end_time < NOW() THEN FLOOR(TIMESTAMPDIFF(SECOND, end_time, NOW()) / 86400)
-                        WHEN end_time >= NOW() THEN -FLOOR(TIMESTAMPDIFF(SECOND, NOW(), end_time) / 86400)
+                        WHEN end_time < NOW() THEN CEIL(TIMESTAMPDIFF(SECOND, end_time, NOW()) / 86400)
+                        WHEN end_time >= NOW() THEN -CEIL(TIMESTAMPDIFF(SECOND, NOW(), end_time) / 86400)
                         ELSE 0
                     END AS overdue_days
                 FROM activity_instance
