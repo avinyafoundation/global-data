@@ -9670,17 +9670,22 @@ AND p.organization_id IN (
                 ai.start_time,
                 ap.end_date as completion_date,
                 CASE 
-                    WHEN ai.end_time < NOW() THEN FLOOR(TIMESTAMPDIFF(SECOND, ai.end_time, NOW()) / 86400)
-                    WHEN ai.end_time >= NOW() THEN -FLOOR(TIMESTAMPDIFF(SECOND, NOW(), ai.end_time) / 86400)
+                    WHEN ai.end_time < NOW() THEN CEIL(TIMESTAMPDIFF(SECOND, ai.end_time, NOW()) / 86400)
+                    WHEN ai.end_time >= NOW() THEN -CEIL(TIMESTAMPDIFF(SECOND, NOW(), ai.end_time) / 86400)
                     ELSE 0
                 END AS overdue_days_calc
             FROM activity_instance ai
             INNER JOIN maintenance_task mt ON ai.task_id = mt.id
             INNER JOIN organization_location ol ON mt.location_id = ol.id
+            LEFT JOIN maintenance_finance mf ON mf.activity_instance_id = ai.id
             INNER JOIN activity_participant ap ON ap.activity_instance_id = ai.id
             WHERE ol.organization_id = ${organizationId}
             AND mt.is_active = 1
             AND ai.start_time <= DATE_ADD(CURRENT_DATE, INTERVAL 7 DAY)
+            AND (
+                mf.status = 'Approved'
+                OR mf.activity_instance_id IS NULL
+            )
         `;
 
         if (personId is int) {
