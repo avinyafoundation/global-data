@@ -1088,7 +1088,15 @@ type MaintenanceMonthlyTaskCostReport record {|
     MaintenanceTaskCostSummary[] tasks;
 |};
 
-
+type PersonPin record {|
+    readonly string? record_type = "person_pin";
+    int id?;
+    int? person_id;
+    string? pin_hash;
+    boolean? is_active;
+    string? created;
+    string? updated;
+|};
 type TaskCostRow record {
     int task_id;
     string task_title;

@@ -251,6 +251,31 @@ service /graphql on new graphql:Listener(4000) {
         return error("Unable to find person by digital id");
     }
 
+    // Validates a user PIN and retrieves the associated person data.
+    isolated resource function get validatePin(string? pin) returns PersonData|error? {
+
+        if(pin == null || pin.trim().length() == 0){
+          return ();
+        }
+
+        PersonPin|error? personPinRaw = check db_client->queryRow(
+            `SELECT person_id
+            FROM person_pin
+            WHERE pin_hash = ${pin} AND is_active=1
+            LIMIT 1;`
+        );
+
+        if (personPinRaw is PersonPin){
+           
+            int person_id = personPinRaw.person_id?:0;
+            return new(null,person_id);
+        }else if(personPinRaw is ()){
+            return ();
+        }else if(personPinRaw is error){
+            return error("There is no person associate with this pin");
+        }
+    }
+
     isolated resource function get prospect(string? email, int? phone) returns ProspectData|error? {
         return new (email, phone);
     }
@@ -9069,6 +9094,7 @@ AND p.organization_id IN (
             int exceptionDeadlineDaysCount = 0;
             string|error taskEndDate = "";
             string taskTitle = "";
+            string taskType= "";
             string message = "";
 
             transaction {
@@ -9122,12 +9148,17 @@ AND p.organization_id IN (
                                                                 WHERE id = ${taskId};`);
 
                     if (maintenanceTaskRow is MaintenanceTask) {
+                        taskType = maintenanceTaskRow.task_type?:"";
                         taskTitle = maintenanceTaskRow.title ?: "";
                         taskFrequency = maintenanceTaskRow.frequency ?: "";
                         exceptionDeadlineDaysCount = maintenanceTaskRow.exception_deadline ?: 0;
                     }
 
                     int recurrenceDays = getRecurrenceDays(taskFrequency);
+                    
+                    //If task is one time do not need to create activity instance
+                 if(taskType == "Recurring" && recurrenceDays!=0){
+                    
 
                     //current time in utc
                     time:Utc currentDateInUtc = time:utcNow();
@@ -9210,6 +9241,7 @@ AND p.organization_id IN (
 
                         }
                     }
+                 }
                 } else {
                     sql:ExecutionResult taskActivityInstanceRes = check db_client->execute(
                                         `UPDATE activity_instance SET
