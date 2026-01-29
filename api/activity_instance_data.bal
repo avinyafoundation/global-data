@@ -37,24 +37,23 @@ public isolated service class ActivityInstanceData {
         }
         
         if activityInstanceId is int {
-            record {|decimal overdue_days;|}|error overdueDaysRecord = db_client->queryRow(
+            record {| int overdue_days; |}|error overdueDaysRecord = db_client->queryRow(
                 `SELECT 
                     CASE 
                         WHEN overall_task_status = 'Completed' THEN 0
                         WHEN end_time IS NULL THEN 0
-                        WHEN end_time < NOW() THEN CEIL(TIMESTAMPDIFF(SECOND, end_time, NOW()) / 86400)
-                        WHEN end_time >= NOW() THEN -CEIL(TIMESTAMPDIFF(SECOND, NOW(), end_time) / 86400)
-                        ELSE 0
+                        WHEN DATE(end_time) >= DATE(NOW()) THEN -DATEDIFF(DATE(end_time), DATE(NOW()))
+                        ELSE DATEDIFF(DATE(NOW()), DATE(end_time))
                     END AS overdue_days
                 FROM activity_instance
                 WHERE id = ${activityInstanceId}`
             );
             
-            if overdueDaysRecord is record {|decimal overdue_days;|} {
-                return <int>overdueDaysRecord.overdue_days;
+            if overdueDaysRecord is record {| int overdue_days; |} {
+                return overdueDaysRecord.overdue_days;
+            } else if overdueDaysRecord is error {
+                return overdueDaysRecord; 
             }
-            
-            return 0;
         }
         
         return 0;
