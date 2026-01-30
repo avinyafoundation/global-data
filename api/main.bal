@@ -9096,6 +9096,7 @@ AND p.organization_id IN (
             string taskTitle = "";
             string taskType= "";
             string message = "";
+            boolean is_active = false;
 
             transaction {
 
@@ -9146,8 +9147,11 @@ AND p.organization_id IN (
                                                                 `SELECT *
                                                                 FROM maintenance_task
                                                                 WHERE id = ${taskId};`);
+                    
 
                     if (maintenanceTaskRow is MaintenanceTask) {
+                        io:println(`is active:${maintenanceTaskRow.is_active}`);
+                        is_active = maintenanceTaskRow.is_active ?:false;
                         taskType = maintenanceTaskRow.task_type?:"";
                         taskTitle = maintenanceTaskRow.title ?: "";
                         taskFrequency = maintenanceTaskRow.frequency ?: "";
@@ -9157,7 +9161,7 @@ AND p.organization_id IN (
                     int recurrenceDays = getRecurrenceDays(taskFrequency);
                     
                     //If task is one time do not need to create activity instance
-                 if(taskType == "Recurring" && recurrenceDays!=0){
+                 if(taskType == "Recurring" && recurrenceDays!=0 && is_active==true){
                     
 
                     //current time in utc
