@@ -5,6 +5,7 @@ public isolated service class ActivityParticipantData {
         organization_id: -1,
         start_date: "" ,
         end_date: "" ,
+        participant_task_status: "",
         role: "" ,
         notes: "" ,
         is_attending:-1,
@@ -90,6 +91,12 @@ public isolated service class ActivityParticipantData {
     isolated resource function get end_date() returns string?|error {
         lock {
                 return self.activity_participant.end_date;
+        }
+    }
+
+    isolated resource function get participant_task_status() returns string?|error {
+        lock {
+            return self.activity_participant.participant_task_status;
         }
     }
 

@@ -2,9 +2,11 @@ public isolated service class DailyActivityParticipantAttendanceSummaryReportDat
     private ActivityParticipantAttendanceSummaryReport activity_participant_attendance_summary_report = {
         sign_in_date: "",
         present_count: -1,
+        absent_count: -1,
         late_count:-1,
         total_count:-1,
         present_attendance_percentage:0.0,
+        absent_attendance_percentage: 0.0,
         late_attendance_percentage: 0.0 
     };
 
@@ -29,6 +31,11 @@ public isolated service class DailyActivityParticipantAttendanceSummaryReportDat
         }
     }
 
+    isolated resource function get absent_count() returns int? {
+        lock {
+                return self.activity_participant_attendance_summary_report.absent_count;
+        }
+    }
 
     isolated resource function get late_count() returns int? {
         lock {
@@ -46,6 +53,12 @@ public isolated service class DailyActivityParticipantAttendanceSummaryReportDat
 
       lock {
            return self.activity_participant_attendance_summary_report.present_attendance_percentage;
+        }
+    }
+
+    isolated resource function get absent_attendance_percentage() returns decimal? {
+        lock {
+            return self.activity_participant_attendance_summary_report.absent_attendance_percentage;
         }
     }
 

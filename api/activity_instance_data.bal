@@ -30,11 +30,41 @@ public isolated service class ActivityInstanceData {
         self.activity_instance = activity_instance_raw.cloneReadOnly();
     }
 
+    private isolated function calculate_overdue_days() returns int|error? {
+        int? activityInstanceId;
+        lock {
+            activityInstanceId = self.activity_instance.id;
+        }
+        
+        if activityInstanceId is int {
+            record {| int overdue_days; |}|error overdueDaysRecord = db_client->queryRow(
+                `SELECT 
+                    CASE 
+                        WHEN overall_task_status = 'Completed' THEN 0
+                        WHEN end_time IS NULL THEN 0
+                        WHEN DATE(end_time) >= DATE(NOW()) THEN -DATEDIFF(DATE(end_time), DATE(NOW()))
+                        ELSE DATEDIFF(DATE(NOW()), DATE(end_time))
+                    END AS overdue_days
+                FROM activity_instance
+                WHERE id = ${activityInstanceId}`
+            );
+            
+            if overdueDaysRecord is record {| int overdue_days; |} {
+                return overdueDaysRecord.overdue_days;
+            } else if overdueDaysRecord is error {
+                return overdueDaysRecord; 
+            }
+        }
+        
+        return 0;
+    }
+
     isolated resource function get id() returns int? {
         lock {
                 return self.activity_instance.id;
         }
     }
+    
 
     isolated resource function get name() returns string? {
         lock {
@@ -57,6 +87,12 @@ public isolated service class ActivityInstanceData {
     isolated resource function get activity_id() returns int? {
         lock {
                 return self.activity_instance.activity_id;
+        }
+    }
+
+    isolated resource function get task_id() returns int? {
+        lock {
+            return self.activity_instance.task_id;
         }
     }
 
@@ -94,6 +130,74 @@ public isolated service class ActivityInstanceData {
         lock {
             return self.activity_instance.end_time;
         }
+    }
+
+    //get task details
+    isolated resource function get task() returns MaintenanceTaskData|error? {
+        int id = 0;
+        lock {
+            id = self.activity_instance.task_id ?: 0;
+            if( id == 0) {
+                return null;
+            } 
+        }
+        
+        return new MaintenanceTaskData(id);
+    }
+
+    isolated resource function get finance() returns MaintenanceFinanceData|error? {
+        int id = 0;
+        lock {
+            id = self.activity_instance.id ?: 0;
+            if( id == 0) {
+                return null;
+            } 
+        }
+
+        MaintenanceFinance|error? financeCheck;
+        lock {
+            financeCheck = db_client->queryRow(
+                `SELECT * FROM maintenance_finance WHERE activity_instance_id = ${id}`
+            );
+        }
+        
+        // Return null if no finance record exists instead of throwing error
+        if financeCheck is error {
+            return null;
+        }
+        
+        return new MaintenanceFinanceData(0, id);
+    }
+
+    isolated resource function get overall_task_status() returns string? {
+        lock {
+            return self.activity_instance.overall_task_status;
+        }
+    }
+
+    isolated resource function get overdue_days() returns int|error? {
+        return self.calculate_overdue_days();
+    }
+
+    isolated resource function get statusText() returns string|error? {
+        int overdueDays = check self.calculate_overdue_days() ?: 0;
+        
+        if overdueDays > 0 {
+            // Task is overdue
+            string dayText = overdueDays == 1 ? "day" : "days";
+            return string `Overdue by ${overdueDays} ${dayText}`;
+        } else if overdueDays < 0 {
+            // Task is due soon (within next 2 days)
+            int daysUntilDue = -overdueDays;
+            if daysUntilDue == 0 {
+                return "Overdue today";
+            } else if daysUntilDue <= 2 {
+                string dayText = daysUntilDue == 1 ? "day" : "days";
+                return string `Overdue in ${daysUntilDue} ${dayText}`;
+            }
+        }
+        
+        return "On Schedule";
     }
 
     isolated resource function get created() returns string? {
@@ -176,6 +280,7 @@ public isolated service class ActivityInstanceData {
                     organization_id: -1,
                     start_date: "",
                     end_date: "",
+                    participant_task_status: "",
                     role: "",
                     notes: "",
                     is_attending: -1,

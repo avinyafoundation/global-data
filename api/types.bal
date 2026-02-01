@@ -405,6 +405,7 @@ public type ActivityInstance record {|
     readonly string? record_type = "activity_instance";
     int id?;
     int? activity_id;
+    int? task_id;
     string? name;
     int? place_id;
     string? location;
@@ -416,8 +417,14 @@ public type ActivityInstance record {|
     string? notes;
     string? start_time;
     string? end_time;
+    string? overall_task_status;
     string? created;
     string? updated;
+
+    //These 3 properties are optional
+    MaintenanceTask task?;
+    MaintenanceFinance? finance?;
+    ActivityParticipant[] activity_participants?;
 |};
 
 public type ActivityParticipant record {|
@@ -428,11 +435,15 @@ public type ActivityParticipant record {|
     int? organization_id;
     string? start_date;
     string? end_date;
+    string? participant_task_status;
     string? role;
     string? notes;
     int? is_attending;
     string? created;
     string? updated;
+
+    //The person field is optional
+    Person? person?;
 |};
 
 public type ActivityParticipantAttendance record {|
@@ -494,9 +505,11 @@ public type ActivityParticipantAttendanceSummaryReport record {|
     readonly string? record_type = "activity_participant_attendance_summary_report";
     string? sign_in_date;
     int? present_count;
+    int? absent_count;
     int? late_count;
     int? total_count;
     decimal? present_attendance_percentage;
+    decimal? absent_attendance_percentage;
     decimal? late_attendance_percentage;
 |};
 
@@ -701,12 +714,15 @@ public type VehicleFuelConsumption record{|
     string? updated;
 |};
 
-public type CalendarMetadata record {|
-    readonly string? record_type = "calendar_metadata";
+public type BatchPaymentPlan record {| 
+    readonly string? record_type = "batch_payment_plan";
     int id?;
     int? organization_id;
     int? batch_id;
     decimal? monthly_payment_amount;
+    string? valid_from;
+    string? valid_to;
+    string? created;
 |};
 
 public type MonthlyLeaveDates record {|
@@ -720,6 +736,7 @@ public type MonthlyLeaveDates record {|
     int[] leave_dates_list;
     string? leave_dates;
     decimal? daily_amount;
+    decimal? monthly_payment_amount;
     string? created;
     string? updated;
 |};
@@ -787,6 +804,7 @@ public type Alumni record {|
     string? facebook_id;
     string? instagram_id;
     string? tiktok_id;
+    string? canva_cv_url;
     string? updated_by;
     int? person_count;
     string? created;
@@ -878,3 +896,210 @@ public type JobCategory record {|
     string? name;
     string? description;
 |};
+
+public type CvRequest record {|
+    readonly string? record_type = "cv_request";
+    int id?;
+    int? person_id;
+    int? phone;
+    string? status;
+    string? created;
+    string? updated;
+|};
+
+public type PersonFcmToken record {|
+    readonly string? record_type = "person_fcm_token";
+    int id?;
+    int? person_id;
+    string? fcm_token;
+    string? created;
+    string? updated;
+|};
+
+public type PersonCv record {|
+    readonly string? record_type = "person_cv";
+    int id?;
+    int? person_id;
+    string? file_content;
+    string? nic_no;
+    string? drive_file_id;
+    string? uploaded_by;
+    string? created;
+    string? updated;
+|};
+
+public type EmailTemplate record {|
+    readonly string? record_type = "email_template";
+    int id?;
+    string? template_key;
+    string? subject;
+    string? template;
+    string? created;
+    string? updated;
+|};
+
+public type SmsTemplate record {|
+    readonly string? record_type = "sms_template";
+    int id?;
+    string? key;
+    string? title;
+    string? body;
+    string? created;
+    string? updated;
+|};
+
+public type NotificationRequest record {|
+    string? title;
+    string? body;
+|};
+
+public type ServiceAccount record {|
+    string project_id;
+    string private_key_id;
+    string private_key;
+    string client_email;
+    string client_id;
+    string auth_uri;
+    string token_uri;
+    string auth_provider_x509_cert_url;
+    string client_x509_cert_url;
+    string universe_domain;
+|};
+
+public type OrganizationLocation record {|
+    readonly string? record_type = "organization_location";
+    int id?;
+    int? organization_id;
+    string? location_name;
+    string? description;
+|};
+
+public type MaintenanceTask record {|
+    readonly string? record_type = "maintenance_task";
+    int id?;
+    string? title;
+    string? description;
+    string? task_type;
+    string? frequency;
+    int? location_id;
+    string? start_date;
+    int? exception_deadline;
+    int? has_financial_info;
+    string? modified_by;
+    boolean? is_active;
+    string? created;
+    string? updated;
+    int[]? person_id_list?;
+    MaintenanceFinance? finance;
+|};
+
+public type MaintenanceFinance record {|
+    readonly string? record_type = "maintenance_finance";
+    int id?;
+    int? activity_instance_id;
+    decimal? estimated_cost;
+    decimal? labour_cost;
+    decimal? total_cost;
+    string? status;
+    string? rejection_reason;
+    string? reviewed_by;
+    string? reviewed_date;
+    string? created;
+    string? updated;
+    MaterialCost[]? materialCosts;
+|};
+
+public type MaterialCost record {|
+    readonly string? record_type = "material_cost";
+    int id?;
+    int? financial_id;
+    string? item;
+    decimal? quantity;
+    string? unit;
+    decimal? unit_cost;
+|};
+
+
+public type MonthlyReport record {|
+    int? totalTasks;
+    int? completedTasks;
+    int? pendingTasks;
+    int? inProgressTasks;
+    decimal? totalCosts;
+    int? totalUpcomingTasks;
+    decimal? nextMonthlyEstimatedCost;
+|};
+
+public type CostResult record {|
+    decimal? total;
+|};
+
+public type MonthlyCost record {|
+    readonly string? record_type = "monthly_cost";
+    int? month;
+    decimal? estimated_cost;
+    decimal? actual_cost;
+|};
+
+public type MonthlyCostSummary record {|
+    readonly string? record_type = "monthly_cost_summary";
+    int? year;
+    MonthlyCost[]? monthly_costs;
+|};
+
+public type TaskGroup record {|
+    string groupId;
+    string groupName;
+    ActivityInstanceData[] tasks;
+|};
+
+public type GroupedTasks record {|
+    TaskGroup[] groups;
+|};
+
+public type TaskStatusRecord record {|
+    int instance_id;
+    string participant_task_status;
+    string? end_time;
+    string? start_time;
+    string? completion_date;
+    decimal overdue_days_calc;
+|};
+
+//this result type for get the final result of material cost updation.
+public type MaintenanceTaskUpdateFinanceResult record {|
+    boolean? success;
+    string? message;
+|};
+
+type MaintenanceTaskCostSummary record {|
+    int taskId;
+    string taskTitle;
+    decimal actualCost;
+    decimal estimatedCost;
+|};
+
+type MaintenanceMonthlyTaskCostReport record {|
+    int organizationId;
+    int year;
+    int month;
+    decimal totalActualCost;
+    decimal totalEstimatedCost;
+    MaintenanceTaskCostSummary[] tasks;
+|};
+
+type PersonPin record {|
+    readonly string? record_type = "person_pin";
+    int id?;
+    int? person_id;
+    string? pin_hash;
+    boolean? is_active;
+    string? created;
+    string? updated;
+|};
+type TaskCostRow record {
+    int task_id;
+    string task_title;
+    decimal actual_cost;
+    decimal estimated_cost;
+};

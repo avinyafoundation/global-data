@@ -1,7 +1,9 @@
+import ballerina/email;
 import ballerina/graphql;
 import ballerina/io;
 import ballerina/log;
 import ballerina/mime;
+import ballerina/regex;
 import ballerina/sql;
 import ballerina/time;
 import ballerinax/googleapis.drive as drive;
@@ -10,6 +12,7 @@ import ballerinax/googleapis.drive as drive;
 //     label: "Global Data API",
 //     id: "global-data"
 // }
+
 configurable string GOOGLEDRIVECLIENTID = ?;
 configurable string GOOGLEDRIVECLIENTSECRET = ?;
 configurable string GOOGLEDRIVEREFRESHTOKEN = ?;
@@ -18,6 +21,11 @@ configurable string GOOGLEDRIVEJOBSCVSCLIENTID = ?;
 configurable string GOOGLEDRIVEJOBSCVSCLIENTSECRET = ?;
 configurable string GOOGLEDRIVEJOBSCVSREFRESHTOKEN = ?;
 configurable string GOOGLEDRIVEJOBSCVSREFRESHURL = ?;
+configurable string ALUMNI_CV_REQUEST_EMAIL = ?;
+configurable string ALUMNI_CV_REQUEST_SENDER_EMAIL = ?;
+configurable string ALUMNI_CV_REQUEST_SENDER_EMAIL_APP_PASSWORD = ?;
+configurable string FCM_URL = ?;
+configurable string FCM_SERVER_KEY = ?;
 
 service /graphql on new graphql:Listener(4000) {
     resource function get geo() returns GeoData {
@@ -113,16 +121,16 @@ service /graphql on new graphql:Listener(4000) {
         return new (name, id);
     }
 
-    isolated resource function get organizations_by_avinya_type_and_status(int? avinya_type,int? active) returns OrganizationData[]|error? {
+    isolated resource function get organizations_by_avinya_type_and_status(int? avinya_type, int? active) returns OrganizationData[]|error? {
         stream<Organization, error?> org_list;
-        if(active !=null && (active==0 || active==1) && avinya_type!=null){
+        if (active != null && (active == 0 || active == 1) && avinya_type != null) {
             lock {
                 org_list = db_client->query(
                     `SELECT *
                     FROM organization
                     WHERE avinya_type = ${avinya_type} and active = ${active}`);
             }
-        }else if (active!=null && (active == 1 || active == 0)) {
+        } else if (active != null && (active == 1 || active == 0)) {
 
             lock {
                 org_list = db_client->query(
@@ -131,7 +139,7 @@ service /graphql on new graphql:Listener(4000) {
                     WHERE avinya_type IN (86,108) and active = ${active}`);
             }
 
-        }else if(avinya_type !=null){
+        } else if (avinya_type != null) {
             io:println("Avinya type not null and active null");
             lock {
                 org_list = db_client->query(
@@ -143,7 +151,7 @@ service /graphql on new graphql:Listener(4000) {
             }
 
         } else {
-           io:println("both null");
+            io:println("both null");
             lock {
                 org_list = db_client->query(
                 `SELECT *
@@ -241,6 +249,31 @@ service /graphql on new graphql:Listener(4000) {
             return new ((), 0, personJwtId);
         }
         return error("Unable to find person by digital id");
+    }
+
+    // Validates a user PIN and retrieves the associated person data.
+    isolated resource function get validatePin(string? pin) returns PersonData|error? {
+
+        if(pin == null || pin.trim().length() == 0){
+          return ();
+        }
+
+        PersonPin|error? personPinRaw = check db_client->queryRow(
+            `SELECT person_id
+            FROM person_pin
+            WHERE pin_hash = ${pin} AND is_active=1
+            LIMIT 1;`
+        );
+
+        if (personPinRaw is PersonPin){
+           
+            int person_id = personPinRaw.person_id?:0;
+            return new(null,person_id);
+        }else if(personPinRaw is ()){
+            return ();
+        }else if(personPinRaw is error){
+            return error("There is no person associate with this pin");
+        }
     }
 
     isolated resource function get prospect(string? email, int? phone) returns ProspectData|error? {
@@ -1722,12 +1755,23 @@ service /graphql on new graphql:Listener(4000) {
                             return error("AvinyaType ID does not exist");
                         }
                         attendance_records = db_client->query(
-                        `SELECT *
-                        FROM activity_participant_attendance
-                        WHERE person_id IN (SELECT id FROM person WHERE organization_id = ${organization_id} AND avinya_type_id=${avinya_type_id})
-                        AND activity_instance_id IN (SELECT id FROM activity_instance WHERE activity_id = ${activity_id})
-                        AND DATE(sign_in_time) BETWEEN ${from_date} AND ${to_date}
-                        ORDER BY created DESC;`
+                        `SELECT apa.*
+                            FROM activity_participant_attendance apa
+                            JOIN (
+                                SELECT MIN(id) AS id
+                                FROM activity_participant_attendance
+                                WHERE DATE(sign_in_time) BETWEEN ${from_date} AND ${to_date}
+                                AND activity_instance_id IN (
+                                    SELECT id FROM activity_instance WHERE activity_id = ${activity_id}
+                                )
+                                AND person_id IN (
+                                    SELECT id FROM person 
+                                    WHERE organization_id = ${organization_id} AND avinya_type_id = ${avinya_type_id}
+                                )
+                                GROUP BY person_id, DATE(sign_in_time)
+                            ) one_per_day
+                            ON apa.id = one_per_day.id
+                            ORDER BY apa.created DESC;`
                     );
                     }
                 } else if (batch_id != null) {
@@ -1853,6 +1897,7 @@ LEFT JOIN person p ON apa.person_id = p.id
                     );
                     }
                 } else {
+                    io:print("execute the parent org blog");
                     lock {
                         attendance_records = db_client->query(
                             `SELECT apa.*,o.description,p.preferred_name,p.digital_id
@@ -4680,10 +4725,11 @@ AND p.organization_id IN (
                 daily_attendance_summary_report_records = db_client->query(
                                 `SELECT
                                     DATE(pa.sign_in_time) AS sign_in_date,
-                                    COUNT(pa.person_id) AS present_count,
-                                    COUNT(CASE WHEN TIME_FORMAT(pa.sign_in_time, '%H:%i:%s') > '08:30:59' THEN 1 END) AS late_count,
+                                    COUNT(DISTINCT pa.person_id) AS present_count,
+                                    (ts.total_count - COUNT(DISTINCT pa.person_id)) AS absent_count,
+                                    COUNT(CASE WHEN TIME_FORMAT(pa.sign_in_time, '%H:%i:%s') > '07:30:00' THEN 1 END) AS late_count,
                                     ts.total_count
-                                FROM
+                                    FROM
                                     activity_participant_attendance pa
                                     JOIN person p ON pa.person_id = p.id
                                     JOIN (
@@ -4698,11 +4744,11 @@ AND p.organization_id IN (
                                             WHERE id IN (
                                                 SELECT child_org_id
                                                 FROM parent_child_organization
-                                                WHERE parent_org_id =${organization_id}
+                                                WHERE parent_org_id = ${organization_id}
                                             )
                                         )
                                     ) ts
-                                WHERE
+                                    WHERE
                                     pa.sign_in_time IS NOT NULL
                                     AND pa.activity_instance_id IN (
                                         SELECT id
@@ -4710,62 +4756,59 @@ AND p.organization_id IN (
                                         WHERE activity_id = 4
                                     )
                                     AND p.avinya_type_id = ${avinya_type_id}
+                                    AND p.organization_id IN (
+                                        SELECT id
+                                        FROM organization
+                                        WHERE id IN (
+                                            SELECT child_org_id
+                                            FROM parent_child_organization
+                                            WHERE parent_org_id = ${organization_id}
+                                        )
+                                        )
                                     AND DATE(pa.sign_in_time) BETWEEN ${from_date} AND ${to_date}
-                                GROUP BY DATE(pa.sign_in_time), ts.total_count order by DATE(pa.sign_in_time) asc;`);
+                                    GROUP BY DATE(pa.sign_in_time), ts.total_count order by DATE(pa.sign_in_time) asc;`);
 
             }
 
             DailyActivityParticipantAttendanceSummaryReportData[] attendanceSummaryReportDatas = [];
-            decimal? present_attendance_percentage = 0.0;
-            decimal? late_attendance_percentage = 0.0;
+            decimal present_attendance_percentage = 0.0;
+            decimal late_attendance_percentage = 0.0;
+            decimal absent_attendance_percentage = 0.0;
 
             check from ActivityParticipantAttendanceSummaryReport attendance_summary_report_record in daily_attendance_summary_report_records
 
                 do {
 
-                    int? present_count = attendance_summary_report_record.present_count;
+                    int present_count = attendance_summary_report_record.present_count ?: 0;
 
-                    int? late_count = attendance_summary_report_record.late_count;
+                    int late_count = attendance_summary_report_record.late_count ?: 0;
 
-                    int? total_count = attendance_summary_report_record.total_count;
+                    int absent_count = attendance_summary_report_record.absent_count ?: 0;
+
+                    int total_count = attendance_summary_report_record.total_count ?: 0;
 
                     if (total_count > 0) {
 
-                        present_attendance_percentage = (present_count * 100) / total_count;
+                        present_attendance_percentage = (present_count * 100.0) / total_count;
 
-                        late_attendance_percentage = (late_count * 100) / total_count;
+                        absent_attendance_percentage = (absent_count * 100.0) / total_count;
 
-                    } else {
-                        present_attendance_percentage = 0;
-
-                        late_attendance_percentage = 0;
+                        late_attendance_percentage = (late_count * 100.0) / total_count;
 
                     }
 
-                    // if (present_attendance_percentage is null) {
-                    //     present_attendance_percentage = 0;
-                    // }
-                    // if(late_attendance_percentage is null){
-                    //     late_attendance_percentage = 0;
-                    // }
-
-                    decimal roundedPresentAttendancePercentage = 0;
-                    decimal roundedLateAttendancePercentage = 0;
-
-                    if (present_attendance_percentage is decimal) {
-                        roundedPresentAttendancePercentage = decimal:round(present_attendance_percentage, 2);
-                    }
-
-                    if (late_attendance_percentage is decimal) {
-                        roundedLateAttendancePercentage = decimal:round(late_attendance_percentage, 2);
-                    }
+                    decimal roundedPresentAttendancePercentage = decimal:round(present_attendance_percentage, 2);
+                    decimal roundedAbsentAttendancePercentage = decimal:round(absent_attendance_percentage, 2);
+                    decimal roundedLateAttendancePercentage = decimal:round(late_attendance_percentage, 2);
 
                     ActivityParticipantAttendanceSummaryReport attendanceSummaryData = {
                         sign_in_date: attendance_summary_report_record.sign_in_date,
                         present_count: present_count,
+                        absent_count: absent_count,
                         late_count: late_count,
                         total_count: total_count,
                         present_attendance_percentage: roundedPresentAttendancePercentage,
+                        absent_attendance_percentage: roundedAbsentAttendancePercentage,
                         late_attendance_percentage: roundedLateAttendancePercentage
                     };
 
@@ -5585,7 +5628,6 @@ AND p.organization_id IN (
 
     isolated resource function get persons(int? organization_id, int? avinya_type_id) returns PersonData[]|error? {
         stream<Person, error?> persons_data;
-
         if (organization_id != null && organization_id != -1 && avinya_type_id != null) {
             lock {
                 persons_data = db_client->query(
@@ -5608,6 +5650,16 @@ AND p.organization_id IN (
                         from person p
                         where 
                         p.avinya_type_id = ${avinya_type_id};`);
+            }
+        } else if (organization_id != null && organization_id != -1 && avinya_type_id == null) {
+
+            //get people by organization id[ex:- Need to get the bandaragama current working employees]
+            lock {
+                persons_data = db_client->query(
+                    `SELECT *
+                        from person p
+                        where 
+                        p.organization_id = ${organization_id} and p.avinya_type_id !=128;`);
             }
         } else {
             return error("Provide non-null values for both 'organization_id' and 'avinya_type_id'.");
@@ -5635,7 +5687,7 @@ AND p.organization_id IN (
         }
     }
 
-    remote function update_person(Person person,Address? mailing_address, City? mailing_address_city) returns PersonData|error? {
+    remote function update_person(Person person, Address? mailing_address, City? mailing_address_city) returns PersonData|error? {
 
         //starting the transaction
         boolean first_db_transaction_fail = false;
@@ -6557,15 +6609,7 @@ AND p.organization_id IN (
 
         int? totalSchoolDays = monthly_leave_dates.total_days_in_month - totalLeaveDates;
 
-        CalendarMetadata|error? monthlyPaymentAmount = check db_client->queryRow(
-            `SELECT *
-            FROM calendar_metadata
-            WHERE organization_id = ${monthly_leave_dates.organization_id} and batch_id = ${monthly_leave_dates.batch_id};`
-        );
-
-        if (monthlyPaymentAmount is CalendarMetadata) {
-            dailyAmount = monthlyPaymentAmount.monthly_payment_amount / totalSchoolDays ?: 0.0;
-        }
+        dailyAmount = monthly_leave_dates.monthly_payment_amount / totalSchoolDays ?: 0.0;
 
         sql:ExecutionResult res = check db_client->execute(
             `INSERT INTO monthly_leave_dates (
@@ -6617,15 +6661,7 @@ AND p.organization_id IN (
 
         int? totalSchoolDays = monthly_leave_dates.total_days_in_month - totalLeaveDates;
 
-        CalendarMetadata|error? monthlyPaymentAmount = check db_client->queryRow(
-            `SELECT *
-            FROM calendar_metadata
-            WHERE organization_id = ${monthly_leave_dates.organization_id} and batch_id = ${monthly_leave_dates.batch_id};`
-        );
-
-        if (monthlyPaymentAmount is CalendarMetadata) {
-            dailyAmount = monthlyPaymentAmount.monthly_payment_amount / totalSchoolDays ?: 0.0;
-        }
+        dailyAmount = monthly_leave_dates.monthly_payment_amount / totalSchoolDays ?: 0.0;
 
         sql:ExecutionResult res = check db_client->execute(
             `UPDATE monthly_leave_dates SET
@@ -6669,33 +6705,38 @@ AND p.organization_id IN (
                     created: null,
                     updated: null,
                     total_days_in_month: null,
-                    leave_dates: null
+                    leave_dates: null,
+                    monthly_payment_amount: 0.0
                 };
                 return new (0, emptyLeaveDates);
             }
         }
     }
 
-    isolated resource function get calendar_metadata_by_org_id(int organization_id, int batch_id) returns CalendarMetaData|error? {
+    isolated resource function get batch_payment_plan_by_org_id(int organization_id, int batch_id, string selected_month_date) returns BatchPaymentPlanData|error? {
 
         if (organization_id is int && batch_id is int) {
 
-            CalendarMetadata|error? calendar_metadata_raw = db_client->queryRow(
+            BatchPaymentPlan|error? batch_payment_plan_raw = db_client->queryRow(
             `SELECT *
-            FROM calendar_metadata
-            WHERE organization_id = ${organization_id} and batch_id = ${batch_id};`);
+            FROM batch_payment_plan
+            WHERE organization_id = ${organization_id} and batch_id = ${batch_id}
+            and ${selected_month_date} BETWEEN valid_from AND valid_to;`);
 
-            if (calendar_metadata_raw is CalendarMetadata) {
-                return new (0, calendar_metadata_raw);
+            if (batch_payment_plan_raw is BatchPaymentPlan) {
+                return new (0, batch_payment_plan_raw);
             } else {
-                // Return a new empty Calendar Metadata object if no record is found
-                CalendarMetadata emptyCalendarMetadata = {
-                    id: null,
+                // Return a new empty batch payment plan object if no record is found
+                BatchPaymentPlan emptyBatchPaymentPlan = {
+                    id: -1,
                     organization_id: organization_id,
-                    batch_id: null,
-                    monthly_payment_amount: 0.0
+                    batch_id: -1,
+                    monthly_payment_amount: 0.0,
+                    valid_from: null,
+                    valid_to: null,
+                    created: null
                 };
-                return new (0, emptyCalendarMetadata);
+                return new (0, emptyBatchPaymentPlan);
             }
         }
     }
@@ -6786,6 +6827,7 @@ AND p.organization_id IN (
                                                   facebook_id,
                                                   instagram_id,
                                                   tiktok_id,
+                                                  canva_cv_url,
                                                   updated_by
                                                 ) VALUES (
                                                   ${alumni.status},
@@ -6795,6 +6837,7 @@ AND p.organization_id IN (
                                                   ${alumni.facebook_id},
                                                   ${alumni.instagram_id},
                                                   ${alumni.tiktok_id},
+                                                  ${alumni.canva_cv_url},
                                                   ${alumni.updated_by}
                                                 );`);
 
@@ -6937,6 +6980,7 @@ AND p.organization_id IN (
                                                     facebook_id = ${alumni.facebook_id},
                                                     instagram_id = ${alumni.instagram_id},
                                                     tiktok_id = ${alumni.tiktok_id},
+                                                    canva_cv_url = ${alumni.canva_cv_url},
                                                     updated_by = ${alumni.updated_by}
                                                 WHERE id = ${alumni.id};`);
 
@@ -7160,7 +7204,7 @@ AND p.organization_id IN (
 
         if (personRaw is Person) {
             personProfilePictureFolderId = personRaw.profile_picture_folder_id ?: "";
-        }else{
+        } else {
             return error(personRaw.message());
         }
 
@@ -7194,18 +7238,18 @@ AND p.organization_id IN (
                     return error("Unable to update the profile picture folder id for the person record");
                 }
 
-             if (created_person_profile_picture_folder_id != "") {
+                if (created_person_profile_picture_folder_id != "") {
 
-                string person_profile_picture_name = person_profile_picture.nic_no.toString() + "_profile_picture";
+                    string person_profile_picture_name = person_profile_picture.nic_no.toString() + "_profile_picture";
 
-                create_profile_picture_file_response =
+                    create_profile_picture_file_response =
                 driveClient->uploadFileUsingByteArray(base64DecodedPicture, person_profile_picture_name, created_person_profile_picture_folder_id);
 
-                if (create_profile_picture_file_response is drive:File) {
+                    if (create_profile_picture_file_response is drive:File) {
 
-                    created_profile_picture_file_id = create_profile_picture_file_response?.id.toString();
+                        created_profile_picture_file_id = create_profile_picture_file_response?.id.toString();
 
-                    sql:ExecutionResult insert_res = check db_client->execute(
+                        sql:ExecutionResult insert_res = check db_client->execute(
                             `INSERT INTO person_profile_pictures(
                                 person_id,
                                 profile_picture_drive_id,
@@ -7217,16 +7261,16 @@ AND p.organization_id IN (
                             );`
                         );
 
-                    inserted_profile_picture_record_id = insert_res.lastInsertId;
-                    if !(inserted_profile_picture_record_id is int) {
-                        return error("Unable to insert profile profile picture record");
+                        inserted_profile_picture_record_id = insert_res.lastInsertId;
+                        if !(inserted_profile_picture_record_id is int) {
+                            return error("Unable to insert profile profile picture record");
+                        }
+                        return new (inserted_profile_picture_record_id);
+                    } else {
+                        return error(create_profile_picture_file_response.message());
                     }
-                    return new (inserted_profile_picture_record_id);
-                } else {
-                    return error(create_profile_picture_file_response.message());
-                }
 
-              }
+                }
 
             } else {
                 return error(create_profile_picture_folder_response.message());
@@ -7242,8 +7286,8 @@ AND p.organization_id IN (
 
             if (countResult is CountResult) {
 
-                if(countResult.total == 0){
-                
+                if (countResult.total == 0) {
+
                     string person_profile_picture_name = person_profile_picture.nic_no.toString() + "_profile_picture";
 
                     create_profile_picture_file_response =
@@ -7274,59 +7318,59 @@ AND p.organization_id IN (
                         return error(create_profile_picture_file_response.message());
                     }
 
-                }else if(countResult.total == 1){
+                } else if (countResult.total == 1) {
 
-                        PersonProfilePicture|error personProfilePictureRaw = db_client->queryRow(
+                    PersonProfilePicture|error personProfilePictureRaw = db_client->queryRow(
                                                 `SELECT *
                                                 FROM person_profile_pictures
                                                 WHERE person_id = ${person_profile_picture.person_id};`
                                         );
 
-                        if(personProfilePictureRaw is PersonProfilePicture){                
+                    if (personProfilePictureRaw is PersonProfilePicture) {
 
-                            personProfilePictureDriveId = personProfilePictureRaw.profile_picture_drive_id ?: "";
+                        personProfilePictureDriveId = personProfilePictureRaw.profile_picture_drive_id ?: "";
 
-                            if (personProfilePictureDriveId != "") {
+                        if (personProfilePictureDriveId != "") {
 
-                                boolean|error deleted_person_profile_picture_response = driveClient->deleteFile(personProfilePictureDriveId);
+                            boolean|error deleted_person_profile_picture_response = driveClient->deleteFile(personProfilePictureDriveId);
 
-                                if (deleted_person_profile_picture_response is boolean) {
-                                    log:printInfo("person profile picture deleted.");
+                            if (deleted_person_profile_picture_response is boolean) {
+                                log:printInfo("person profile picture deleted.");
 
-                                    string person_profile_picture_name = person_profile_picture.nic_no.toString() + "_profile_picture";
+                                string person_profile_picture_name = person_profile_picture.nic_no.toString() + "_profile_picture";
 
-                                    create_profile_picture_file_response =
+                                create_profile_picture_file_response =
                                         driveClient->uploadFileUsingByteArray(base64DecodedPicture, person_profile_picture_name, personProfilePictureFolderId);
 
-                                    if (create_profile_picture_file_response is drive:File) {
+                                if (create_profile_picture_file_response is drive:File) {
 
-                                        created_profile_picture_file_id = create_profile_picture_file_response?.id.toString();
-                                    
-                                        sql:ExecutionResult res = check db_client->execute(
+                                    created_profile_picture_file_id = create_profile_picture_file_response?.id.toString();
+
+                                    sql:ExecutionResult res = check db_client->execute(
                                             `UPDATE person_profile_pictures SET
                                                 profile_picture_drive_id = ${created_profile_picture_file_id},
                                                 uploaded_by = ${person_profile_picture.uploaded_by}
                                             WHERE person_id =  ${person_profile_picture.person_id};`
                                         );
-                                        
-                                        if (res.affectedRowCount == sql:EXECUTION_FAILED) {
-                                            return error("Unable to update the profile picture drive id for the person record.");
-                                        }
-                                        return new(0,person_profile_picture.person_id);
-                                    }else{
-                                        return error(create_profile_picture_file_response.message());
-                                    }
 
+                                    if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+                                        return error("Unable to update the profile picture drive id for the person record.");
+                                    }
+                                    return new (0, person_profile_picture.person_id);
                                 } else {
-                                return error("Unable to delete person profile picture.");
+                                    return error(create_profile_picture_file_response.message());
                                 }
 
+                            } else {
+                                return error("Unable to delete person profile picture.");
                             }
-                        }else{
-                            return error(personProfilePictureRaw.message());
+
                         }
+                    } else {
+                        return error(personProfilePictureRaw.message());
+                    }
                 }
-            }else{
+            } else {
                 return error(countResult.message());
             }
         }
@@ -7345,15 +7389,15 @@ AND p.organization_id IN (
                                                 FROM person_profile_pictures
                                                 WHERE id = ${id};`
                                         );
-        
-        if(personProfilePictureRaw is PersonProfilePicture){
-        
-           personProfilePictureDriveId = personProfilePictureRaw.profile_picture_drive_id ?: "";
-        
-        }else{
+
+        if (personProfilePictureRaw is PersonProfilePicture) {
+
+            personProfilePictureDriveId = personProfilePictureRaw.profile_picture_drive_id ?: "";
+
+        } else {
 
             return error(personProfilePictureRaw.message());
-        
+
         }
 
         boolean|error deleted_profile_picture_response = driveClient->deleteFile(personProfilePictureDriveId.toString());
@@ -7755,9 +7799,9 @@ AND p.organization_id IN (
 
     remote function create_job_post(JobPost job_post) returns JobPostData|error? {
 
-        if(job_post.job_type == "text"){
+        if (job_post.job_type == "text") {
 
-           sql:ExecutionResult insert_job_post_res = check db_client->execute(
+            sql:ExecutionResult insert_job_post_res = check db_client->execute(
                                                 `INSERT INTO job_post(
                                                   job_type,
                                                   job_text,
@@ -7778,120 +7822,9 @@ AND p.organization_id IN (
                 io:println("Unable to insert text job post");
                 return error("Unable to insert text job post");
             }
-           return new(insert_job_post_record_id);
+            return new (insert_job_post_record_id);
 
-        }else if(job_post.job_type == "image"){
-
-           string mainJobPostsDirectoryId = "";
-           string createdJobPostPictureFileId = "";
-           string uploadContent = job_post.job_post_image.toString();
-           byte[] base64DecodedJobPostPicture = <byte[]>(check mime:base64Decode(uploadContent.toBytes()));
-           drive:Client driveClient = check getGoogleDriveClientForJobsAndCVs();
-
-            SystemGoogleDriveFolder|error googleDriveFolderRaw = db_client->queryRow(
-                                        `SELECT *
-                                        FROM system_google_drive_folder_mappings
-                                        WHERE  folder_key = "JobPosts";`
-                                    );
-
-            if (googleDriveFolderRaw is SystemGoogleDriveFolder) {
-                mainJobPostsDirectoryId = googleDriveFolderRaw.google_drive_folder_id ?: "";
-            } else {
-                return error(googleDriveFolderRaw.message());
-            }
-
-            string job_post_name = job_post.current_date_time.toString()+"_"+job_post.job_category.toString()+ "_job_post";
-        
-            drive:File|error  create_job_post_file_response =
-                driveClient->uploadFileUsingByteArray(base64DecodedJobPostPicture, job_post_name, mainJobPostsDirectoryId);
-
-                if (create_job_post_file_response is drive:File) {
-
-                    createdJobPostPictureFileId = create_job_post_file_response?.id.toString();
-
-                    sql:ExecutionResult insert_res = check db_client->execute(
-                            `INSERT INTO job_post(
-                                job_type,
-                                job_image_drive_id,
-                                job_category_id,
-                                application_deadline,
-                                uploaded_by
-                            ) VALUES (
-                                ${job_post.job_type},
-                                ${createdJobPostPictureFileId},
-                                ${job_post.job_category_id},
-                                ${job_post.application_deadline},
-                                ${job_post.uploaded_by}
-                            );`
-                        );
-
-                  int|string?  insert_job_post_record_id = insert_res.lastInsertId;
-                    if !(insert_job_post_record_id is int) {
-                        io:println("Unable to insert job post picture record");
-                        return error("Unable to insert job post picture record");
-                    }
-                    return new (insert_job_post_record_id);
-                } else {
-                    return error(create_job_post_file_response.message());
-                }
-
-        }else if(job_post.job_type == "text_with_link"){
-
-                sql:ExecutionResult insert_job_post_res = check db_client->execute(
-                                                `INSERT INTO job_post(
-                                                  job_type,
-                                                  job_text,
-                                                  job_link,
-                                                  job_category_id,
-                                                  application_deadline,
-                                                  uploaded_by
-                                                ) VALUES (
-                                                  ${job_post.job_type},
-                                                  ${job_post.job_text},
-                                                  ${job_post.job_link},
-                                                  ${job_post.job_category_id},
-                                                  ${job_post.application_deadline},
-                                                  ${job_post.uploaded_by}
-                                                );`);
-
-                int|string? insert_job_post_record_id = insert_job_post_res.lastInsertId;
-
-                if !(insert_job_post_record_id is int) {
-                    io:println("Unable to insert text with link job post");
-                   return error("Unable to insert text with link job post");
-               }
-               return new(insert_job_post_record_id);
-
-        }else{
-            return error("Invalid job type received");
-        }
-    }
-    
-    remote function update_job_post(JobPost job_post) returns JobPostData|error? {
-
-        int id = job_post.id ?: 0;
-        if (id == 0) {
-            return error("Unable to update Job Post");
-        }
-
-        if(job_post.job_type == "text"){
-        
-            sql:ExecutionResult res = check db_client->execute(
-                `UPDATE job_post SET
-                    job_type = ${job_post.job_type},
-                    job_text = ${job_post.job_text},
-                    job_category_id = ${job_post.job_category_id},
-                    application_deadline = ${job_post.application_deadline},
-                    uploaded_by = ${job_post.uploaded_by}
-                WHERE id = ${id};`
-               );
-
-            if (res.affectedRowCount == sql:EXECUTION_FAILED) {
-                return error("Unable to update text job post");
-            }
-
-            return new (id);
-        }else if(job_post.job_type == "image"){
+        } else if (job_post.job_type == "image") {
 
             string mainJobPostsDirectoryId = "";
             string createdJobPostPictureFileId = "";
@@ -7911,22 +7844,133 @@ AND p.organization_id IN (
                 return error(googleDriveFolderRaw.message());
             }
 
-            if(job_post.job_image_drive_id !=null){
+            string job_post_name = job_post.current_date_time.toString() + "_" + job_post.job_category.toString() + "_job_post";
 
-               string jobPostPictureGoogleDriveId = job_post.job_image_drive_id ?: "";
-               boolean|error delete_job_post_picture_response = driveClient->deleteFile(jobPostPictureGoogleDriveId);
-               
-               if (delete_job_post_picture_response is boolean) {
+            drive:File|error create_job_post_file_response =
+                driveClient->uploadFileUsingByteArray(base64DecodedJobPostPicture, job_post_name, mainJobPostsDirectoryId);
 
-                  string job_post_name = job_post.current_date_time.toString()+"_"+job_post.job_category.toString()+ "_job_post";
-        
-                  drive:File|error  create_job_post_file_response =
+            if (create_job_post_file_response is drive:File) {
+
+                createdJobPostPictureFileId = create_job_post_file_response?.id.toString();
+
+                sql:ExecutionResult insert_res = check db_client->execute(
+                            `INSERT INTO job_post(
+                                job_type,
+                                job_image_drive_id,
+                                job_category_id,
+                                application_deadline,
+                                uploaded_by
+                            ) VALUES (
+                                ${job_post.job_type},
+                                ${createdJobPostPictureFileId},
+                                ${job_post.job_category_id},
+                                ${job_post.application_deadline},
+                                ${job_post.uploaded_by}
+                            );`
+                        );
+
+                int|string? insert_job_post_record_id = insert_res.lastInsertId;
+                if !(insert_job_post_record_id is int) {
+                    io:println("Unable to insert job post picture record");
+                    return error("Unable to insert job post picture record");
+                }
+                return new (insert_job_post_record_id);
+            } else {
+                return error(create_job_post_file_response.message());
+            }
+
+        } else if (job_post.job_type == "text_with_link") {
+
+            sql:ExecutionResult insert_job_post_res = check db_client->execute(
+                                                `INSERT INTO job_post(
+                                                  job_type,
+                                                  job_text,
+                                                  job_link,
+                                                  job_category_id,
+                                                  application_deadline,
+                                                  uploaded_by
+                                                ) VALUES (
+                                                  ${job_post.job_type},
+                                                  ${job_post.job_text},
+                                                  ${job_post.job_link},
+                                                  ${job_post.job_category_id},
+                                                  ${job_post.application_deadline},
+                                                  ${job_post.uploaded_by}
+                                                );`);
+
+            int|string? insert_job_post_record_id = insert_job_post_res.lastInsertId;
+
+            if !(insert_job_post_record_id is int) {
+                io:println("Unable to insert text with link job post");
+                return error("Unable to insert text with link job post");
+            }
+            return new (insert_job_post_record_id);
+
+        } else {
+            return error("Invalid job type received");
+        }
+    }
+
+    remote function update_job_post(JobPost job_post) returns JobPostData|error? {
+
+        int id = job_post.id ?: 0;
+        if (id == 0) {
+            return error("Unable to update Job Post");
+        }
+
+        if (job_post.job_type == "text") {
+
+            sql:ExecutionResult res = check db_client->execute(
+                `UPDATE job_post SET
+                    job_type = ${job_post.job_type},
+                    job_text = ${job_post.job_text},
+                    job_category_id = ${job_post.job_category_id},
+                    application_deadline = ${job_post.application_deadline},
+                    uploaded_by = ${job_post.uploaded_by}
+                WHERE id = ${id};`
+                );
+
+            if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+                return error("Unable to update text job post");
+            }
+
+            return new (id);
+        } else if (job_post.job_type == "image") {
+
+            string mainJobPostsDirectoryId = "";
+            string createdJobPostPictureFileId = "";
+            string uploadContent = job_post.job_post_image.toString();
+            byte[] base64DecodedJobPostPicture = <byte[]>(check mime:base64Decode(uploadContent.toBytes()));
+            drive:Client driveClient = check getGoogleDriveClientForJobsAndCVs();
+
+            SystemGoogleDriveFolder|error googleDriveFolderRaw = db_client->queryRow(
+                                        `SELECT *
+                                        FROM system_google_drive_folder_mappings
+                                        WHERE  folder_key = "JobPosts";`
+                                    );
+
+            if (googleDriveFolderRaw is SystemGoogleDriveFolder) {
+                mainJobPostsDirectoryId = googleDriveFolderRaw.google_drive_folder_id ?: "";
+            } else {
+                return error(googleDriveFolderRaw.message());
+            }
+
+            if (job_post.job_image_drive_id != null) {
+
+                string jobPostPictureGoogleDriveId = job_post.job_image_drive_id ?: "";
+                boolean|error delete_job_post_picture_response = driveClient->deleteFile(jobPostPictureGoogleDriveId);
+
+                if (delete_job_post_picture_response is boolean) {
+
+                    string job_post_name = job_post.current_date_time.toString() + "_" + job_post.job_category.toString() + "_job_post";
+
+                    drive:File|error create_job_post_file_response =
                     driveClient->uploadFileUsingByteArray(base64DecodedJobPostPicture, job_post_name, mainJobPostsDirectoryId);
-                
-                   if (create_job_post_file_response is drive:File) {
+
+                    if (create_job_post_file_response is drive:File) {
 
                         createdJobPostPictureFileId = create_job_post_file_response?.id.toString();
-                        
+
                         sql:ExecutionResult res = check db_client->execute(
                                 `UPDATE job_post SET
                                     job_type = ${job_post.job_type},
@@ -7941,14 +7985,14 @@ AND p.organization_id IN (
                             return error("Unable to update job post picture record");
                         }
                         return new (id);
-                    }else{
-                     return error(create_job_post_file_response.message());
+                    } else {
+                        return error(create_job_post_file_response.message());
                     }
-               }else{
-                   return error(delete_job_post_picture_response.message());
-               }
+                } else {
+                    return error(delete_job_post_picture_response.message());
+                }
             }
-        }else if(job_post.job_type == "text_with_link"){
+        } else if (job_post.job_type == "text_with_link") {
 
             sql:ExecutionResult res = check db_client->execute(
                 `UPDATE job_post SET
@@ -7959,21 +8003,21 @@ AND p.organization_id IN (
                     application_deadline = ${job_post.application_deadline},
                     uploaded_by = ${job_post.uploaded_by}
                 WHERE id = ${id};`
-               );
+                );
 
             if (res.affectedRowCount == sql:EXECUTION_FAILED) {
                 return error("Unable to update text with link job post");
             }
-            return new (id); 
-        }else{
+            return new (id);
+        } else {
             return error("Invalid job type received");
         }
         return;
     }
 
     remote function delete_job_post(JobPost job_post) returns int?|error? {
-        
-        if(job_post.job_type == "text" || job_post.job_type == "text_with_link"){
+
+        if (job_post.job_type == "text" || job_post.job_type == "text_with_link") {
 
             sql:ExecutionResult res = check db_client->execute(
             `DELETE FROM job_post WHERE id = ${job_post.id};`
@@ -7987,16 +8031,16 @@ AND p.organization_id IN (
 
             return delete_id;
 
-        }else if(job_post.job_type == "image"){
+        } else if (job_post.job_type == "image") {
 
             drive:Client driveClient = check getGoogleDriveClientForJobsAndCVs();
-            
-            if(job_post.job_image_drive_id !=null){
 
-               string jobPostPictureGoogleDriveId = job_post.job_image_drive_id ?: "";
-               boolean|error delete_job_post_picture_response = driveClient->deleteFile(jobPostPictureGoogleDriveId);
-               
-               if (delete_job_post_picture_response is boolean) {
+            if (job_post.job_image_drive_id != null) {
+
+                string jobPostPictureGoogleDriveId = job_post.job_image_drive_id ?: "";
+                boolean|error delete_job_post_picture_response = driveClient->deleteFile(jobPostPictureGoogleDriveId);
+
+                if (delete_job_post_picture_response is boolean) {
                     sql:ExecutionResult res = check db_client->execute(
                                                 `DELETE FROM job_post WHERE id = ${job_post.id};`
                                                 );
@@ -8006,12 +8050,12 @@ AND p.organization_id IN (
                         return error("Unable to delete job post picture record with id: " + job_post.id.toString());
                     }
                     return delete_id;
-                }else{
-                 return error(delete_job_post_picture_response.message());
+                } else {
+                    return error(delete_job_post_picture_response.message());
                 }
             }
 
-        }else{
+        } else {
             return error("Invalid job type received");
         }
         return;
@@ -8019,27 +8063,27 @@ AND p.organization_id IN (
 
     isolated resource function get job_post(int? id) returns JobPostData|error? {
 
-      JobPost|error? job_post_raw = db_client->queryRow(
+        JobPost|error? job_post_raw = db_client->queryRow(
             `SELECT *
             FROM job_post
             WHERE id = ${id};`);
 
-        if(job_post_raw is JobPost){
+        if (job_post_raw is JobPost) {
 
-            if(job_post_raw.job_type == "text" || job_post_raw.job_type == "text_with_link"){
-            
+            if (job_post_raw.job_type == "text" || job_post_raw.job_type == "text_with_link") {
+
                 int? job_post_id = job_post_raw.id;
 
-                if(job_post_id !=null){
-                    return new(job_post_id);
-                }else{
+                if (job_post_id != null) {
+                    return new (job_post_id);
+                } else {
                     return error("Provide non-null value for id");
                 }
 
-            }else if(job_post_raw.job_type == "image"){
+            } else if (job_post_raw.job_type == "image") {
 
                 drive:Client driveClient = check getGoogleDriveClientForJobsAndCVs();
-                JobPost|error job_post_picture = getJobPostFile(driveClient,job_post_raw.job_image_drive_id.toString());
+                JobPost|error job_post_picture = getJobPostFile(driveClient, job_post_raw.job_image_drive_id.toString());
                 if (job_post_picture is JobPost) {
 
                     job_post_picture.id = job_post_raw.id;
@@ -8049,64 +8093,64 @@ AND p.organization_id IN (
                     job_post_picture.application_deadline = job_post_raw.application_deadline;
                     job_post_picture.uploaded_by = job_post_raw.uploaded_by;
 
-                    JobPostData|error jobPostPictureData = new JobPostData(0,job_post_picture);
+                    JobPostData|error jobPostPictureData = new JobPostData(0, job_post_picture);
                     if !(jobPostPictureData is error) {
                         return jobPostPictureData;
                     }
                 } else {
                     return error(job_post_picture.message());
                 }
-            }else{
-                    return error("Invalid job type received");
+            } else {
+                return error("Invalid job type received");
             }
-                return;
-        }else{
+            return;
+        } else {
             return error("Unable to find job post by id");
         }
     }
 
-    isolated resource function get job_posts(int result_limit=4,int offset=0) returns JobPostData[]|error? {
-        
+    isolated resource function get job_posts(int result_limit = 4, int offset = 0) returns JobPostData[]|error? {
+
         drive:Client driveClient = check getGoogleDriveClientForJobsAndCVs();
         stream<JobPost, error?> job_posts_data;
-        
+
         lock {
-                job_posts_data = db_client->query(
+            job_posts_data = db_client->query(
                     `SELECT *
                      FROM job_post
                      LIMIT ${result_limit} OFFSET ${offset};`
                     );
-         }
+        }
 
         JobPostData[] jobPostsData = [];
 
         check from JobPost job_post_data_record in job_posts_data
             do {
-               string? jobPostImageDriveId = job_post_data_record.job_image_drive_id;
-               if(jobPostImageDriveId.toString().trim() != ""){
+                string? jobPostImageDriveId = job_post_data_record.job_image_drive_id;
+                if (jobPostImageDriveId.toString().trim() != "") {
 
-                 JobPost|error job_post_picture = getJobPostFile(driveClient,jobPostImageDriveId.toString());
-                 if (job_post_picture is JobPost) {
-                    job_post_picture.id = job_post_data_record.id;
-                    job_post_picture.job_type = job_post_data_record.job_type;
-                    job_post_picture.job_image_drive_id = job_post_data_record.job_image_drive_id;
-                    job_post_picture.job_category_id = job_post_data_record.job_category_id;
-                    job_post_picture.application_deadline = job_post_data_record.application_deadline;
-                    job_post_picture.uploaded_by = job_post_data_record.uploaded_by;
-                    JobPostData|error jobPostPictureData = new JobPostData(0,job_post_picture);
-                    if !(jobPostPictureData is error) {
-                        jobPostsData.push(jobPostPictureData);
+                    JobPost|error job_post_picture = getJobPostFile(driveClient, jobPostImageDriveId.toString());
+                    if (job_post_picture is JobPost) {
+                        job_post_picture.id = job_post_data_record.id;
+                        job_post_picture.job_type = job_post_data_record.job_type;
+                        job_post_picture.job_image_drive_id = job_post_data_record.job_image_drive_id;
+                        job_post_picture.job_category_id = job_post_data_record.job_category_id;
+                        job_post_picture.application_deadline = job_post_data_record.application_deadline;
+                        job_post_picture.uploaded_by = job_post_data_record.uploaded_by;
+                        JobPostData|error jobPostPictureData = new JobPostData(0, job_post_picture);
+                        if !(jobPostPictureData is error) {
+                            jobPostsData.push(jobPostPictureData);
+                        }
+                    } else {
+                        return error(job_post_picture.message());
                     }
-                 } else {
-                    return error(job_post_picture.message());
-                 }
-               }else{
-               
-                JobPostData|error jobPostRecordData = new JobPostData(0,job_post_data_record);
-                if !(jobPostRecordData is error) {
-                    jobPostsData.push(jobPostRecordData);
+                } else {
+
+                    JobPostData|error jobPostRecordData = new JobPostData(0, job_post_data_record);
+                    if !(jobPostRecordData is error) {
+                        jobPostsData.push(jobPostRecordData);
+                    }
                 }
-               }
             };
 
         check job_posts_data.close();
@@ -8126,7 +8170,7 @@ AND p.organization_id IN (
 
         check from JobCategory job_category_data_record in job_categories_data
             do {
-                JobCategoryData|error jobCategoryData = new JobCategoryData(0,job_category_data_record);
+                JobCategoryData|error jobCategoryData = new JobCategoryData(0, job_category_data_record);
                 if !(jobCategoryData is error) {
                     jobCategoryDatas.push(jobCategoryData);
                 }
@@ -8135,6 +8179,1958 @@ AND p.organization_id IN (
         check job_categories_data.close();
         return jobCategoryDatas;
     }
+
+    //Alumni cv feature functions implementation
+
+    //Add Alumni Cv Request to the DB. 
+    remote function addCvRequest(int personId, CvRequest cvRequest) returns CvRequestData|error? {
+
+        int id = personId;
+
+        if (id == 0) {
+            return error("Unable to add cv request");
+        }
+
+        email:SmtpClient|error gmail = createGmailClient(ALUMNI_CV_REQUEST_SENDER_EMAIL, ALUMNI_CV_REQUEST_SENDER_EMAIL_APP_PASSWORD);
+
+        if gmail is email:SmtpClient {
+
+            io:println("Gmail client created successfully!");
+
+            Person|error? personRaw = db_client->queryRow(
+                                        `SELECT *
+                                        FROM person p
+                                        WHERE p.id = ${id};`
+                                    );
+
+            if (personRaw is Person) {
+                io:println("Person already exists.");
+
+                string personFullName = personRaw.full_name != null ? personRaw.full_name.toString() : "";
+                string personNicNo = personRaw.nic_no != null ? personRaw.nic_no.toString() : "";
+                string personPhoneNo = personRaw.phone != null ? personRaw.phone.toString() : "";
+
+                EmailTemplate|error? emailTemplateRaw = db_client->queryRow(
+                                                    `SELECT *
+                                                    FROM email_template
+                                                    WHERE template_key = 'alumni_cv';`
+                                                    );
+
+                if (emailTemplateRaw is EmailTemplate) {
+
+                    string subject = emailTemplateRaw.subject.toString();
+                    string template = emailTemplateRaw.template.toString();
+                    string[] recipients = [ALUMNI_CV_REQUEST_EMAIL];
+
+                    // Replace {{name}}
+                    template = regex:replaceAll(template, "\\{\\{name\\}\\}", personFullName);
+
+                    // Replace {{nic}}
+                    template = regex:replaceAll(template, "\\{\\{nic\\}\\}", personNicNo);
+
+                    // Replace {{number}}
+                    template = regex:replaceAll(template, "\\{\\{number\\}\\}", personPhoneNo);
+
+                    boolean|error emailSent = sendEmail(gmail, recipients, subject, template);
+
+                    if emailSent is boolean {
+                        io:println("Email sent successfully!");
+
+                        sql:ExecutionResult insertCvRequestRes = check db_client->execute(
+                                                `INSERT INTO cv_request(
+                                                  person_id,
+                                                  phone,
+                                                  status
+                                                ) VALUES (
+                                                  ${cvRequest.person_id},
+                                                  ${cvRequest.phone},
+                                                  ${cvRequest.status}
+                                                );`);
+
+                        int|string? insertCvRequestId = insertCvRequestRes.lastInsertId;
+
+                        if !(insertCvRequestId is int) {
+                            log:printError(string `Unable to insert cv request record`);
+                            return error(string `Unable to insert cv request record`);
+                        }
+
+                        return new (insertCvRequestId);
+
+                    } else {
+                        log:printError(string `Email sending failed:${emailSent.message()}`);
+                        return error(string `Email failed: " + ${emailSent.message()}`);
+                    }
+                } else {
+                    return error(string `Email template with key alumni_cv does not exist`);
+                }
+            } else {
+                return error(string `Person with ${id} does not exist`);
+            }
+
+        } else {
+            return error(string `Email Client Creation Failed: ${gmail.message()}`);
+        }
+    }
+    //Get the most recent CV update request for an student
+    isolated resource function get fetchLatestCvRequest(int personId) returns CvRequestData|error? {
+        int id = personId;
+
+        if (id == 0) {
+            return error(string `Person with ${id} does not exist`);
+        }
+
+        CvRequest|error? cvRequestDataRaw = db_client->queryRow(
+            `SELECT *
+            FROM cv_request
+            WHERE person_id = ${id}
+            ORDER BY updated DESC
+            LIMIT 1;`);
+
+        if (cvRequestDataRaw is CvRequest) {
+
+            int? cvRequestId = cvRequestDataRaw.id;
+
+            if (cvRequestId != null) {
+                return new (cvRequestId);
+            } else {
+                return error("Provide non-null value for cv request id");
+            }
+
+        } else {
+            return error(string `No CV request found for person with ID ${id}`);
+        }
+    }
+
+    //upload the alumni person cv
+    remote function uploadCV(int personId, PersonCv personCv) returns PersonCvData|error? {
+
+        int id = personId;
+
+        if (id == 0) {
+            return error(string `Person with ${id} does not exist`);
+        }
+
+        string uploadCvContent = personCv.file_content.toString();
+        byte[] base64DecodedCv = <byte[]>(check mime:base64Decode(uploadCvContent.toBytes()));
+        string mainAlumniCvDriveFolderId = "";
+
+        drive:Client|error drive = getGoogleDriveClientForJobsAndCVs();
+
+        if (drive is drive:Client) {
+
+            io:println("drive client created successfully!");
+
+            SystemGoogleDriveFolder|error alumniCvFolderRaw = db_client->queryRow(
+                                        `SELECT *
+                                        FROM system_google_drive_folder_mappings
+                                        WHERE  folder_key = "AlumniCv";`
+                                    );
+
+            if (alumniCvFolderRaw is SystemGoogleDriveFolder) {
+                mainAlumniCvDriveFolderId = alumniCvFolderRaw.google_drive_folder_id ?: "";
+            } else {
+                return error(string `Failed to retrieve Alumni CV Google Drive folder`);
+            }
+
+            // First check if a record exists
+            int|error count = db_client->queryRow(
+                                        `SELECT COUNT(*) AS total
+                                        FROM person_cv
+                                        WHERE person_id = ${id};`
+                                );
+
+            if (count is int) {
+
+                if (count > 0) {
+
+                    PersonCv|error personCvRaw = db_client->queryRow(
+                                        `SELECT *
+                                        FROM person_cv
+                                        WHERE person_id = ${id};`
+                                );
+
+                    if (personCvRaw is PersonCv) {
+
+                        string? oldDriveFileId = personCvRaw.drive_file_id ?: "";
+
+                        if (oldDriveFileId != null) {
+
+                            string cvFileName = personCv.nic_no.toString();
+
+                            drive:File|error createCvRes =
+                                    drive->uploadFileUsingByteArray(base64DecodedCv, cvFileName, mainAlumniCvDriveFolderId);
+
+                            if (createCvRes is drive:File) {
+
+                                string createCvDriveFileId = createCvRes.id.toString();
+
+                                sql:ExecutionResult res = check db_client->execute(
+                                                        `UPDATE person_cv SET
+                                                            drive_file_id = ${createCvDriveFileId},
+                                                            uploaded_by = ${personCv.uploaded_by}
+                                                        WHERE person_id =  ${id};`
+                                                    );
+
+                                if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+                                    boolean|error deleteNewCvRes = drive->deleteFile(createCvDriveFileId);
+                                    if (deleteNewCvRes is boolean) {
+                                        log:printInfo("Newly upload cv deleted.");
+                                    } else {
+                                        log:printError("Unable to delete newly upload cv document.");
+                                    }
+                                    return error(string `Unable to update CV due to a server issue.`);
+                                } else {
+                                    boolean|error deleteOldCvRes = drive->deleteFile(oldDriveFileId);
+                                    if (deleteOldCvRes is boolean) {
+                                        log:printInfo("Old cv deleted.");
+                                    } else {
+                                        log:printError("Unable to delete Old cv document.");
+                                    }
+                                    return new (0, id);
+                                }
+                            } else {
+                                return error(string `Failed to upload CV to Google Drive.`);
+                            }
+
+                        }
+
+                    } else if (personCvRaw is error) {
+                        return error(string `Database error:` + personCvRaw.message());
+                    }
+                } else if (count == 0) {
+
+                    string cvFileName = personCv.nic_no.toString();
+
+                    drive:File|error createCvRes =
+                                    drive->uploadFileUsingByteArray(base64DecodedCv, cvFileName, mainAlumniCvDriveFolderId);
+
+                    if (createCvRes is drive:File) {
+
+                        string createCvDriveFileId = createCvRes.id.toString();
+
+                        sql:ExecutionResult res = check db_client->execute(
+                                `INSERT INTO person_cv(
+                                    person_id,
+                                    drive_file_id,
+                                    uploaded_by
+                                ) VALUES (
+                                    ${id},
+                                    ${createCvDriveFileId},
+                                    ${personCv.uploaded_by}
+                                );`
+                            );
+
+                        int|string? generatedPersonCvId = res.lastInsertId;
+
+                        if !(generatedPersonCvId is int) {
+                            boolean|error deleteNewCvRes = drive->deleteFile(createCvDriveFileId);
+                            if (deleteNewCvRes is boolean) {
+                                log:printInfo("Newly upload cv deleted.");
+                            } else {
+                                log:printError("Unable to delete newly upload cv document.");
+                            }
+                            log:printError(string `Failed to create person cv record:could not retrieve insert ID`);
+                            return error(string `Error occurred while creating CV record for the person"`);
+                        }
+
+                        // NotificationRequest request = {
+                        //     title:"CV Updated!",
+                        //     body: "Your CV has been updated!"
+                        // };
+
+                        // check sendNotificationToUser(id,request);
+                        return new (generatedPersonCvId);
+                    } else {
+                        return error(string `Failed to upload New CV to Google Drive.`);
+                    }
+
+                }
+            } else {
+                return error(string `Failed to retrieve CV record count for the specified person.`);
+            }
+        } else {
+            return error(string `Drive Client Creation Failed: ${drive.message()}`);
+        }
+        return;
+    }
+
+    //Fetch the CV of a specific student
+    isolated resource function get fetchPersonCV(int personId, string? driveFileId) returns PersonCvData|error? {
+
+        int id = personId;
+        PersonCv|error personCvRaw;
+
+        if (id == 0) {
+            return error(string `Person with ${id} does not exist`);
+        }
+
+        personCvRaw = db_client->queryRow(
+                                        `SELECT *
+                                        FROM person_cv
+                                        WHERE person_id = ${id};`
+                                );
+
+        if (driveFileId != null) {
+
+            personCvRaw = db_client->queryRow(
+                                        `SELECT *
+                                        FROM person_cv
+                                        WHERE person_id = ${id} and drive_file_id= ${driveFileId};`
+                                );
+        }
+
+        if (personCvRaw is PersonCv) {
+
+            drive:Client drive = check getGoogleDriveClientForJobsAndCVs();
+            string|error base64PersonCv = getDriveFileBase64(drive, personCvRaw.drive_file_id.toString());
+            if (base64PersonCv is string) {
+                personCvRaw.file_content = base64PersonCv;
+                PersonCvData|error personCVData = new PersonCvData(0, 0, personCvRaw);
+                if !(personCVData is error) {
+                    return personCVData;
+                }
+            } else {
+                return error(string `File not found`);
+            }
+
+        } else {
+            return error(personCvRaw.message());
+        }
+        return;
+    }
+
+    //Store FCM token for a specific student
+    remote function saveUserFCMToken(int personId, PersonFcmToken personFCMToken) returns PersonFcmTokenData|error? {
+
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO person_fcm_token(
+                person_id,
+                fcm_token
+            ) VALUES (
+                ${personId},
+                ${personFCMToken.fcm_token}
+            );`
+        );
+
+        int|string? insertId = res.lastInsertId;
+        if !(insertId is int) {
+            return error("Failed to save FCM token");
+        }
+        return new (insertId);
+    }
+
+    //Update FCM token for a specific student
+    remote function updateUserFCMToken(int personId, PersonFcmToken personFCMToken) returns PersonFcmTokenData|error? {
+
+        int id = personFCMToken.id ?: 0;
+
+        if (id == 0) {
+            return error(string `Person Fcm token record ID cannot be zero`);
+        }
+
+        sql:ExecutionResult res = check db_client->execute(
+            `UPDATE person_fcm_token SET
+                fcm_token = ${personFCMToken.fcm_token}
+            WHERE id = ${id};`
+        );
+
+        if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+            return error("Failed to update FCM token record");
+        }
+
+        return new (id);
+    }
+
+    //Get FCM token for a specific student
+    isolated resource function get fetchUserFCMToken(int? personId) returns PersonFcmTokenData|error? {
+        if (personId != null) {
+            return new (0, personId);
+        } else {
+            return error("Provide non-null value for person id.");
+        }
+    }
+
+    //==============================Maintenance Module Api Implementation==============================//
+
+    remote function saveOrganizationLocation(int organizationId, OrganizationLocation organizationLocation) returns OrganizationLocationData|error? {
+
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO organization_location(
+                organization_id,
+                location_name,
+                description
+            ) VALUES (
+                ${organizationLocation.organization_id},
+                ${organizationLocation.location_name},
+                ${organizationLocation.description}
+            );`
+        );
+
+        int|string? insertId = res.lastInsertId;
+        if !(insertId is int) {
+            return error("Failed to save Organization Location");
+        }
+        return new (insertId);
+    }
+
+    isolated resource function get locationsByOrganization(int? organizationId) returns OrganizationLocationData[]|error? {
+        stream<OrganizationLocation, error?> orgLocationsData;
+
+        if (organizationId != null) {
+
+            lock {
+                orgLocationsData = db_client->query(
+                    `SELECT *
+                        from organization_location
+                     where organization_id=${organizationId};`);
+            }
+
+            OrganizationLocationData[] locationDatas = [];
+
+            check from OrganizationLocation location_data_record in orgLocationsData
+                do {
+                    OrganizationLocationData|error locationData = new OrganizationLocationData(0, location_data_record);
+                    if !(locationData is error) {
+                        locationDatas.push(locationData);
+                    }
+                };
+
+            check orgLocationsData.close();
+            return locationDatas;
+        } else {
+            return error("Provide valid value for organization id.");
+        }
+    }
+
+    // Create Maintenance Task
+    remote function createMaintenanceTask(int? organizationId, MaintenanceTask maintenanceTask, MaintenanceFinance? finance, MaterialCost[]? materialCosts) returns MaintenanceTaskData|error? {
+
+        //define the transactions
+        boolean taskInsertFailed = false;
+        boolean activityInstanceInsertFailed = false;
+        boolean participantInsertFailed = false;
+        boolean financeInsertFailed = false;
+        boolean materialCostInsertFailed = false;
+        string message = "";
+        int|string? insertTaskActivityInstanceId = null;
+
+        io:println(`material cost:${materialCosts.toString()}`);
+        transaction {
+
+            sql:ExecutionResult insertMaintenanceTaskTable = check db_client->execute(
+            `INSERT INTO maintenance_task(
+                title,
+                description,
+                task_type,
+                frequency,
+                location_id,
+                start_date,
+                exception_deadline,
+                has_financial_info,
+                modified_by
+            ) VALUES (
+                ${maintenanceTask.title},
+                ${maintenanceTask.description},
+                ${maintenanceTask.task_type},
+                ${maintenanceTask.frequency},
+                ${maintenanceTask.location_id},
+                ${maintenanceTask.start_date},
+                ${maintenanceTask.exception_deadline},
+                ${maintenanceTask.has_financial_info},
+                ${maintenanceTask.modified_by}
+            );`
+            );
+
+            int|string? insertTaskId = insertMaintenanceTaskTable.lastInsertId;
+            if !(insertTaskId is int) {
+                taskInsertFailed = true;
+                message = "Failed to save Maintenance Task.";
+            }
+
+            string taskStartDate = maintenanceTask.start_date ?: "";
+            int deadlineInDays = maintenanceTask.exception_deadline ?: 0;
+
+            //Calculate and get the task end date
+            string|error taskEndDate = addDaysToDate(taskStartDate, deadlineInDays);
+
+            if taskEndDate is string {
+
+                //Save maintenance task in activity instance table
+                sql:ExecutionResult insertTaskActivityInstanceTable = check db_client->execute(
+                `INSERT INTO activity_instance(
+                    activity_id,
+                    task_id,
+                    name,
+                    start_time,
+                    end_time,
+                    overall_task_status
+                ) VALUES (
+                    21,
+                    ${insertTaskId},
+                    ${maintenanceTask.title},
+                    ${maintenanceTask.start_date},
+                    ${taskEndDate},
+                    ${"Pending"}
+                );`
+                );
+
+                insertTaskActivityInstanceId = insertTaskActivityInstanceTable.lastInsertId;
+                if !(insertTaskActivityInstanceId is int) {
+                    activityInstanceInsertFailed = true;
+                    message = "Failed to save task activity instance.";
+                }
+
+            } else if (taskEndDate is error) {
+                log:printError("Failed to calculate end date", taskEndDate);
+            }
+
+            //Save maintenance task participants in activity participant table
+            int[] personIdList = maintenanceTask?.person_id_list ?: [];
+            if personIdList is int[] && personIdList.length() > 0 {
+                foreach int personId in personIdList {
+                    sql:ExecutionResult insertTaskActivityParticipantTable = check db_client->execute(
+                        `INSERT INTO activity_participant(
+                            activity_instance_id,
+                            person_id,
+                            participant_task_status
+                        ) VALUES (
+                            ${insertTaskActivityInstanceId},
+                            ${personId},
+                            ${"Pending"}
+                        );`
+                        );
+
+                    int|string? insertTaskActivityParticipantId = insertTaskActivityParticipantTable.lastInsertId;
+                    if !(insertTaskActivityParticipantId is int) {
+                        participantInsertFailed = true;
+                        message = "Failed to save task activity participant.";
+                    }
+
+                }
+            }
+
+            int hasFinanceInfo = maintenanceTask.has_financial_info ?: 0;
+
+            if (hasFinanceInfo == 1) {
+
+                //MaintenanceFinance maintenanceFinanceData = <MaintenanceFinance>maintenanceTask.finance;
+
+                if (finance is MaintenanceFinance) {
+
+                    sql:ExecutionResult insertMaintenanceFinanceTable = check db_client->execute(
+                            `INSERT INTO maintenance_finance(
+                                activity_instance_id,
+                                estimated_cost,
+                                labour_cost,
+                                status
+                            ) VALUES (
+                                ${insertTaskActivityInstanceId},
+                                ${finance.estimated_cost},
+                                ${finance.labour_cost},
+                                ${"Pending"}
+                            );`
+                            );
+
+                    int|string? insertMaintenanceFinanceId = insertMaintenanceFinanceTable.lastInsertId;
+                    if !(insertMaintenanceFinanceId is int) {
+                        financeInsertFailed = true;
+                        message = "Failed to save maintenance task finance info.";
+                    }
+
+                    //Save maintenance task material costs in table
+                    if materialCosts is MaterialCost[] && materialCosts.length() > 0 {
+                        foreach MaterialCost materialCost in materialCosts {
+                            sql:ExecutionResult insertMaterialCostTable = check db_client->execute(
+                                    `INSERT INTO material_cost(
+                                        financial_id,
+                                        item,
+                                        quantity,
+                                        unit,
+                                        unit_cost
+                                    ) VALUES (
+                                        ${insertMaintenanceFinanceId},
+                                        ${materialCost.item},
+                                        ${materialCost.quantity},
+                                        ${materialCost.unit},
+                                        ${materialCost.unit_cost}
+                                    );`
+                                    );
+
+                            int|string? insertMaterialCostId = insertMaterialCostTable.lastInsertId;
+                            if !(insertMaterialCostId is int) {
+                                materialCostInsertFailed = true;
+                                message = "Failed to save material cost.";
+                            }
+
+                        }
+
+                    }
+                }
+
+            }
+
+            if (taskInsertFailed ||
+                activityInstanceInsertFailed ||
+                participantInsertFailed ||
+                financeInsertFailed ||
+                materialCostInsertFailed
+                ) {
+                rollback;
+                return error(message);
+            } else {
+
+                // Commit the transaction if all transactions are successful
+                check commit;
+                io:println("Transaction committed successfully!");
+                return new (<int?>insertTaskId);
+            }
+
+        }
+    }
+
+    //Update the Maintenance Task
+    remote function updateMaintenanceTask(int organizationId,
+            ActivityInstance maintenanceTaskActivityInstance,
+            MaintenanceTask maintenanceTask,
+            int[] maintenanceTaskParticipantList,
+            MaintenanceFinance? finance,
+            MaterialCost[]? materialCosts) returns ActivityInstanceData|error? {
+
+        boolean taskUpdateFailed = false;
+        string message = "";
+        int exceptionDeadline = 0;
+
+        int id = maintenanceTask.id ?: 0;
+
+        if (id == 0) {
+            return error(string `Maintenance Task record ID cannot be zero`);
+        }
+
+        transaction {
+
+            MaintenanceTask|error? maintenanceTaskRow = check db_client->queryRow(
+                `SELECT *
+                 FROM maintenance_task
+                WHERE id = ${id}`
+            );
+
+            if (maintenanceTaskRow is MaintenanceTask) {
+                exceptionDeadline = maintenanceTaskRow.exception_deadline ?: 0;
+            }
+
+            sql:ExecutionResult res = check db_client->execute(
+            `UPDATE maintenance_task SET
+                description = ${maintenanceTask.description},
+                frequency = ${maintenanceTask.frequency},
+                location_id = ${maintenanceTask.location_id},
+                exception_deadline = ${maintenanceTask.exception_deadline},
+                modified_by = ${maintenanceTask.modified_by}
+            WHERE id = ${id};`
+            );
+
+            if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+                taskUpdateFailed = true;
+                message = "Failed to update maintenance task record";
+            }
+
+            int taskActivityInstanceId = maintenanceTaskActivityInstance.id ?: 0;
+            int updatedTaskExceptionDeadline = maintenanceTask.exception_deadline ?: 0;
+
+            if (exceptionDeadline != updatedTaskExceptionDeadline) {
+
+                ActivityInstance|error? taskActivityInstanceRow = check db_client->queryRow(
+                    `SELECT *
+                    FROM activity_instance
+                    WHERE id = ${taskActivityInstanceId} 
+                    AND activity_id = 21`
+                );
+
+                if (taskActivityInstanceRow is ActivityInstance) {
+
+                    string taskStartDate = taskActivityInstanceRow.start_time ?: "";
+
+                    //Calculate and get the task end date
+                    string|error taskEndDate = addDaysToDate(taskStartDate, updatedTaskExceptionDeadline);
+
+                    if taskEndDate is string {
+
+                        sql:ExecutionResult taskActivityInstanceRes = check db_client->execute(
+                        `UPDATE activity_instance SET
+                            end_time = ${taskEndDate}
+                        WHERE id = ${taskActivityInstanceId};`
+                        );
+
+                        if (taskActivityInstanceRes.affectedRowCount == sql:EXECUTION_FAILED) {
+                            taskUpdateFailed = true;
+                            message = "Failed to update maintenance task activity instance record";
+                        }
+                    } else if (taskEndDate is error) {
+                        log:printError("Failed to calculate end date", taskEndDate);
+                    }
+                }
+
+            }
+
+            int[] existingPersonIds = [];
+            stream<ActivityParticipant, error?> taskActivityPartipantsData;
+
+            lock {
+                taskActivityPartipantsData = db_client->query(
+                    `SELECT *
+                        from activity_participant
+                     where activity_instance_id=${taskActivityInstanceId};`);
+            }
+
+            check taskActivityPartipantsData.forEach(function(ActivityParticipant p) {
+                if p.person_id is int {
+                    existingPersonIds.push(p.person_id ?: 0);
+                }
+            });
+
+            int[] newParticipantsIds = []; //add new participants
+            int[] deleteParticipantsIds = []; //delete participants
+
+            foreach int existingId in existingPersonIds {
+                if !contains(maintenanceTaskParticipantList, existingId) {
+                    deleteParticipantsIds.push(existingId);
+                }
+            }
+
+            foreach int taskParticiapntId in maintenanceTaskParticipantList {
+                if !contains(existingPersonIds, taskParticiapntId) {
+                    newParticipantsIds.push(taskParticiapntId);
+                }
+            }
+
+            //Add new task participants
+            foreach int newParticipantId in newParticipantsIds {
+                sql:ExecutionResult insertNewParticipantsRes = check db_client->execute(
+                    `INSERT INTO activity_participant(
+                        activity_instance_id,
+                        person_id,
+                        participant_task_status
+                    ) VALUES (
+                        ${taskActivityInstanceId},
+                        ${newParticipantId},
+                        ${"Pending"}
+                    );`
+                );
+
+                int|string? insertNewParticipantId = insertNewParticipantsRes.lastInsertId;
+                if !(insertNewParticipantId is int) {
+                    taskUpdateFailed = true;
+                    message = "Failed to save task activity participant.";
+                }
+            }
+
+            //Delete existing task participants
+            foreach int participantId in deleteParticipantsIds {
+
+                sql:ExecutionResult deleteTaskParticipantRes = check db_client->execute(
+                    `DELETE FROM activity_participant WHERE activity_instance_id = ${taskActivityInstanceId}
+                     AND person_id = ${participantId};`
+                );
+
+                int? delete_id = deleteTaskParticipantRes.affectedRowCount;
+                if (delete_id <= 0) {
+                    taskUpdateFailed = true;
+                    message = "Unable to delete task activity participant";
+                }
+            }
+
+            //Update Maintenance Task Finance Information
+            MaintenanceTaskUpdateFinanceResult|error financeInfoUpdateResult = updateMaintenanceTaskFinanceInfo(id, maintenanceTask,
+                                            taskActivityInstanceId,
+                                            finance, materialCosts);
+
+            if (financeInfoUpdateResult is MaintenanceTaskUpdateFinanceResult) {
+                taskUpdateFailed = !(financeInfoUpdateResult.success ?: false);
+                message = <string>financeInfoUpdateResult.message;
+            }
+
+            if (taskUpdateFailed) {
+                rollback;
+                if (message == "") {
+                    message = "Transaction failed";
+                }
+                return error(message);
+            } else {
+
+                // Commit the transaction if all transactions are successful
+                check commit;
+                io:println("Transaction committed successfully!");
+                return new (null, <int?>taskActivityInstanceId);
+            }
+        }
+    }
+
+    //Update the Task Participant task Progress
+    remote function updateTaskProgress(int activityInstanceId, int taskParticipantId,
+            ActivityParticipant taskParticipant
+    ) returns ActivityParticipantData|error? {
+
+        int participantId = taskParticipant.person_id ?: 0;
+        int taskActivityInstanceId = taskParticipant.activity_instance_id ?: 0;
+        string taskStatus = taskParticipant.participant_task_status ?: "";
+
+        int taskId = 0;
+        int taskParticipantRowId = 0;
+        int|string? insertTaskActivityInstanceId = null;
+
+        if (participantId == 0 || taskActivityInstanceId == 0) {
+
+            return error(string `Maintenance Task Pariticipant ID or Activity Instance Id cannot be zero`);
+
+        }
+
+        ActivityParticipant|error? taskActivityParticipantRow = check db_client->queryRow(
+            `SELECT *
+                FROM activity_participant
+            WHERE activity_instance_id = ${taskActivityInstanceId} and person_id= ${participantId};`
+        );
+
+        if (taskActivityParticipantRow is ActivityParticipant) {
+            taskParticipantRowId = taskActivityParticipantRow.id ?: 0;
+        }
+
+        ActivityInstance|error? taskActivityInstanceRow = check db_client->queryRow(
+            `SELECT *
+                FROM activity_instance
+            WHERE id = ${taskActivityInstanceId}`
+        );
+
+        if (taskActivityInstanceRow is ActivityInstance) {
+            taskId = taskActivityInstanceRow.task_id ?: 0;
+        }
+
+        int[] taskParticipantsIds = [];
+        stream<ActivityParticipant, error?> taskActivityParticipantsData;
+
+        lock {
+            taskActivityParticipantsData = db_client->query(
+                `SELECT *
+                    from activity_participant
+                    where activity_instance_id=${taskActivityInstanceId};`);
+        }
+
+        check taskActivityParticipantsData.forEach(function(ActivityParticipant p) {
+            if p.person_id is int {
+                taskParticipantsIds.push(p.person_id ?: 0);
+            }
+        });
+
+        if (taskStatus == "Pending") {
+
+            boolean hasStarted = true;
+            stream<record {|int has_started;|}, error?> results;
+
+            sql:ExecutionResult taskActivityParticipantRes = check db_client->execute(
+                `UPDATE activity_participant SET
+                    start_date = NULL,
+                    participant_task_status = ${"Pending"}
+                WHERE person_id=${participantId} AND activity_instance_id = ${taskActivityInstanceId};`
+                );
+
+            if (taskActivityParticipantRes.affectedRowCount == sql:EXECUTION_FAILED) {
+                return error("Failed to update task activity participant record");
+            }
+
+            lock {
+                results = db_client->query(
+                                    `SELECT 1 AS has_started
+                                        FROM activity_participant
+                                        WHERE activity_instance_id=${taskActivityInstanceId}
+                                        AND participant_task_status IN ('InProgress','Completed')
+                                        LIMIT 1;`);
+            }
+
+            var firstRow = results.next();
+            hasStarted = firstRow is record {|record {|int has_started;|} value;|};
+
+            io:print(`has started:${hasStarted}`);
+
+            if (!hasStarted) {
+
+                sql:ExecutionResult taskActivityInstanceRes = check db_client->execute(
+                                    `UPDATE activity_instance SET
+                                        overall_task_status = ${"Pending"}
+                                    WHERE id = ${taskActivityInstanceId} AND activity_id=21;`
+                );
+
+                if (taskActivityInstanceRes.affectedRowCount == sql:EXECUTION_FAILED) {
+                    return error("Failed to update task activity instance record");
+                }
+            }
+            return new (taskParticipantRowId);
+
+        } else if (taskStatus == "InProgress") {
+
+            sql:ExecutionResult taskActivityInstanceRes = check db_client->execute(
+                                    `UPDATE activity_instance SET
+                                        overall_task_status = ${"InProgress"}
+                                    WHERE id = ${taskActivityInstanceId} AND activity_id=21;`
+                );
+
+            if (taskActivityInstanceRes.affectedRowCount == sql:EXECUTION_FAILED) {
+                return error("Failed to update task activity instance record");
+            }
+
+            sql:ExecutionResult taskParticipantRes = check db_client->execute(
+                `UPDATE activity_participant SET
+                    start_date = CURDATE(),
+                    participant_task_status = ${"InProgress"}
+                WHERE person_id=${participantId} AND activity_instance_id = ${taskActivityInstanceId};`
+                );
+
+            if (taskParticipantRes.affectedRowCount == sql:EXECUTION_FAILED) {
+                return error("Failed to update task activity participant record");
+            }
+            return new (taskParticipantRowId);
+
+        } else if (taskStatus == "Completed") {
+
+            boolean taskProgressUpdateFailed = false;
+            string taskFrequency = "";
+            int exceptionDeadlineDaysCount = 0;
+            string|error taskEndDate = "";
+            string taskTitle = "";
+            string taskType= "";
+            string message = "";
+            boolean is_active = false;
+
+            transaction {
+
+                sql:ExecutionResult taskParticipantRes = check db_client->execute(
+                `UPDATE activity_participant SET
+                    end_date = CURDATE(),
+                    participant_task_status = ${"Completed"}
+                WHERE person_id=${participantId} AND activity_instance_id = ${taskActivityInstanceId};`
+                );
+
+                if (taskParticipantRes.affectedRowCount == sql:EXECUTION_FAILED) {
+                    taskProgressUpdateFailed = true;
+                    message = "Failed to update task activity participant record";
+                }
+
+                boolean allCompleted = true;
+                stream<record {|int pending_count;|}, error?> completedResults;
+
+                lock {
+                    completedResults = db_client->query(
+                                    `SELECT COUNT(*) AS pending_count
+                                        FROM activity_participant
+                                        WHERE activity_instance_id = ${taskActivityInstanceId}
+                                        AND participant_task_status != 'Completed'`
+                                    );
+                }
+
+                var completedRow = completedResults.next();
+
+                allCompleted = completedRow is record {|record {|int pending_count;|} value;|}
+                    ? completedRow.value.pending_count == 0
+                    : false;
+
+                if (allCompleted) {
+
+                    sql:ExecutionResult taskActivityInstanceRes = check db_client->execute(
+                                                        `UPDATE activity_instance SET
+                                                            overall_task_status = ${"Completed"}
+                                                        WHERE id = ${taskActivityInstanceId} 
+                                                        AND activity_id=21;`);
+
+                    if (taskActivityInstanceRes.affectedRowCount == sql:EXECUTION_FAILED) {
+                        taskProgressUpdateFailed = true;
+                        message = "Failed to update task activity instance record";
+                    }
+
+                    MaintenanceTask|error? maintenanceTaskRow = check db_client->queryRow(
+                                                                `SELECT *
+                                                                FROM maintenance_task
+                                                                WHERE id = ${taskId};`);
+                    
+
+                    if (maintenanceTaskRow is MaintenanceTask) {
+                        io:println(`is active:${maintenanceTaskRow.is_active}`);
+                        is_active = maintenanceTaskRow.is_active ?:false;
+                        taskType = maintenanceTaskRow.task_type?:"";
+                        taskTitle = maintenanceTaskRow.title ?: "";
+                        taskFrequency = maintenanceTaskRow.frequency ?: "";
+                        exceptionDeadlineDaysCount = maintenanceTaskRow.exception_deadline ?: 0;
+                    }
+
+                    int recurrenceDays = getRecurrenceDays(taskFrequency);
+                    
+                    //If task is one time do not need to create activity instance
+                 if(taskType == "Recurring" && recurrenceDays!=0 && is_active==true){
+                    
+
+                    //current time in utc
+                    time:Utc currentDateInUtc = time:utcNow();
+
+                    // add 19800 seconds = 5 hours and 30 min(india standard time)
+                    time:Utc utcAddSeconds = time:utcAddSeconds(currentDateInUtc, 19800);
+
+                    //utc to string
+                    string formatted = time:utcToString(utcAddSeconds);
+
+                    //transform the date time to this format = YYYY-MM-DDTHH:MM:SSZ
+                    string formated = regex:replaceAll(formatted, "\\.\\d+Z", "Z");
+
+                    string remove = removeTandZ(formated);
+
+                    //Calculate and get the task start date
+                    string|error taskStartDate = addDaysToDate(remove, recurrenceDays);
+
+                    if taskStartDate is string {
+                        //Calculate and get the task end date
+                        taskEndDate = addDaysToDate(taskStartDate, exceptionDeadlineDaysCount);
+                    }
+
+                    io:println(`recurrenceDays:${recurrenceDays}`);
+                    io:println(`currentDateInUtc:${currentDateInUtc}`);
+                    io:println(`remove:${remove}`);
+                    io:println(`taskStartDate:${taskStartDate}`);
+                    io:println(`exceptionDeadlineDaysCount:${exceptionDeadlineDaysCount}`);
+                    io:println(`taskEndDate:${taskEndDate}`);
+
+                    if (taskStartDate is string) && (taskEndDate is string) {
+                        //Save maintenance task in activity instance table
+                        sql:ExecutionResult insertTaskActivityInstanceTable = check db_client->execute(
+                                                                            `INSERT INTO activity_instance(
+                                                                                activity_id,
+                                                                                task_id,
+                                                                                name,
+                                                                                start_time,
+                                                                                end_time,
+                                                                                overall_task_status
+                                                                            ) VALUES (
+                                                                                21,
+                                                                                ${taskId},
+                                                                                ${taskTitle},
+                                                                                ${taskStartDate},
+                                                                                ${taskEndDate},
+                                                                                ${"Pending"}
+                                                                            );`
+                                                                            );
+
+                        insertTaskActivityInstanceId = insertTaskActivityInstanceTable.lastInsertId;
+                        if !(insertTaskActivityInstanceId is int) {
+                            taskProgressUpdateFailed = true;
+                            message = "Failed to save task activity instance.";
+                        }
+                    } else if ((taskStartDate is error) || (taskEndDate is error)) {
+                        log:printError(string `Failed to calculate start date or end date`);
+                    }
+
+                    //Save maintenance task participants in activity participant table
+                    if taskParticipantsIds is int[] && taskParticipantsIds.length() > 0 {
+                        foreach int personId in taskParticipantsIds {
+                            sql:ExecutionResult insertTaskActivityParticipantTable = check db_client->execute(
+                                `INSERT INTO activity_participant(
+                                    activity_instance_id,
+                                    person_id,
+                                    participant_task_status
+                                ) VALUES (
+                                    ${insertTaskActivityInstanceId},
+                                    ${personId},
+                                    ${"Pending"}
+                                );`
+                                );
+
+                            int|string? insertTaskActivityParticipantId = insertTaskActivityParticipantTable.lastInsertId;
+                            if !(insertTaskActivityParticipantId is int) {
+                                taskProgressUpdateFailed = true;
+                                message = "Failed to save task activity participant.";
+                            }
+
+                        }
+                    }
+                 }
+                } else {
+                    sql:ExecutionResult taskActivityInstanceRes = check db_client->execute(
+                                        `UPDATE activity_instance SET
+                                            overall_task_status = ${"InProgress"}
+                                        WHERE id = ${taskActivityInstanceId} AND activity_id=21;`);
+
+                    if (taskActivityInstanceRes.affectedRowCount == sql:EXECUTION_FAILED) {
+                        message = "Failed to update task activity instance record";
+                    }
+                }
+                if (taskProgressUpdateFailed) {
+                    rollback;
+                    return error(message);
+                } else {
+                    // Commit the transaction if all transactions are successful
+                    check commit;
+                    return new (taskParticipantRowId);
+                }
+            }
+        }
+
+        return;
+    }
+
+    isolated resource function get maintenanceTasks(
+            int organizationId,
+            int[]? personId = (),
+            string? fromDate = (),
+            string? toDate = (),
+            string? taskStatus = (),
+            string? financialStatus = (),
+            string? taskType = (),
+            int? location = (),
+            string? title = (),
+            int 'limit = 10,
+            int offset = 0,
+            boolean includeFinance = false
+    ) returns ActivityInstanceData[]|error? {
+
+        // Build the base query
+        sql:ParameterizedQuery query = `
+            SELECT ai.*
+            FROM activity_instance ai
+            INNER JOIN maintenance_task mt ON ai.task_id = mt.id
+            INNER JOIN organization_location ol ON mt.location_id = ol.id
+            WHERE ol.organization_id = ${organizationId} AND mt.is_active = 1
+        `;
+
+        // Add optional filters
+        if fromDate is string {
+            query = sql:queryConcat(query, ` AND ai.start_time >= ${fromDate}`);
+        }
+        if toDate is string {
+            query = sql:queryConcat(query, ` AND ai.start_time <= ${toDate}`);
+        }
+        if taskStatus is string {
+            query = sql:queryConcat(query, ` AND ai.overall_task_status = ${taskStatus}`);
+        }
+        if taskType is string {
+            query = sql:queryConcat(query, ` AND mt.task_type = ${taskType}`);
+        }
+        if location is int {
+            query = sql:queryConcat(query, ` AND mt.location_id = ${location}`);
+        }
+        if title is string {
+            string searchTitle = "%" + title + "%";
+            query = sql:queryConcat(query, ` AND mt.title LIKE ${searchTitle}`);
+        }
+        if financialStatus is string {
+            query = sql:queryConcat(query,
+                ` AND ai.id IN (SELECT activity_instance_id FROM maintenance_finance WHERE status = ${financialStatus})`
+            );
+        }
+
+        // Logic for personId array filter
+        if personId is int[] && personId.length() > 0 {
+            sql:ParameterizedQuery personIdListQuery = ``;
+            foreach int i in 0 ..< personId.length() {
+                if (i > 0) {
+                    personIdListQuery = sql:queryConcat(personIdListQuery, `,`, `${personId[i]}`);
+                } else {
+                    personIdListQuery = sql:queryConcat(`${personId[i]}`);
+                }
+            }
+            query = sql:queryConcat(query,
+                ` AND ai.id IN (SELECT activity_instance_id FROM activity_participant WHERE person_id IN (`,
+                personIdListQuery, `))`
+            );
+        }
+
+        // Add pagination
+        query = sql:queryConcat(query, ` LIMIT ${'limit} OFFSET ${offset}`);
+
+        stream<ActivityInstance, error?> maintenanceTasksStream;
+
+        lock {
+            maintenanceTasksStream = db_client->query(query);
+        }
+
+        ActivityInstanceData[] activityInstanceDatas = [];
+
+        // Process the stream into the array
+        check from ActivityInstance instance in maintenanceTasksStream
+            do {
+                ActivityInstanceData|error activityInstanceData = new ActivityInstanceData((), instance.id, instance);
+                if !(activityInstanceData is error) {
+                    activityInstanceDatas.push(activityInstanceData);
+                }
+            };
+
+        check maintenanceTasksStream.close();
+        return activityInstanceDatas;
+    }
+
+    isolated resource function get overdueMaintenanceTasks(
+            int organizationId
+    ) returns ActivityInstanceData[]|error? {
+
+        string currentDate = time:utcToString(time:utcNow());
+
+        stream<ActivityInstance, error?> overdueTasksStream;
+
+        lock {
+            overdueTasksStream = db_client->query(
+                `SELECT ai.*
+                FROM activity_instance ai
+                INNER JOIN maintenance_task mt ON ai.task_id = mt.id
+                INNER JOIN organization_location ol ON mt.location_id = ol.id
+                WHERE ol.organization_id = ${organizationId}
+                AND ai.overall_task_status != 'Completed'
+                AND CASE 
+                    WHEN ai.end_time < NOW() THEN FLOOR(TIMESTAMPDIFF(SECOND, ai.end_time, NOW()) / 86400)
+                    ELSE 0
+                END > 0;`
+            );
+        }
+
+        ActivityInstanceData[] activityInstanceDatas = [];
+
+        // Process the stream into the array
+        check from ActivityInstance instance in overdueTasksStream
+            do {
+                ActivityInstanceData|error activityInstanceData = new ActivityInstanceData((), instance.id, instance);
+                if !(activityInstanceData is error) {
+                    activityInstanceDatas.push(activityInstanceData);
+                }
+            };
+
+        check overdueTasksStream.close();
+        return activityInstanceDatas;
+    }
+
+    //Get Maintenance Task by organizationId, month, year and overall task status
+    isolated resource function get maintenanceTasksByMonthYearStatus(
+            int organizationId,
+            int month,
+            int year,
+            string? overallTaskStatus = (),
+            int 'limit = 10,
+            int offset = 0
+    ) returns ActivityInstanceData[]|error? {
+
+        stream<ActivityInstance, error?> maintenanceTasksStream;
+
+        sql:ParameterizedQuery query = `SELECT ai.*
+                FROM activity_instance ai
+                INNER JOIN maintenance_task mt ON ai.task_id = mt.id
+                INNER JOIN organization_location ol ON mt.location_id = ol.id
+                LEFT JOIN maintenance_finance mf ON mf.activity_instance_id = ai.id
+                WHERE ol.organization_id = ${organizationId}
+                AND MONTH(ai.start_time) = ${month}
+                AND YEAR(ai.start_time) = ${year}
+                AND (mf.status = 'Approved' OR mf.activity_instance_id IS NULL)`;
+
+        if overallTaskStatus is string {
+            query = sql:queryConcat(query, ` AND ai.overall_task_status = ${overallTaskStatus}`);
+        }
+
+        // Add pagination
+        query = sql:queryConcat(query, ` LIMIT ${'limit} OFFSET ${offset}`);
+
+        lock {
+            maintenanceTasksStream = db_client->query(query);
+        }
+
+        ActivityInstanceData[] activityInstanceDatas = [];
+
+        // Process the stream into the array
+        check from ActivityInstance instance in maintenanceTasksStream
+            do {
+                ActivityInstanceData|error activityInstanceData = new ActivityInstanceData((), instance.id, instance);
+                if !(activityInstanceData is error) {
+                    activityInstanceDatas.push(activityInstanceData);
+                }
+            };
+
+        check maintenanceTasksStream.close();
+        return activityInstanceDatas;
+    }
+
+    //Make task as inactive
+    remote function softDeactivateMaintenanceTask(int taskId, string modifiedBy) returns MaintenanceTaskData|error? {
+
+        if (taskId <= 0) {
+            return error("Invalid taskId");
+        }
+
+        if (modifiedBy.length() == 0) {
+            return error("modifiedBy is required");
+        }
+
+        lock {
+            return deactivateMaintenanceTask(taskId, modifiedBy);
+        }
+    }
+
+    //Update maintenance finance details
+    remote function updateMaintenanceFinance(int financeId, MaintenanceFinance maintenanceFinance) returns MaintenanceFinanceData|error? {
+
+        sql:ExecutionResult res = check db_client->execute(
+            `UPDATE maintenance_finance SET
+                status = ${maintenanceFinance.status},
+                rejection_reason = ${maintenanceFinance.rejection_reason},
+                reviewed_by = ${maintenanceFinance.reviewed_by},
+                reviewed_date = NOW()
+            WHERE id = ${financeId};`
+        );
+
+        if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+            return error("Failed to update maintenance finance record");
+        }
+
+        if (res.affectedRowCount == 0) {
+            return error("No finance record found with id: " + financeId.toString());
+        }
+
+        return new (financeId);
+    }
+
+    // Get total tasks count, completed tasks count, pending tasks count, inprogress tasks count for a given month and year and get 
+    // upcoming no of tasks and it's esteemated cost for next month from the current month, all data are taken for given organization id
+    isolated resource function get monthlyMaintenanceReport(
+            int organizationId,
+            int year,
+            int month
+    ) returns MonthlyReportData|error {
+
+        if (month < 1 || month > 12) {
+            return error("Invalid month");
+        }
+
+        int totalTasks = 0;
+        int completedTasks = 0;
+        int inProgressTasks = 0;
+        int pendingTasks = 0;
+        int upcomingTasks = 0;
+
+        decimal totalActualCost = 0.0;
+        decimal nextMonthEstimatedCost = 0.0;
+
+        lock {
+
+            MonthlyReport row = check db_client->queryRow(
+                `SELECT
+                    COUNT(DISTINCT ai.id) AS totalTasks,
+                    COUNT(DISTINCT CASE
+                        WHEN ai.overall_task_status = 'Completed' THEN ai.id
+                    END) AS completedTasks,
+                    COUNT(DISTINCT CASE
+                        WHEN ai.overall_task_status = 'Pending' THEN ai.id
+                    END) AS pendingTasks,
+                    COUNT(DISTINCT CASE
+                        WHEN ai.overall_task_status = 'InProgress' THEN ai.id
+                    END) AS inProgressTasks
+                FROM activity_instance ai
+                JOIN maintenance_task mt ON mt.id = ai.task_id
+                JOIN organization_location ol ON ol.id = mt.location_id
+                LEFT JOIN maintenance_finance mf ON mf.activity_instance_id = ai.id
+                WHERE ol.organization_id = ${organizationId}
+                AND YEAR(ai.start_time) = ${year}
+                AND MONTH(ai.start_time) = ${month}
+                AND (mf.status = 'Approved' OR mf.activity_instance_id IS NULL)`
+            );
+
+            totalTasks = row.totalTasks ?: 0;
+            completedTasks = row.completedTasks ?: 0;
+            inProgressTasks = row.inProgressTasks ?: 0;
+            pendingTasks = row.pendingTasks ?: 0;
+
+            MonthlyReport costRes = check db_client->queryRow(
+                `SELECT
+                    COALESCE(SUM(labour.labour_cost), 0)
+                + COALESCE(SUM(material.material_cost), 0) AS totalCosts
+                FROM activity_instance ai
+                JOIN maintenance_task mt ON mt.id = ai.task_id
+                JOIN organization_location ol ON ol.id = mt.location_id
+
+                LEFT JOIN (
+                    SELECT
+                        id,
+                        activity_instance_id,
+                        labour_cost
+                    FROM maintenance_finance
+                    WHERE status = 'Approved'
+                ) labour ON labour.activity_instance_id = ai.id
+
+                LEFT JOIN (
+                    SELECT
+                        mf.activity_instance_id,
+                        SUM(mc.quantity * mc.unit_cost) AS material_cost
+                    FROM maintenance_finance mf
+                    JOIN material_cost mc ON mc.financial_id = mf.id
+                    WHERE mf.status = 'Approved'
+                    GROUP BY mf.activity_instance_id
+                ) material ON material.activity_instance_id = ai.id
+
+                WHERE ol.organization_id = ${organizationId}
+                AND YEAR(ai.start_time) = ${year}
+                AND MONTH(ai.start_time) = ${month};`
+            );
+
+            totalActualCost = costRes.totalCosts ?: 0.0;
+
+            MonthlyReport upcomingRes = check db_client->queryRow(
+                `SELECT
+                    COUNT(DISTINCT ai.id) AS totalUpcomingTasks,
+                    COALESCE(SUM(CASE
+                    WHEN mf.status = 'Approved' THEN mf.estimated_cost
+                    ELSE 0
+                END), 0) AS nextMonthlyEstimatedCost
+                FROM activity_instance ai
+                JOIN maintenance_task mt ON mt.id = ai.task_id
+                JOIN organization_location ol ON ol.id = mt.location_id
+                LEFT JOIN maintenance_finance mf ON mf.activity_instance_id = ai.id
+                WHERE ol.organization_id = ${organizationId}
+                AND ai.start_time >= DATE_ADD(DATE_FORMAT(CURRENT_DATE, '%Y-%m-01'), INTERVAL 1 MONTH)
+                AND ai.start_time <  DATE_ADD(DATE_FORMAT(CURRENT_DATE, '%Y-%m-01'), INTERVAL 2 MONTH)
+                AND (
+                    mf.status = 'Approved'
+                    OR mf.activity_instance_id IS NULL
+                );`
+            );
+
+            upcomingTasks = upcomingRes.totalUpcomingTasks ?: 0;
+            nextMonthEstimatedCost = upcomingRes.nextMonthlyEstimatedCost ?: 0.0;
+        }
+
+        MonthlyReport monthlyReport = {
+            totalTasks: totalTasks,
+            completedTasks: completedTasks,
+            inProgressTasks: inProgressTasks,
+            pendingTasks: pendingTasks,
+            totalCosts: totalActualCost,
+            totalUpcomingTasks: upcomingTasks,
+            nextMonthlyEstimatedCost: nextMonthEstimatedCost
+        };
+
+        MonthlyReportData|error reportData = new MonthlyReportData(monthlyReport = monthlyReport);
+
+        return reportData;
+
+    }
+
+    isolated resource function get monthlyCostSummary(int year, int organizationId) returns MonthlyCostSummaryData|error? {
+
+        MonthlyCost[] monthlyCosts = [];
+
+        foreach int month in 1 ... 12 {
+            MonthlyCost monthlyCost = {
+                month: month,
+                estimated_cost: 0,
+                actual_cost: 0
+            };
+            monthlyCosts.push(monthlyCost);
+        }
+
+        stream<MonthlyCost, error?> costStream;
+
+        lock {
+            costStream = db_client->query(
+                `SELECT 
+                    MONTH(ai.start_time) as month,
+                    COALESCE(SUM(mf.estimated_cost), 0) as estimated_cost,
+                    COALESCE(SUM(mf.labour_cost + COALESCE(mc.total_material_cost, 0)), 0) as actual_cost
+                FROM activity_instance ai
+                INNER JOIN maintenance_task mt ON ai.task_id = mt.id
+                INNER JOIN organization_location ol ON mt.location_id = ol.id
+                INNER JOIN maintenance_finance mf ON ai.id = mf.activity_instance_id
+                LEFT JOIN (
+                    SELECT financial_id, SUM(quantity * unit_cost) as total_material_cost
+                    FROM material_cost
+                    GROUP BY financial_id
+                ) mc ON mf.id = mc.financial_id
+                WHERE ol.organization_id = ${organizationId}
+                AND YEAR(ai.start_time) = ${year}
+                AND mf.status = 'Approved'
+                GROUP BY MONTH(ai.start_time)
+                ORDER BY month`
+            );
+        }
+
+        check from MonthlyCost costRecord in costStream
+            do {
+                int? month = costRecord.month;
+
+                if (month is int) {
+                    int monthIndex = month - 1;
+                    monthlyCosts[monthIndex] = {
+                        month: costRecord.month,
+                        estimated_cost: costRecord.estimated_cost,
+                        actual_cost: costRecord.actual_cost
+                    };
+                }
+            };
+
+        check costStream.close();
+
+        MonthlyCostSummary summary = {
+            year: year,
+            monthly_costs: monthlyCosts
+        };
+
+        return new MonthlyCostSummaryData(summary);
+    }
+
+    isolated resource function get maintenanceTasksByStatus(
+            int organizationId,
+            int? personId = (),
+            string? fromDate = (),
+            string? toDate = (),
+            string? taskType = (),
+            int? location = ()
+    ) returns GroupedTasks|error {
+
+        TaskGroup pendingGroup = {
+            groupId: "pending",
+            groupName: "Pending",
+            tasks: []
+        };
+
+        TaskGroup inProgressGroup = {
+            groupId: "progress",
+            groupName: "In Progress",
+            tasks: []
+        };
+
+        TaskGroup completedGroup = {
+            groupId: "completed",
+            groupName: "Completed",
+            tasks: []
+        };
+
+        sql:ParameterizedQuery query = `
+            SELECT
+                ai.id AS instance_id,
+                ap.participant_task_status,
+                ai.end_time,
+                ai.start_time,
+                ap.end_date as completion_date,
+                CASE 
+                    WHEN ai.end_time < NOW() THEN CEIL(TIMESTAMPDIFF(SECOND, ai.end_time, NOW()) / 86400)
+                    WHEN ai.end_time >= NOW() THEN -CEIL(TIMESTAMPDIFF(SECOND, NOW(), ai.end_time) / 86400)
+                    ELSE 0
+                END AS overdue_days_calc
+            FROM activity_instance ai
+            INNER JOIN maintenance_task mt ON ai.task_id = mt.id
+            INNER JOIN organization_location ol ON mt.location_id = ol.id
+            LEFT JOIN maintenance_finance mf ON mf.activity_instance_id = ai.id
+            INNER JOIN activity_participant ap ON ap.activity_instance_id = ai.id
+            WHERE ol.organization_id = ${organizationId}
+            AND mt.is_active = 1
+            AND ai.start_time <= DATE_ADD(CURRENT_DATE, INTERVAL 7 DAY)
+            AND (
+                mf.status = 'Approved'
+                OR mf.activity_instance_id IS NULL
+            )
+        `;
+
+        if (personId is int) {
+            query = sql:queryConcat(query, ` AND ap.person_id = ${personId}`);
+        }
+        if (fromDate is string) {
+            query = sql:queryConcat(query, ` AND ai.start_time >= ${fromDate}`);
+        }
+        if (toDate is string) {
+            query = sql:queryConcat(query, ` AND ai.start_time <= ${toDate}`);
+        }
+        if (taskType is string) {
+            query = sql:queryConcat(query, ` AND mt.task_type = ${taskType}`);
+        }
+        if (location is int) {
+            query = sql:queryConcat(query, ` AND mt.location_id = ${location}`);
+        }
+
+        // Order by participant_task_status and appropriate sorting
+        query = sql:queryConcat(query, ` 
+            ORDER BY 
+                ap.participant_task_status,
+                CASE 
+                    WHEN ap.participant_task_status IN ('Pending', 'InProgress') THEN overdue_days_calc
+                    ELSE NULL
+                END DESC,
+                CASE 
+                    WHEN ap.participant_task_status IN ('Pending', 'InProgress') THEN ai.start_time
+                    ELSE NULL
+                END ASC,
+                CASE 
+                    WHEN ap.participant_task_status = 'Completed' THEN completion_date
+                    ELSE NULL
+                END DESC
+        `);
+
+        stream<TaskStatusRecord, error?> taskStream;
+
+        lock {
+            taskStream = db_client->query(query);
+        }
+
+        check from TaskStatusRecord taskRecord in taskStream
+            do {
+                ActivityInstanceData activityInstanceData = check new ActivityInstanceData((), taskRecord.instance_id, (), personId);
+
+                if (taskRecord.participant_task_status == "Pending") {
+                    pendingGroup.tasks.push(activityInstanceData);
+                } else if (taskRecord.participant_task_status == "InProgress") {
+                    inProgressGroup.tasks.push(activityInstanceData);
+                } else if (taskRecord.participant_task_status == "Completed") {
+                    if (completedGroup.tasks.length() < 10) {
+                        completedGroup.tasks.push(activityInstanceData);
+                    }
+                }
+            };
+
+        check taskStream.close();
+
+        return {
+            groups: [pendingGroup, inProgressGroup, completedGroup]
+        };
+    }
+
+    //Get Activity Instance title and total actual costs by organizationId, year and month. group by task id
+    resource function get monthlyTaskCostReport(
+            int organizationId,
+            int year,
+            int month
+    ) returns MaintenanceMonthlyTaskCostReportData|error {
+
+        if (month < 1 || month > 12) {
+            return error("Invalid month");
+        }
+
+        MaintenanceTaskCostSummary[] taskSummaries = [];
+        decimal totalActualCost = 0.0;
+        decimal totalEstimatedCost = 0.0;
+
+        lock {
+            stream<TaskCostRow, error?> rows = db_client->query(
+                `
+                SELECT
+                    mt.id AS task_id,
+                    mt.title AS task_title,
+                    COALESCE(SUM(CASE
+                        WHEN mf.status = 'Approved'
+                        THEN mf.labour_cost + COALESCE(mc_total.total_material_cost, 0)
+                        ELSE 0
+                    END), 0) AS actual_cost,
+                    COALESCE(SUM(CASE
+                        WHEN mf.status = 'Approved'
+                        THEN mf.estimated_cost
+                        ELSE 0
+                    END), 0) AS estimated_cost
+                FROM maintenance_task mt
+                JOIN organization_location ol ON ol.id = mt.location_id
+                JOIN activity_instance ai ON ai.task_id = mt.id
+                LEFT JOIN maintenance_finance mf ON mf.activity_instance_id = ai.id
+                LEFT JOIN (
+                    SELECT financial_id, SUM(quantity * unit_cost) AS total_material_cost
+                    FROM material_cost
+                    GROUP BY financial_id
+                ) mc_total ON mc_total.financial_id = mf.id
+                WHERE ol.organization_id = ${organizationId}
+                AND YEAR(ai.start_time) = ${year}
+                AND MONTH(ai.start_time) = ${month}
+                GROUP BY mt.id, mt.title
+
+                `
+            );
+
+            check from TaskCostRow row in rows
+                do {
+                    MaintenanceTaskCostSummary summary = {
+                        taskId: row.task_id,
+                        taskTitle: row.task_title,
+                        actualCost: row.actual_cost,
+                        estimatedCost: row.estimated_cost
+                    };
+
+                    if row.actual_cost != 0d || row.estimated_cost != 0d {
+                        taskSummaries.push(summary);
+                        totalActualCost += row.actual_cost;
+                        totalEstimatedCost += row.estimated_cost;
+                    }
+                };
+
+            check rows.close();
+        }
+
+        if (taskSummaries.length() == 0) {
+            return error("No tasks found for the given period");
+        }
+
+        MaintenanceMonthlyTaskCostReport report = {
+            organizationId: organizationId,
+            year: year,
+            month: month,
+            totalActualCost: totalActualCost,
+            totalEstimatedCost: totalEstimatedCost,
+            tasks: taskSummaries
+        };
+
+        return new MaintenanceMonthlyTaskCostReportData(report);
+    }
+
+}
+
+function updateMaintenanceTaskFinanceInfo
+    (int id, MaintenanceTask maintenanceTask,
+        int taskActivityInstanceId,
+        MaintenanceFinance? finance, MaterialCost[]? materialCosts) returns MaintenanceTaskUpdateFinanceResult|error {
+
+    // Narrow and assign properly
+
+    if (finance !=null && finance.id !=null && finance.id is int) {
+
+        if (finance is MaintenanceFinance) {
+
+            sql:ExecutionResult updateTaskFinanceDetails = check db_client->execute(
+                        `UPDATE maintenance_finance SET
+                            estimated_cost = ${finance.estimated_cost},
+                            labour_cost = ${finance.labour_cost},
+                            status =  ${"Pending"}
+                        WHERE activity_instance_id = ${taskActivityInstanceId};`
+                        );
+
+            if (updateTaskFinanceDetails.affectedRowCount == sql:EXECUTION_FAILED) {
+
+                return {
+                    success: false,
+                    message: "Failed to update maintenance task finance record"
+                };
+            }
+
+            if materialCosts is MaterialCost[] && materialCosts.length() > 0 {
+
+                int[] existingMaterialCostIds = [];
+                stream<MaterialCost, error?> materialCostsData;
+
+                lock {
+                    materialCostsData = db_client->query(
+                            `SELECT *
+                                from material_cost
+                            where financial_id=${finance.id};`);
+                }
+
+                check materialCostsData.forEach(function(MaterialCost materialCost) {
+                    if materialCost.id is int {
+                        existingMaterialCostIds.push(materialCost.id ?: 0);
+                    }
+                });
+
+                MaterialCost[] newMaterialCosts = materialCosts.filter(cost => cost.id == 0);
+
+                //need to get the existing cost from the list that coming from the frontend update it in the database
+                MaterialCost[] existingCosts = materialCosts.filter(m => m.id is int && m.id != 0);
+
+                //get the ids from the cost list came from frontend
+                int[] frontendIds = materialCosts
+                                            .filter(m => m.id is int)
+                                            .map(m => <int>m.id);
+                int[] deleteMaterialCostIds = []; //delete material cost
+
+                foreach int existingMaterialCostId in existingMaterialCostIds {
+                    if !contains(frontendIds, existingMaterialCostId) {
+                        deleteMaterialCostIds.push(existingMaterialCostId);
+                    }
+                }
+                io:println(`Before executing Material Costs:${newMaterialCosts}`);
+
+                //Add new material cost
+                foreach MaterialCost materialCost in newMaterialCosts {
+                    {
+                        sql:ExecutionResult insertMaterialCostRes = check db_client->execute(
+                                            `INSERT INTO material_cost(
+                                            financial_id,
+                                            item,
+                                            quantity,
+                                            unit,
+                                            unit_cost
+                                        ) VALUES (
+                                            ${finance.id},
+                                            ${materialCost.item},
+                                            ${materialCost.quantity},
+                                            ${materialCost.unit},
+                                            ${materialCost.unit_cost}
+                                        );`
+                                    );
+                        io:println(`insert material cost:${materialCost}`);
+                        int|string? insertNewMaterialCostId = insertMaterialCostRes.lastInsertId;
+                        if !(insertNewMaterialCostId is int) {
+                            return {
+                                success: false,
+                                message: "Failed to save material cost."
+                            };
+                        }
+                    }
+                }
+
+                io:println(`Already existing cost:${existingCosts}`);
+
+                //updating existing material cost
+                foreach MaterialCost updateMaterialCost in existingCosts {
+                    {
+                        sql:ExecutionResult updateMaterialCostRes = check db_client->execute(
+                                                                        `UPDATE material_cost SET
+                                                                            item = ${updateMaterialCost.item},
+                                                                            quantity = ${updateMaterialCost.quantity},
+                                                                            unit =  ${updateMaterialCost.unit},
+                                                                            unit_cost = ${updateMaterialCost.unit_cost}
+                                                                        WHERE id = ${updateMaterialCost.id};`
+                                                                        );
+                        io:println(`update material cost:${updateMaterialCost}`);
+
+                        if (updateMaterialCostRes.affectedRowCount == sql:EXECUTION_FAILED) {
+                            return {
+                                success: false,
+                                message: "Failed to update material Cost record"
+                            };
+                        }
+                    }
+                }
+
+                io:println(`deleteMaterialCostIds existing cost:${deleteMaterialCostIds}`);
+
+                //delete material cost
+                foreach int materialCostId in deleteMaterialCostIds {
+                    {
+                        sql:ExecutionResult deleteMaterialCostRes = check db_client->execute(
+                                            `DELETE FROM material_cost WHERE id = ${materialCostId};`
+                                        );
+
+                        int? delete_id = deleteMaterialCostRes.affectedRowCount;
+                        if (delete_id <= 0) {
+                            return {
+                                success: false,
+                                message: "Unable to delete  material cost records"
+                            };
+                        }
+                    }
+
+                }
+            }
+
+        }
+    } else if (finance !=null && finance.id == null) {
+
+        if (finance is MaintenanceFinance) {
+
+            sql:ExecutionResult insertMaintenanceFinance = check db_client->execute(
+                            `INSERT INTO maintenance_finance(
+                                activity_instance_id,
+                                estimated_cost,
+                                labour_cost,
+                                status
+                            ) VALUES (
+                                ${taskActivityInstanceId},
+                                ${finance.estimated_cost},
+                                ${finance.labour_cost},
+                                ${"Pending"}
+                            );`
+                            );
+
+            int|string? insertMaintenanceFinanceId = insertMaintenanceFinance.lastInsertId;
+            if !(insertMaintenanceFinanceId is int) {
+                return {
+                    success: false,
+                    message: "Failed to save maintenance task finance info."
+                };
+            }
+
+            //Save maintenance task material costs in table
+            if materialCosts is MaterialCost[] && materialCosts.length() > 0 {
+                foreach MaterialCost materialCost in materialCosts {
+                    sql:ExecutionResult insertMaterialCost = check db_client->execute(
+                                    `INSERT INTO material_cost(
+                                        financial_id,
+                                        item,
+                                        quantity,
+                                        unit,
+                                        unit_cost
+                                    ) VALUES (
+                                        ${insertMaintenanceFinanceId},
+                                        ${materialCost.item},
+                                        ${materialCost.quantity},
+                                        ${materialCost.unit},
+                                        ${materialCost.unit_cost}
+                                    );`
+                                    );
+
+                    int|string? insertMaterialCostId = insertMaterialCost.lastInsertId;
+                    if !(insertMaterialCostId is int) {
+                        return {
+                            success: false,
+                            message: "Failed to save material cost."
+                        };
+                    }
+
+                }
+
+            }
+        }
+    } else{
+       io:println("in this block");
+        MaintenanceFinance|error? maintenanceFinanceRow = check db_client->queryRow(
+                    `SELECT *
+                    FROM maintenance_finance
+                    WHERE activity_instance_id = ${taskActivityInstanceId}`
+                );
+
+        if (maintenanceFinanceRow is MaintenanceFinance) {
+            int financeRowId = <int>maintenanceFinanceRow.id;
+
+            sql:ExecutionResult deleteMaterialCostRes = check db_client->execute(
+                    `DELETE FROM material_cost WHERE financial_id = ${financeRowId};`);
+
+            int? delete_id = deleteMaterialCostRes.affectedRowCount;
+            if (delete_id <= 0) {
+                return {
+                    success: false,
+                    message: "Unable to delete  material cost record."
+                };
+            }
+
+            sql:ExecutionResult deleteFinanceInfoRes = check db_client->execute(
+                    `DELETE FROM maintenance_finance WHERE id = ${financeRowId};`);
+
+            int? delete_finance_info_id = deleteFinanceInfoRes.affectedRowCount;
+            if (delete_finance_info_id <= 0) {
+                return {
+                    success: false,
+                    message: "Unable to delete task finance record with id"
+                };
+            }
+        }else if(maintenanceFinanceRow is ()){
+            
+            return {
+                success: true,
+                message: "No finance record found. Skipping deletion."
+            };
+        }
+
+    }
+    return {
+        success: true,
+        message: ""
+    };
+}
+
+isolated function deactivateMaintenanceTask(int taskId, string modifiedBy) returns MaintenanceTaskData|error? {
+
+    sql:ExecutionResult res = check db_client->execute(
+            `UPDATE maintenance_task SET
+                is_active = 0,
+                modified_by = ${modifiedBy}
+            WHERE id = ${taskId};`
+        );
+
+    if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+        return error("Failed to deactivate maintenance task record");
+    }
+
+    if (res.affectedRowCount == 0) {
+        return error("No task found with id: " + taskId.toString());
+    }
+
+    return new (taskId);
 }
 
 // isolated function getProfilePicture(drive:Client driveClient, string id) returns PersonProfilePicture|error {
@@ -8195,21 +10191,21 @@ isolated function getDocument(drive:Client driveClient, string id, string docume
     return user_document;
 }
 
-isolated function getJobPostFile(drive:Client driveClient,string id) returns JobPost|error {
+isolated function getJobPostFile(drive:Client driveClient, string id) returns JobPost|error {
     JobPost job_post = {
         id: 0,
         job_type: (),
         job_text: (),
         job_link: (),
         job_image_drive_id: (),
-        job_post_image:(),
-        current_date_time:(),
-        job_category:(),
-        job_category_id:-1,
-        application_deadline:(),
-        uploaded_by:(),
+        job_post_image: (),
+        current_date_time: (),
+        job_category: (),
+        job_category_id: -1,
+        application_deadline: (),
+        uploaded_by: (),
         created: (),
-        updated:()
+        updated: ()
     };
 
     drive:FileContent|error job_post_file_stream = check driveClient->getFileContent(id);
@@ -8225,7 +10221,17 @@ isolated function getJobPostFile(drive:Client driveClient,string id) returns Job
     return job_post;
 }
 
-isolated function getProfilePicture(drive:Client driveClient,string id) returns PersonProfilePicture|error {
+isolated function getDriveFileBase64(drive:Client driveClient, string fileId) returns string|error {
+
+    drive:FileContent|error fileStream = check driveClient->getFileContent(fileId);
+
+    if (fileStream is drive:FileContent) {
+        return fileStream.content.toBase64();
+    }
+    return "";
+}
+
+isolated function getProfilePicture(drive:Client driveClient, string id) returns PersonProfilePicture|error {
     PersonProfilePicture profile_picture = {
         id: 0,
         person_id: 0,
@@ -8234,7 +10240,7 @@ isolated function getProfilePicture(drive:Client driveClient,string id) returns 
         nic_no: (),
         uploaded_by: (),
         created: (),
-        updated:()
+        updated: ()
     };
 
     drive:FileContent|error profile_picture_file_stream = check driveClient->getFileContent(id);
@@ -8274,9 +10280,34 @@ isolated function getGoogleDriveClientForJobsAndCVs() returns drive:Client|error
             refreshToken: GOOGLEDRIVEJOBSCVSREFRESHTOKEN
         }
     };
-  
+
     drive:Client driveClient = check new (config);
     return driveClient;
+}
+
+//Created gmail client
+isolated function createGmailClient(string senderEmailAddress, string appPassword) returns email:SmtpClient|error {
+
+    email:SmtpClient gmail = check new (
+        "smtp.gmail.com",
+        senderEmailAddress,
+        appPassword // NOT normal Gmail password
+    );
+
+    return gmail;
+}
+
+//Sends an email using the provided Gmail client.
+isolated function sendEmail(email:SmtpClient gmail, string[] recipients, string subject, string body) returns boolean|error {
+
+    // Send the email message.
+    check gmail->sendMessage({
+        to: recipients,
+        subject: subject,
+        body: body,
+        contentType: "text/html"
+    });
+    return true;
 }
 
 isolated function calculateWeekdays(time:Utc toDate, time:Utc fromDate) returns int {
