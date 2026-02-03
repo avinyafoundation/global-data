@@ -9379,7 +9379,11 @@ AND p.organization_id IN (
                 AND CASE 
                     WHEN ai.end_time < NOW() THEN FLOOR(TIMESTAMPDIFF(SECOND, ai.end_time, NOW()) / 86400)
                     ELSE 0
-                END > 0;`
+                END > 0
+                ORDER BY CASE 
+                    WHEN ai.end_time < NOW() THEN FLOOR(TIMESTAMPDIFF(SECOND, ai.end_time, NOW()) / 86400)
+                    ELSE 0
+                END DESC;`
             );
         }
 
