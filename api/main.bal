@@ -220,13 +220,24 @@ service /graphql on new graphql:Listener(4000) {
         return new (name, id);
     }
 
-    isolated resource function get person_by_digital_id(string? id) returns PersonData|error? {
+    isolated resource function get person_by_digital_id_or_nic(string? id, string? nic) returns PersonData|error? {
+        Person|error? personJwtId = ();
 
-        Person|error? personJwtId = check db_client->queryRow(
-            `SELECT *
-            FROM person
-            WHERE digital_id = ${id};`
-        );
+        if (id != null) {
+
+            personJwtId = check db_client->queryRow(
+                    `SELECT *
+                    FROM person
+                    WHERE digital_id = ${id};`
+                );
+        } else if (nic != null) {
+
+            personJwtId = check db_client->queryRow(
+                    `SELECT *
+                    FROM person
+                    WHERE nic_no = ${nic};`
+                );
+        }
 
         if (personJwtId is Person) {
 
@@ -254,8 +265,8 @@ service /graphql on new graphql:Listener(4000) {
     // Validates a user PIN and retrieves the associated person data.
     isolated resource function get validatePin(string? pin) returns PersonData|error? {
 
-        if(pin == null || pin.trim().length() == 0){
-          return ();
+        if (pin == null || pin.trim().length() == 0) {
+            return ();
         }
 
         PersonPin|error? personPinRaw = check db_client->queryRow(
@@ -265,13 +276,13 @@ service /graphql on new graphql:Listener(4000) {
             LIMIT 1;`
         );
 
-        if (personPinRaw is PersonPin){
-           
-            int person_id = personPinRaw.person_id?:0;
-            return new(null,person_id);
-        }else if(personPinRaw is ()){
+        if (personPinRaw is PersonPin) {
+
+            int person_id = personPinRaw.person_id ?: 0;
+            return new (null, person_id);
+        } else if (personPinRaw is ()) {
             return ();
-        }else if(personPinRaw is error){
+        } else if (personPinRaw is error) {
             return error("There is no person associate with this pin");
         }
     }
@@ -493,7 +504,7 @@ service /graphql on new graphql:Listener(4000) {
         ActivityInstance|error todayActitivutyInstance = db_client->queryRow(
             `SELECT *
             FROM activity_instance
-            WHERE DATE(start_time) = CURDATE();`
+            WHERE DATE(start_time) = CURDATE() AND activity_id IN (1, 2, 3, 4, 5, 8, 9, 10, 11, 12, 13);`
         );
 
         // if not, create them
@@ -1597,6 +1608,123 @@ service /graphql on new graphql:Listener(4000) {
         }
 
         return new (insert_id);
+    }
+
+    // only today's attendance can be added with this method
+    remote function addBiometricAttendance(ActivityParticipantAttendance attendance) returns ActivityParticipantAttendanceData|error? {
+        
+            // 1. DEBOUNCE CHECK: 5-Minute Window
+        // We ignore any scan that happens within 5 minutes of a previous success for the same person.
+        //for the same day
+        ActivityParticipantAttendance|error recentRecord = db_client->queryRow(
+            `SELECT * FROM activity_participant_attendance 
+            WHERE person_id = ${attendance.person_id} and 
+            activity_instance_id = ${attendance.activity_instance_id}
+            AND (
+                (sign_in_time > NOW() - INTERVAL 5 MINUTE) OR 
+                (sign_out_time > NOW() - INTERVAL 5 MINUTE)
+            )
+            LIMIT 1;`
+        );
+
+        if (recentRecord is ActivityParticipantAttendance) {
+            log:printInfo(string `Cooldown active. Ignoring scan for Person: ${attendance.person_id.toString()} (Last scan < 5 mins ago)`);
+            return new (recentRecord.id); 
+        }else if (recentRecord is sql:NoRowsError) {
+            // SUCCESS CASE: No record found, so we proceed normally to the next step
+            log:printDebug("No recent records found. Proceeding with attendance logic.");
+        } else {
+            // ERROR CASE: A real database error happened (e.g., Connection lost)
+            // We stop and return the error immediately
+            return error(recentRecord.message());
+        }
+
+        // 1. Check if a sign-in exists for today
+        ActivityParticipantAttendance|error todayActivityParticipantAttendance = db_client->queryRow(
+            `SELECT *
+            FROM activity_participant_attendance
+            WHERE person_id = ${attendance.person_id} and 
+            activity_instance_id = ${attendance.activity_instance_id} and
+            DATE(sign_in_time) = CURDATE();`
+        );
+        if (todayActivityParticipantAttendance is ActivityParticipantAttendance) {
+            // 2. A sign-in exists. Now check if a sign-out row already exists.
+            todayActivityParticipantAttendance = db_client->queryRow(
+                    `SELECT *
+                    FROM activity_participant_attendance
+                    WHERE person_id = ${attendance.person_id} and 
+                    activity_instance_id = ${attendance.activity_instance_id} and
+                    DATE(sign_out_time) = CURDATE();`
+                );
+
+            if (todayActivityParticipantAttendance is ActivityParticipantAttendance) {
+                // 3. sign-out row already exists -> UPDATE it with latest time
+                sql:ExecutionResult res = check db_client->execute(
+                    `UPDATE activity_participant_attendance SET
+                        sign_out_time = ${attendance.event_time},
+                        out_marked_by = "system@avinya.edu.lk"
+                    WHERE id = ${todayActivityParticipantAttendance.id};`
+                );
+
+                if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+                    return error("Failed to update activity participant record");
+                }
+
+                return new (todayActivityParticipantAttendance.id);
+            } else {
+
+                // 4. sign-in exists, but no sign-out row yet -> INSERT new sign-out row
+                sql:ExecutionResult res = check db_client->execute(
+                            `INSERT INTO activity_participant_attendance (
+                                activity_instance_id,
+                                person_id,
+                                sign_in_time,
+                                sign_out_time,
+                                in_marked_by,
+                                out_marked_by
+                            ) VALUES (
+                                ${attendance.activity_instance_id},
+                                ${attendance.person_id},
+                                ${attendance.sign_in_time},
+                                ${attendance.event_time},
+                                ${attendance.in_marked_by},
+                                "system@avinya.edu.lk"
+                            );`
+                        );
+
+                int|string? insert_id = res.lastInsertId;
+                if !(insert_id is int) {
+                    return error("Unable to insert sign out attendance record");
+                }
+                return new (insert_id);
+            }
+        }else {
+        // 5. CASE: No sign in at all -> INSERT new sign in row    
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO activity_participant_attendance (
+                activity_instance_id,
+                person_id,
+                sign_in_time,
+                sign_out_time,
+                in_marked_by,
+                out_marked_by
+            ) VALUES (
+                ${attendance.activity_instance_id},
+                ${attendance.person_id},
+                ${attendance.event_time},
+                ${attendance.sign_out_time},
+                "system@avinya.edu.lk",
+                ${attendance.out_marked_by}
+            );`
+        );
+
+        int|string? insert_id = res.lastInsertId;
+        if !(insert_id is int) {
+            return error("Unable to insert sign in attendance record");
+        }
+
+        return new (insert_id);
+        }
     }
 
     remote function delete_attendance(int id) returns int?|error? {
@@ -9094,7 +9222,7 @@ AND p.organization_id IN (
             int exceptionDeadlineDaysCount = 0;
             string|error taskEndDate = "";
             string taskTitle = "";
-            string taskType= "";
+            string taskType = "";
             string message = "";
             boolean is_active = false;
 
@@ -9147,55 +9275,53 @@ AND p.organization_id IN (
                                                                 `SELECT *
                                                                 FROM maintenance_task
                                                                 WHERE id = ${taskId};`);
-                    
 
                     if (maintenanceTaskRow is MaintenanceTask) {
                         io:println(`is active:${maintenanceTaskRow.is_active}`);
-                        is_active = maintenanceTaskRow.is_active ?:false;
-                        taskType = maintenanceTaskRow.task_type?:"";
+                        is_active = maintenanceTaskRow.is_active ?: false;
+                        taskType = maintenanceTaskRow.task_type ?: "";
                         taskTitle = maintenanceTaskRow.title ?: "";
                         taskFrequency = maintenanceTaskRow.frequency ?: "";
                         exceptionDeadlineDaysCount = maintenanceTaskRow.exception_deadline ?: 0;
                     }
 
                     int recurrenceDays = getRecurrenceDays(taskFrequency);
-                    
+
                     //If task is one time do not need to create activity instance
-                 if(taskType == "Recurring" && recurrenceDays!=0 && is_active==true){
-                    
+                    if (taskType == "Recurring" && recurrenceDays != 0 && is_active == true) {
 
-                    //current time in utc
-                    time:Utc currentDateInUtc = time:utcNow();
+                        //current time in utc
+                        time:Utc currentDateInUtc = time:utcNow();
 
-                    // add 19800 seconds = 5 hours and 30 min(india standard time)
-                    time:Utc utcAddSeconds = time:utcAddSeconds(currentDateInUtc, 19800);
+                        // add 19800 seconds = 5 hours and 30 min(india standard time)
+                        time:Utc utcAddSeconds = time:utcAddSeconds(currentDateInUtc, 19800);
 
-                    //utc to string
-                    string formatted = time:utcToString(utcAddSeconds);
+                        //utc to string
+                        string formatted = time:utcToString(utcAddSeconds);
 
-                    //transform the date time to this format = YYYY-MM-DDTHH:MM:SSZ
-                    string formated = regex:replaceAll(formatted, "\\.\\d+Z", "Z");
+                        //transform the date time to this format = YYYY-MM-DDTHH:MM:SSZ
+                        string formated = regex:replaceAll(formatted, "\\.\\d+Z", "Z");
 
-                    string remove = removeTandZ(formated);
+                        string remove = removeTandZ(formated);
 
-                    //Calculate and get the task start date
-                    string|error taskStartDate = addDaysToDate(remove, recurrenceDays);
+                        //Calculate and get the task start date
+                        string|error taskStartDate = addDaysToDate(remove, recurrenceDays);
 
-                    if taskStartDate is string {
-                        //Calculate and get the task end date
-                        taskEndDate = addDaysToDate(taskStartDate, exceptionDeadlineDaysCount);
-                    }
+                        if taskStartDate is string {
+                            //Calculate and get the task end date
+                            taskEndDate = addDaysToDate(taskStartDate, exceptionDeadlineDaysCount);
+                        }
 
-                    io:println(`recurrenceDays:${recurrenceDays}`);
-                    io:println(`currentDateInUtc:${currentDateInUtc}`);
-                    io:println(`remove:${remove}`);
-                    io:println(`taskStartDate:${taskStartDate}`);
-                    io:println(`exceptionDeadlineDaysCount:${exceptionDeadlineDaysCount}`);
-                    io:println(`taskEndDate:${taskEndDate}`);
+                        io:println(`recurrenceDays:${recurrenceDays}`);
+                        io:println(`currentDateInUtc:${currentDateInUtc}`);
+                        io:println(`remove:${remove}`);
+                        io:println(`taskStartDate:${taskStartDate}`);
+                        io:println(`exceptionDeadlineDaysCount:${exceptionDeadlineDaysCount}`);
+                        io:println(`taskEndDate:${taskEndDate}`);
 
-                    if (taskStartDate is string) && (taskEndDate is string) {
-                        //Save maintenance task in activity instance table
-                        sql:ExecutionResult insertTaskActivityInstanceTable = check db_client->execute(
+                        if (taskStartDate is string) && (taskEndDate is string) {
+                            //Save maintenance task in activity instance table
+                            sql:ExecutionResult insertTaskActivityInstanceTable = check db_client->execute(
                                                                             `INSERT INTO activity_instance(
                                                                                 activity_id,
                                                                                 task_id,
@@ -9213,19 +9339,19 @@ AND p.organization_id IN (
                                                                             );`
                                                                             );
 
-                        insertTaskActivityInstanceId = insertTaskActivityInstanceTable.lastInsertId;
-                        if !(insertTaskActivityInstanceId is int) {
-                            taskProgressUpdateFailed = true;
-                            message = "Failed to save task activity instance.";
+                            insertTaskActivityInstanceId = insertTaskActivityInstanceTable.lastInsertId;
+                            if !(insertTaskActivityInstanceId is int) {
+                                taskProgressUpdateFailed = true;
+                                message = "Failed to save task activity instance.";
+                            }
+                        } else if ((taskStartDate is error) || (taskEndDate is error)) {
+                            log:printError(string `Failed to calculate start date or end date`);
                         }
-                    } else if ((taskStartDate is error) || (taskEndDate is error)) {
-                        log:printError(string `Failed to calculate start date or end date`);
-                    }
 
-                    //Save maintenance task participants in activity participant table
-                    if taskParticipantsIds is int[] && taskParticipantsIds.length() > 0 {
-                        foreach int personId in taskParticipantsIds {
-                            sql:ExecutionResult insertTaskActivityParticipantTable = check db_client->execute(
+                        //Save maintenance task participants in activity participant table
+                        if taskParticipantsIds is int[] && taskParticipantsIds.length() > 0 {
+                            foreach int personId in taskParticipantsIds {
+                                sql:ExecutionResult insertTaskActivityParticipantTable = check db_client->execute(
                                 `INSERT INTO activity_participant(
                                     activity_instance_id,
                                     person_id,
@@ -9237,15 +9363,15 @@ AND p.organization_id IN (
                                 );`
                                 );
 
-                            int|string? insertTaskActivityParticipantId = insertTaskActivityParticipantTable.lastInsertId;
-                            if !(insertTaskActivityParticipantId is int) {
-                                taskProgressUpdateFailed = true;
-                                message = "Failed to save task activity participant.";
-                            }
+                                int|string? insertTaskActivityParticipantId = insertTaskActivityParticipantTable.lastInsertId;
+                                if !(insertTaskActivityParticipantId is int) {
+                                    taskProgressUpdateFailed = true;
+                                    message = "Failed to save task activity participant.";
+                                }
 
+                            }
                         }
                     }
-                 }
                 } else {
                     sql:ExecutionResult taskActivityInstanceRes = check db_client->execute(
                                         `UPDATE activity_instance SET
@@ -9882,7 +10008,7 @@ function updateMaintenanceTaskFinanceInfo
 
     // Narrow and assign properly
 
-    if (finance !=null && finance.id !=null && finance.id is int) {
+    if (finance != null && finance.id != null && finance.id is int) {
 
         if (finance is MaintenanceFinance) {
 
@@ -10013,7 +10139,7 @@ function updateMaintenanceTaskFinanceInfo
             }
 
         }
-    } else if (finance !=null && finance.id == null) {
+    } else if (finance != null && finance.id == null) {
 
         if (finance is MaintenanceFinance) {
 
@@ -10070,8 +10196,8 @@ function updateMaintenanceTaskFinanceInfo
 
             }
         }
-    } else{
-       io:println("in this block");
+    } else {
+        io:println("in this block");
         MaintenanceFinance|error? maintenanceFinanceRow = check db_client->queryRow(
                     `SELECT *
                     FROM maintenance_finance
@@ -10102,8 +10228,8 @@ function updateMaintenanceTaskFinanceInfo
                     message: "Unable to delete task finance record with id"
                 };
             }
-        }else if(maintenanceFinanceRow is ()){
-            
+        } else if (maintenanceFinanceRow is ()) {
+
             return {
                 success: true,
                 message: "No finance record found. Skipping deletion."
