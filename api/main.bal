@@ -5786,49 +5786,85 @@ AND p.organization_id IN (
     //         return vehicleReasonDatas;
     // }
 
-    isolated resource function get persons(int? organization_id, int? avinya_type_id) returns PersonData[]|error? {
+    isolated resource function get persons(
+        int? organization_id,
+        int? avinya_type_id,
+        int? 'limit = (),
+        int? offset = (),
+        int? class_id = (),
+        string? search = ()
+    ) returns PersonData[]|error? {
+
         stream<Person, error?> persons_data;
+
+        sql:ParameterizedQuery query = `SELECT *
+                FROM person p
+                WHERE 1 = 1`;
+
+        // Filtering logic
         if (organization_id != null && organization_id != -1 && avinya_type_id != null) {
-            lock {
-                persons_data = db_client->query(
-                    `SELECT *
-                        from person p
-                        where 
-                        p.avinya_type_id = ${avinya_type_id} and
-                        p.organization_id IN(
-                            Select child_org_id
-                            from parent_child_organization pco
-                            where pco.parent_org_id = ${organization_id}
-                        );`);
-            }
+
+            query = sql:queryConcat(query, `
+                AND p.avinya_type_id = ${avinya_type_id}
+                AND p.organization_id IN (
+                    SELECT child_org_id
+                    FROM parent_child_organization pco
+                    WHERE pco.parent_org_id = ${organization_id}
+                )`);
 
         } else if (organization_id != null && organization_id == -1 && avinya_type_id != null) {
 
-            lock {
-                persons_data = db_client->query(
-                    `SELECT *
-                        from person p
-                        where 
-                        p.avinya_type_id = ${avinya_type_id};`);
-            }
+            query = sql:queryConcat(query, `
+                AND p.avinya_type_id = ${avinya_type_id}`);
+
         } else if (organization_id != null && organization_id != -1 && avinya_type_id == null) {
 
-            //get people by organization id[ex:- Need to get the bandaragama current working employees]
-            lock {
-                persons_data = db_client->query(
-                    `SELECT *
-                        from person p
-                        where 
-                        p.organization_id = ${organization_id} and p.avinya_type_id !=128;`);
-            }
+            query = sql:queryConcat(query, `
+                AND p.organization_id = ${organization_id}
+                AND p.avinya_type_id != 128`);
+
         } else {
-            return error("Provide non-null values for both 'organization_id' and 'avinya_type_id'.");
+            return error("Provide valid values for filtering.");
         }
+        
+        // Fetch by class id
+        if (class_id != null) {
+            query = sql:queryConcat(query, `
+                AND p.organization_id = ${class_id}
+            `);
+        }
+
+        // Search by name and nic
+        if (search != null && search.trim() != "") {
+
+            string pattern = "%" + search.trim() + "%";
+
+            query = sql:queryConcat(query, `
+                AND (
+                    p.full_name LIKE ${pattern}
+                    OR p.nic_no LIKE ${pattern}
+                )
+            `);
+        }
+
+        // Optional pagination (same safe pattern)
+        if ('limit != null && offset != null) {
+            query = sql:queryConcat(query, ` LIMIT ${'limit} OFFSET ${offset}`);
+        } else if ('limit != null || offset != null) {
+            return error("Both 'limit' and 'offset' must be provided together.");
+        }
+
+        lock {
+            persons_data = db_client->query(query);
+        }
+
         PersonData[] personDatas = [];
 
         check from Person person_data_record in persons_data
             do {
-                PersonData|error personData = new PersonData(null, 0, person_data_record);
+                PersonData|error personData =
+                        new PersonData(null, 0, person_data_record);
+
                 if !(personData is error) {
                     personDatas.push(personData);
                 }
@@ -5836,8 +5872,9 @@ AND p.organization_id IN (
 
         check persons_data.close();
         return personDatas;
-
     }
+
+
 
     isolated resource function get person_by_id(int? id) returns PersonData|error? {
         if (id != null) {
