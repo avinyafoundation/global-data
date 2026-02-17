@@ -451,6 +451,7 @@ public type ActivityParticipantAttendance record {|
     int id?;
     int? person_id;
     int? activity_instance_id;
+    string? event_time; // Incoming common time from the Biometric device
     string? sign_in_time;
     string? sign_out_time;
     string? in_marked_by;

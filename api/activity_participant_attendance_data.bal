@@ -4,6 +4,7 @@ public isolated service class ActivityParticipantAttendanceData {
         person_id: -1,
         sign_in_time: "" ,
         sign_out_time: "" ,
+        event_time: "",
         in_marked_by: "system@avinya.edu.lk",
         out_marked_by: "'system@avinya.edu.lk'",
         created: "",
