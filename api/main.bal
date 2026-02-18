@@ -5786,6 +5786,28 @@ AND p.organization_id IN (
     //         return vehicleReasonDatas;
     // }
 
+    // Get Students Counts
+    isolated resource function get studentCountByOrganization(int organization_id) returns StudentCountData|error {
+    
+        StudentCountData studentCounts = check db_client->queryRow(`
+            SELECT 
+                COUNT(CASE WHEN p.avinya_type_id IN (37, 110) THEN 1 END)                      AS current_student_count,
+                COUNT(CASE WHEN p.avinya_type_id IN (37, 110) AND p.sex = 'Male' THEN 1 END)   AS male_student_count,
+                COUNT(CASE WHEN p.avinya_type_id IN (37, 110) AND p.sex = 'Female' THEN 1 END) AS female_student_count,
+                COUNT(CASE WHEN p.avinya_type_id IN (93, 111) THEN 1 END)                      AS dropout_student_count
+            FROM person p
+            WHERE 
+                p.avinya_type_id IN (37, 110, 93, 111)
+                AND p.organization_id IN (
+                    SELECT child_org_id
+                    FROM parent_child_organization pco
+                    WHERE pco.parent_org_id = ${organization_id}
+                )
+        `);
+
+        return studentCounts;
+    }
+
     isolated resource function get persons(
         int? organization_id,
         int? avinya_type_id,

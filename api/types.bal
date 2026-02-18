@@ -1104,3 +1104,10 @@ type TaskCostRow record {
     decimal actual_cost;
     decimal estimated_cost;
 };
+
+public type StudentCountData record {|
+    int current_student_count;
+    int male_student_count;
+    int female_student_count;
+    int dropout_student_count;
+|};
