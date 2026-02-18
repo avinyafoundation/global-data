@@ -1111,3 +1111,13 @@ public type StudentCountData record {|
     int female_student_count;
     int dropout_student_count;
 |};
+
+public type AgeGroupData record {|
+    string age_group;
+    int count;
+|};
+
+public type AgeDistributionData record {|
+    AgeGroupData[] age_groups;
+    int total_students;
+|};

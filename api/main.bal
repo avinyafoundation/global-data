@@ -5808,6 +5808,68 @@ AND p.organization_id IN (
         return studentCounts;
     }
 
+    //Get age distribution
+    isolated resource function get studentAgeDistribution(int organization_id) returns AgeDistributionData|error {
+
+        stream<AgeGroupData, error?> ageGroups;
+
+        lock {
+            ageGroups = db_client->query(`
+                SELECT 
+                    age_group,
+                    COUNT(*) AS count
+                FROM (
+                    SELECT
+                        CASE
+                            WHEN TIMESTAMPDIFF(YEAR, p.date_of_birth, CURDATE()) < 18        THEN 'Below 18'
+                            WHEN TIMESTAMPDIFF(YEAR, p.date_of_birth, CURDATE()) BETWEEN 18 AND 19 THEN '18-19'
+                            WHEN TIMESTAMPDIFF(YEAR, p.date_of_birth, CURDATE()) BETWEEN 20 AND 21 THEN '20-21'
+                            WHEN TIMESTAMPDIFF(YEAR, p.date_of_birth, CURDATE()) BETWEEN 22 AND 23 THEN '22-23'
+                            WHEN TIMESTAMPDIFF(YEAR, p.date_of_birth, CURDATE()) BETWEEN 24 AND 25 THEN '24-25'
+                            WHEN TIMESTAMPDIFF(YEAR, p.date_of_birth, CURDATE()) > 25         THEN 'Above 25'
+                            ELSE 'Unknown'
+                        END AS age_group
+                    FROM person p
+                    WHERE 
+                        p.avinya_type_id IN (37, 110)
+                        AND p.date_of_birth IS NOT NULL
+                        AND p.organization_id IN (
+                            SELECT child_org_id
+                            FROM parent_child_organization pco
+                            WHERE pco.parent_org_id = ${organization_id}
+                        )
+                ) AS age_calc
+                WHERE age_group != 'Unknown'
+                GROUP BY age_group
+                ORDER BY 
+                    CASE age_group
+                        WHEN 'Below 18' THEN 1
+                        WHEN '18-19'    THEN 2
+                        WHEN '20-21'    THEN 3
+                        WHEN '22-23'    THEN 4
+                        WHEN '24-25'    THEN 5
+                        WHEN 'Above 25' THEN 6
+                    END ASC
+            `);
+        }
+
+        AgeGroupData[] ageGroupList = [];
+        int total = 0;
+
+        check from AgeGroupData ageGroup in ageGroups
+            do {
+                ageGroupList.push(ageGroup);
+                total += ageGroup.count;
+            };
+
+        check ageGroups.close();
+
+        return {
+            age_groups: ageGroupList,
+            total_students: total
+        };
+    }
+
     isolated resource function get persons(
         int? organization_id,
         int? avinya_type_id,
