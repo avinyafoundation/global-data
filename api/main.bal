@@ -4842,30 +4842,48 @@ AND p.organization_id IN (
         }
     }
 
-    isolated resource function get daily_attendance_summary_report(int? organization_id, int? avinya_type_id, string? from_date = "", string? to_date = "") returns DailyActivityParticipantAttendanceSummaryReportData[]|error? {
+    isolated resource function get daily_attendance_summary_report(int? parent_organization_id,int? organization_id, int? avinya_type_id, string? from_date = "", string? to_date = "") returns DailyActivityParticipantAttendanceSummaryReportData[]|error? {
 
-        stream<ActivityParticipantAttendanceSummaryReport, error?> daily_attendance_summary_report_records;
+        stream<ActivityParticipantAttendanceSummaryReport, error?> daily_attendance_summary_report_records = new;
 
         if (from_date != null && to_date != null) {
+            if(organization_id !=null){  //fetch the class wise attendance data .//fetch student attendance summary data.
+                lock {
 
-            lock {
-
-                daily_attendance_summary_report_records = db_client->query(
-                                `SELECT
-                                    DATE(pa.sign_in_time) AS sign_in_date,
-                                    COUNT(DISTINCT pa.person_id) AS present_count,
-                                    (ts.total_count - COUNT(DISTINCT pa.person_id)) AS absent_count,
-                                    COUNT(CASE WHEN TIME_FORMAT(pa.sign_in_time, '%H:%i:%s') > '07:30:00' THEN 1 END) AS late_count,
-                                    ts.total_count
-                                    FROM
-                                    activity_participant_attendance pa
-                                    JOIN person p ON pa.person_id = p.id
-                                    JOIN (
-                                        SELECT COUNT(*) AS total_count
-                                        FROM person p
-                                        JOIN organization o ON o.id = p.organization_id
-                                        WHERE p.avinya_type_id = ${avinya_type_id}
-                                        AND p.id != 26
+                    daily_attendance_summary_report_records = db_client->query(
+                                    `SELECT
+                                        DATE(pa.sign_in_time) AS sign_in_date,
+                                        COUNT(DISTINCT pa.person_id) AS present_count,
+                                        (ts.total_count - COUNT(DISTINCT pa.person_id)) AS absent_count,
+                                        COUNT(CASE WHEN TIME_FORMAT(pa.sign_in_time, '%H:%i:%s') > '07:30:00' THEN 1 END) AS late_count,
+                                        ts.total_count
+                                        FROM
+                                        activity_participant_attendance pa
+                                        JOIN person p ON pa.person_id = p.id
+                                        JOIN (
+                                            SELECT COUNT(*) AS total_count
+                                            FROM person p
+                                            JOIN organization o ON o.id = p.organization_id
+                                            WHERE p.avinya_type_id = ${avinya_type_id}
+                                            AND p.id != 26
+                                            AND p.organization_id IN (
+                                                SELECT id
+                                                FROM organization
+                                                WHERE id IN (
+                                                    SELECT child_org_id
+                                                    FROM parent_child_organization
+                                                    WHERE parent_org_id = ${organization_id}
+                                                )
+                                            )
+                                        ) ts
+                                        WHERE
+                                        pa.sign_in_time IS NOT NULL
+                                        AND pa.activity_instance_id IN (
+                                            SELECT id
+                                            FROM activity_instance
+                                            WHERE activity_id = 4
+                                        )
+                                        AND p.avinya_type_id = ${avinya_type_id}
                                         AND p.organization_id IN (
                                             SELECT id
                                             FROM organization
@@ -4874,27 +4892,41 @@ AND p.organization_id IN (
                                                 FROM parent_child_organization
                                                 WHERE parent_org_id = ${organization_id}
                                             )
+                                            )
+                                        AND DATE(pa.sign_in_time) BETWEEN ${from_date} AND ${to_date}
+                                        GROUP BY DATE(pa.sign_in_time), ts.total_count order by DATE(pa.sign_in_time) asc;`);
+
+                }
+            }else if(parent_organization_id != null ){ //fetch organization employee attendance summary data
+                lock {
+
+                    daily_attendance_summary_report_records = db_client->query(
+                                    `SELECT
+                                        DATE(pa.sign_in_time) AS sign_in_date,
+                                        COUNT(DISTINCT pa.person_id) AS present_count,
+                                        (ts.total_count - COUNT(DISTINCT pa.person_id)) AS absent_count,
+                                        ts.total_count
+                                        FROM
+                                        activity_participant_attendance pa
+                                        JOIN person p ON pa.person_id = p.id
+                                        JOIN (
+                                            SELECT COUNT(*) AS total_count
+                                            FROM person p
+                                            JOIN organization o ON o.id = p.organization_id
+                                            WHERE
+                                            p.id != 26 AND p.organization_id = ${parent_organization_id}
+                                        ) ts
+                                        WHERE
+                                        pa.sign_in_time IS NOT NULL
+                                        AND pa.activity_instance_id IN (
+                                            SELECT id
+                                            FROM activity_instance
+                                            WHERE activity_id = 1
                                         )
-                                    ) ts
-                                    WHERE
-                                    pa.sign_in_time IS NOT NULL
-                                    AND pa.activity_instance_id IN (
-                                        SELECT id
-                                        FROM activity_instance
-                                        WHERE activity_id = 4
-                                    )
-                                    AND p.avinya_type_id = ${avinya_type_id}
-                                    AND p.organization_id IN (
-                                        SELECT id
-                                        FROM organization
-                                        WHERE id IN (
-                                            SELECT child_org_id
-                                            FROM parent_child_organization
-                                            WHERE parent_org_id = ${organization_id}
-                                        )
-                                        )
-                                    AND DATE(pa.sign_in_time) BETWEEN ${from_date} AND ${to_date}
-                                    GROUP BY DATE(pa.sign_in_time), ts.total_count order by DATE(pa.sign_in_time) asc;`);
+                                        AND p.organization_id = ${parent_organization_id}
+                                        AND DATE(pa.sign_in_time) BETWEEN ${from_date} AND ${to_date}
+                                        GROUP BY DATE(pa.sign_in_time), ts.total_count order by DATE(pa.sign_in_time) asc;`);
+                }
 
             }
 
