@@ -5831,7 +5831,7 @@ AND p.organization_id IN (
                         END AS age_group
                     FROM person p
                     WHERE 
-                        p.avinya_type_id IN (37, 110)
+                        p.avinya_type_id IN (37, 10, 96, 110, 115, 120, 125)
                         AND p.date_of_birth IS NOT NULL
                         AND p.organization_id IN (
                             SELECT child_org_id
@@ -5866,6 +5866,50 @@ AND p.organization_id IN (
 
         return {
             age_groups: ageGroupList,
+            total_students: total
+        };
+    }
+
+    //Get district vise distribution
+    isolated resource function get studentDistrictDistribution(int organization_id) returns DistrictDistributionData|error {
+
+        stream<DistrictStudentCount, error?> districtCounts;
+
+        lock {
+            districtCounts = db_client->query(`
+                SELECT 
+                    d.name_en AS district_name,
+                    COUNT(p.id) AS count
+                FROM person p
+                INNER JOIN address a   ON p.mailing_address_id = a.id
+                INNER JOIN city c      ON a.city_id = c.id
+                INNER JOIN district d  ON c.district_id = d.id
+                WHERE
+                    p.avinya_type_id IN (37, 10, 96, 110, 115, 120, 125)
+                    AND p.mailing_address_id IS NOT NULL
+                    AND p.organization_id IN (
+                        SELECT child_org_id
+                        FROM parent_child_organization pco
+                        WHERE pco.parent_org_id = ${organization_id}
+                    )
+                GROUP BY d.id, d.name_en
+                ORDER BY count DESC
+            `);
+        }
+
+        DistrictStudentCount[] districtList = [];
+        int total = 0;
+
+        check from DistrictStudentCount districtCount in districtCounts
+            do {
+                districtList.push(districtCount);
+                total += districtCount.count;
+            };
+
+        check districtCounts.close();
+
+        return {
+            districts: districtList,
             total_students: total
         };
     }

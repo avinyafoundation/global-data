@@ -1121,3 +1121,13 @@ public type AgeDistributionData record {|
     AgeGroupData[] age_groups;
     int total_students;
 |};
+
+public type DistrictStudentCount record {|
+    string district_name;
+    int count;
+|};
+
+public type DistrictDistributionData record {|
+    DistrictStudentCount[] districts;
+    int total_students;
+|};
