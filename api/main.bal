@@ -5786,49 +5786,213 @@ AND p.organization_id IN (
     //         return vehicleReasonDatas;
     // }
 
-    isolated resource function get persons(int? organization_id, int? avinya_type_id) returns PersonData[]|error? {
+    // Get Students Counts
+    isolated resource function get studentCountByOrganization(int organization_id) returns StudentCountData|error {
+    
+        StudentCountData studentCounts = check db_client->queryRow(`
+            SELECT 
+                COUNT(CASE WHEN p.avinya_type_id IN (37, 110) THEN 1 END)                      AS current_student_count,
+                COUNT(CASE WHEN p.avinya_type_id IN (37, 110) AND p.sex = 'Male' THEN 1 END)   AS male_student_count,
+                COUNT(CASE WHEN p.avinya_type_id IN (37, 110) AND p.sex = 'Female' THEN 1 END) AS female_student_count,
+                COUNT(CASE WHEN p.avinya_type_id IN (93, 111) THEN 1 END)                      AS dropout_student_count
+            FROM person p
+            WHERE 
+                p.avinya_type_id IN (37, 110, 93, 111)
+                AND p.organization_id IN (
+                    SELECT child_org_id
+                    FROM parent_child_organization pco
+                    WHERE pco.parent_org_id = ${organization_id}
+                )
+        `);
+
+        return studentCounts;
+    }
+
+    //Get age distribution
+    isolated resource function get studentAgeDistribution(int organization_id) returns AgeDistributionData|error {
+
+        stream<AgeGroupData, error?> ageGroups;
+
+        lock {
+            ageGroups = db_client->query(`
+                SELECT 
+                    age_group,
+                    COUNT(*) AS count
+                FROM (
+                    SELECT
+                        CASE
+                            WHEN TIMESTAMPDIFF(YEAR, p.date_of_birth, CURDATE()) < 18        THEN 'Below 18'
+                            WHEN TIMESTAMPDIFF(YEAR, p.date_of_birth, CURDATE()) BETWEEN 18 AND 19 THEN '18-19'
+                            WHEN TIMESTAMPDIFF(YEAR, p.date_of_birth, CURDATE()) BETWEEN 20 AND 21 THEN '20-21'
+                            WHEN TIMESTAMPDIFF(YEAR, p.date_of_birth, CURDATE()) BETWEEN 22 AND 23 THEN '22-23'
+                            WHEN TIMESTAMPDIFF(YEAR, p.date_of_birth, CURDATE()) BETWEEN 24 AND 25 THEN '24-25'
+                            WHEN TIMESTAMPDIFF(YEAR, p.date_of_birth, CURDATE()) > 25         THEN 'Above 25'
+                            ELSE 'Unknown'
+                        END AS age_group
+                    FROM person p
+                    WHERE 
+                        p.avinya_type_id IN (37, 10, 96, 110, 115, 120, 125)
+                        AND p.date_of_birth IS NOT NULL
+                        AND p.organization_id IN (
+                            SELECT child_org_id
+                            FROM parent_child_organization pco
+                            WHERE pco.parent_org_id = ${organization_id}
+                        )
+                ) AS age_calc
+                WHERE age_group != 'Unknown'
+                GROUP BY age_group
+                ORDER BY 
+                    CASE age_group
+                        WHEN 'Below 18' THEN 1
+                        WHEN '18-19'    THEN 2
+                        WHEN '20-21'    THEN 3
+                        WHEN '22-23'    THEN 4
+                        WHEN '24-25'    THEN 5
+                        WHEN 'Above 25' THEN 6
+                    END ASC
+            `);
+        }
+
+        AgeGroupData[] ageGroupList = [];
+        int total = 0;
+
+        check from AgeGroupData ageGroup in ageGroups
+            do {
+                ageGroupList.push(ageGroup);
+                total += ageGroup.count;
+            };
+
+        check ageGroups.close();
+
+        return {
+            age_groups: ageGroupList,
+            total_students: total
+        };
+    }
+
+    //Get district vise distribution
+    isolated resource function get studentDistrictDistribution(int organization_id) returns DistrictDistributionData|error {
+
+        stream<DistrictStudentCount, error?> districtCounts;
+
+        lock {
+            districtCounts = db_client->query(`
+                SELECT 
+                    d.name_en AS district_name,
+                    COUNT(p.id) AS count
+                FROM person p
+                INNER JOIN address a   ON p.mailing_address_id = a.id
+                INNER JOIN city c      ON a.city_id = c.id
+                INNER JOIN district d  ON c.district_id = d.id
+                WHERE
+                    p.avinya_type_id IN (37, 10, 96, 110, 115, 120, 125)
+                    AND p.mailing_address_id IS NOT NULL
+                    AND p.organization_id IN (
+                        SELECT child_org_id
+                        FROM parent_child_organization pco
+                        WHERE pco.parent_org_id = ${organization_id}
+                    )
+                GROUP BY d.id, d.name_en
+                ORDER BY count DESC
+            `);
+        }
+
+        DistrictStudentCount[] districtList = [];
+        int total = 0;
+
+        check from DistrictStudentCount districtCount in districtCounts
+            do {
+                districtList.push(districtCount);
+                total += districtCount.count;
+            };
+
+        check districtCounts.close();
+
+        return {
+            districts: districtList,
+            total_students: total
+        };
+    }
+
+    isolated resource function get persons(
+        int? organization_id,
+        int? avinya_type_id,
+        int? 'limit = (),
+        int? offset = (),
+        int? class_id = (),
+        string? search = ()
+    ) returns PersonData[]|error? {
+
         stream<Person, error?> persons_data;
+
+        sql:ParameterizedQuery query = `SELECT *
+                FROM person p
+                WHERE 1 = 1`;
+
+        // Filtering logic
         if (organization_id != null && organization_id != -1 && avinya_type_id != null) {
-            lock {
-                persons_data = db_client->query(
-                    `SELECT *
-                        from person p
-                        where 
-                        p.avinya_type_id = ${avinya_type_id} and
-                        p.organization_id IN(
-                            Select child_org_id
-                            from parent_child_organization pco
-                            where pco.parent_org_id = ${organization_id}
-                        );`);
-            }
+
+            query = sql:queryConcat(query, `
+                AND p.avinya_type_id = ${avinya_type_id}
+                AND p.organization_id IN (
+                    SELECT child_org_id
+                    FROM parent_child_organization pco
+                    WHERE pco.parent_org_id = ${organization_id}
+                )`);
 
         } else if (organization_id != null && organization_id == -1 && avinya_type_id != null) {
 
-            lock {
-                persons_data = db_client->query(
-                    `SELECT *
-                        from person p
-                        where 
-                        p.avinya_type_id = ${avinya_type_id};`);
-            }
+            query = sql:queryConcat(query, `
+                AND p.avinya_type_id = ${avinya_type_id}`);
+
         } else if (organization_id != null && organization_id != -1 && avinya_type_id == null) {
 
-            //get people by organization id[ex:- Need to get the bandaragama current working employees]
-            lock {
-                persons_data = db_client->query(
-                    `SELECT *
-                        from person p
-                        where 
-                        p.organization_id = ${organization_id} and p.avinya_type_id !=128;`);
-            }
+            query = sql:queryConcat(query, `
+                AND p.organization_id = ${organization_id}
+                AND p.avinya_type_id != 128`);
+
         } else {
-            return error("Provide non-null values for both 'organization_id' and 'avinya_type_id'.");
+            return error("Provide valid values for filtering.");
         }
+        
+        // Fetch by class id
+        if (class_id != null) {
+            query = sql:queryConcat(query, `
+                AND p.organization_id = ${class_id}
+            `);
+        }
+
+        // Search by name and nic
+        if (search != null && search.trim() != "") {
+
+            string pattern = "%" + search.trim() + "%";
+
+            query = sql:queryConcat(query, `
+                AND (
+                    p.full_name LIKE ${pattern}
+                    OR p.nic_no LIKE ${pattern}
+                )
+            `);
+        }
+
+        // Optional pagination (same safe pattern)
+        if ('limit != null && offset != null) {
+            query = sql:queryConcat(query, ` LIMIT ${'limit} OFFSET ${offset}`);
+        } else if ('limit != null || offset != null) {
+            return error("Both 'limit' and 'offset' must be provided together.");
+        }
+
+        lock {
+            persons_data = db_client->query(query);
+        }
+
         PersonData[] personDatas = [];
 
         check from Person person_data_record in persons_data
             do {
-                PersonData|error personData = new PersonData(null, 0, person_data_record);
+                PersonData|error personData =
+                        new PersonData(null, 0, person_data_record);
+
                 if !(personData is error) {
                     personDatas.push(personData);
                 }
@@ -5836,8 +6000,9 @@ AND p.organization_id IN (
 
         check persons_data.close();
         return personDatas;
-
     }
+
+
 
     isolated resource function get person_by_id(int? id) returns PersonData|error? {
         if (id != null) {
