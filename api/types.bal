@@ -1105,6 +1105,7 @@ type TaskCostRow record {
     decimal estimated_cost;
 };
 
+//This type is used to represent the count of students in various categories for a given organization.
 public type StudentCountData record {|
     int current_student_count;
     int male_student_count;
@@ -1112,21 +1113,25 @@ public type StudentCountData record {|
     int dropout_student_count;
 |};
 
+//This type is used to represent the distribution of students across different age groups for a given organization.
 public type AgeGroupData record {|
     string age_group;
     int count;
 |};
 
+//This type is used to represent the distribution of students across different age groups for a given organization, along with the total student count.
 public type AgeDistributionData record {|
     AgeGroupData[] age_groups;
     int total_students;
 |};
 
+//This type is used to represent the count of students in various districts for a given organization.
 public type DistrictStudentCount record {|
     string district_name;
     int count;
 |};
 
+//This type is used to represent the distribution of students across different districts for a given organization, along with the total student count.
 public type DistrictDistributionData record {|
     DistrictStudentCount[] districts;
     int total_students;
