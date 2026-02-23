@@ -1612,8 +1612,8 @@ service /graphql on new graphql:Listener(4000) {
 
     // only today's attendance can be added with this method
     remote function addBiometricAttendance(ActivityParticipantAttendance attendance) returns ActivityParticipantAttendanceData|error? {
-        
-            // 1. DEBOUNCE CHECK: 5-Minute Window
+
+        // 1. DEBOUNCE CHECK: 5-Minute Window
         // We ignore any scan that happens within 5 minutes of a previous success for the same person.
         //for the same day
         ActivityParticipantAttendance|error recentRecord = db_client->queryRow(
@@ -1629,8 +1629,8 @@ service /graphql on new graphql:Listener(4000) {
 
         if (recentRecord is ActivityParticipantAttendance) {
             log:printInfo(string `Cooldown active. Ignoring scan for Person: ${attendance.person_id.toString()} (Last scan < 5 mins ago)`);
-            return new (recentRecord.id); 
-        }else if (recentRecord is sql:NoRowsError) {
+            return new (recentRecord.id);
+        } else if (recentRecord is sql:NoRowsError) {
             // SUCCESS CASE: No record found, so we proceed normally to the next step
             log:printDebug("No recent records found. Proceeding with attendance logic.");
         } else {
@@ -1698,9 +1698,9 @@ service /graphql on new graphql:Listener(4000) {
                 }
                 return new (insert_id);
             }
-        }else {
-        // 5. CASE: No sign in at all -> INSERT new sign in row    
-        sql:ExecutionResult res = check db_client->execute(
+        } else {
+            // 5. CASE: No sign in at all -> INSERT new sign in row    
+            sql:ExecutionResult res = check db_client->execute(
             `INSERT INTO activity_participant_attendance (
                 activity_instance_id,
                 person_id,
@@ -1718,12 +1718,12 @@ service /graphql on new graphql:Listener(4000) {
             );`
         );
 
-        int|string? insert_id = res.lastInsertId;
-        if !(insert_id is int) {
-            return error("Unable to insert sign in attendance record");
-        }
+            int|string? insert_id = res.lastInsertId;
+            if !(insert_id is int) {
+                return error("Unable to insert sign in attendance record");
+            }
 
-        return new (insert_id);
+            return new (insert_id);
         }
     }
 
@@ -1970,8 +1970,70 @@ service /graphql on new graphql:Listener(4000) {
         return attendnaceDatas;
     }
 
-    isolated resource function get late_attendance_report(int? organization_id, int? parent_organization_id, int? activity_id, int? result_limit = 0, string? from_date = "", string? to_date = "") returns ActivityParticipantAttendanceDataForLateAttendance[]|error? {
-        stream<ActivityParticipantAttendanceForLateAttendance, error?> attendance_records;
+    isolated resource function get absent_report(int? organization_id, int? parent_organization_id, int? activity_id, int? result_limit = 0, string? date = (), string? from_date = (), string? to_date = ()) returns ActivityParticipantAbsentData[]|error? {
+        stream<ActivityParticipantAbsenceRaw, error?> absentRecords = new;
+
+        if (organization_id != null && date != null && activity_id == 4) { //Retrieves the list of absent students for a specific class on a given date.
+            lock {
+                absentRecords = db_client->query(
+                    `SELECT 
+                        COUNT(DISTINCT p.id) AS absentCount,
+                        GROUP_CONCAT(DISTINCT p.preferred_name ORDER BY p.preferred_name ASC) AS absentNames
+                    FROM person p
+                    LEFT JOIN activity_participant_attendance apa ON p.id = apa.person_id 
+                        AND DATE(apa.sign_in_time) = ${date}
+                        AND apa.activity_instance_id IN (SELECT id FROM activity_instance WHERE activity_id = 4)
+                    WHERE 
+                        p.organization_id = ${organization_id}
+                        AND p.avinya_type_id IN (37, 10, 96, 110, 115, 120, 125)
+                        AND apa.id IS NULL;`);
+            }
+        } else if (date != null && activity_id == 4) { //Retrieve student absent data on a given date for all school
+            lock {
+                absentRecords = db_client->query(
+                    `SELECT 
+                        COUNT(DISTINCT p.id) AS absentCount,
+                        GROUP_CONCAT(DISTINCT p.preferred_name ORDER BY p.preferred_name ASC) AS absentNames
+                    FROM person p
+                    JOIN organization o ON o.id = p.organization_id
+                    LEFT JOIN activity_participant_attendance apa ON p.id = apa.person_id 
+                        AND DATE(apa.sign_in_time) = ${date}
+                        AND apa.activity_instance_id IN (SELECT id FROM activity_instance WHERE activity_id = 4)
+                    WHERE 
+                        p.avinya_type_id IN (37, 10, 96, 110, 115, 120, 125) AND
+                        o.avinya_type NOT IN (95, 97, 98, 112, 117, 122)
+                        AND apa.id IS NULL;`);
+            }
+        } else if (parent_organization_id != null && date != null && activity_id == 1) { //Retrieve employee absent data on a given date
+            lock {
+                absentRecords = db_client->query(
+                    `SELECT 
+                        COUNT(DISTINCT p.id) AS absentCount,
+                        GROUP_CONCAT(DISTINCT p.preferred_name ORDER BY p.preferred_name ASC) AS absentNames
+                    FROM person p
+                    LEFT JOIN activity_participant_attendance apa ON p.id = apa.person_id 
+                        AND DATE(apa.sign_in_time) = ${date}
+                        AND apa.activity_instance_id IN (SELECT id FROM activity_instance WHERE activity_id = 1)
+                    WHERE 
+                        p.organization_id = ${parent_organization_id} AND p.avinya_type_id !=128
+                        AND apa.id IS NULL;`);
+            }
+        }
+        ActivityParticipantAbsentData[] absentData = [];
+
+        check from ActivityParticipantAbsenceRaw absent_record in absentRecords
+            do {
+                ActivityParticipantAbsentData|error absentDataRecord = new ActivityParticipantAbsentData(absent_record);
+                if !(absentDataRecord is error) {
+                    absentData.push(absentDataRecord);
+                }
+            };
+        check absentRecords.close();
+        return absentData;
+    }
+
+    isolated resource function get late_attendance_report(int? organization_id, int? parent_organization_id, int? activity_id, int? result_limit = 0, string? date = (), string? from_date = (), string? to_date = ()) returns ActivityParticipantAttendanceDataForLateAttendance[]|error? {
+        stream<ActivityParticipantAttendanceForLateAttendance, error?> attendance_records = new;
 
         time:Utc startTime = time:utcNow();
 
@@ -1988,8 +2050,8 @@ service /graphql on new graphql:Listener(4000) {
             lock {
                 attendance_records = db_client->query(
                     `SELECT apa.*,p.preferred_name,p.digital_id
-FROM activity_participant_attendance apa
-LEFT JOIN person p ON apa.person_id = p.id
+                    FROM activity_participant_attendance apa
+                    LEFT JOIN person p ON apa.person_id = p.id
                     FROM activity_participant_attendance
                     WHERE person_id in (SELECT id FROM person WHERE organization_id = ${organization_id} AND avinya_type_id=${avinya_type_id}) AND 
                     activity_instance_id in (SELECT id FROM activity_instance WHERE activity_id = ${activity_id}) 
@@ -2015,8 +2077,8 @@ LEFT JOIN person p ON apa.person_id = p.id
                     lock {
                         attendance_records = db_client->query(
                         `SELECT apa.*,p.preferred_name,p.digital_id
-FROM activity_participant_attendance apa
-LEFT JOIN person p ON apa.person_id = p.id
+                        FROM activity_participant_attendance apa
+                        LEFT JOIN person p ON apa.person_id = p.id
                         WHERE person_id IN (SELECT id FROM person WHERE organization_id = ${organization_id} AND avinya_type_id=${avinya_type_id})
                         AND activity_instance_id IN (SELECT id FROM activity_instance WHERE activity_id = ${activity_id})
                         AND DATE(sign_in_time) BETWEEN ${from_date} AND ${to_date}
@@ -2041,7 +2103,40 @@ LEFT JOIN person p ON apa.person_id = p.id
                         );
                     }
                 }
+            } else if (date != null) {
+                if (parent_organization_id != null) {
+                    // Returns a list of students who arrived late for a given date, grouped by time ranges.                    
+                    lock {
+                        attendance_records = db_client->query(
+                            `SELECT 
+                                    CASE 
+                                        WHEN TIME(apa.sign_in_time) < '07:30:00' THEN 'Before 07:30'
+                                        WHEN TIME(apa.sign_in_time) < '07:45:00' THEN '07:30 - 07:45'
+                                        WHEN TIME(apa.sign_in_time) < '08:00:00' THEN '07:45 - 08:00'
+                                        WHEN TIME(apa.sign_in_time) < '08:30:00' THEN '08:00 - 08:30'
+                                        ELSE 'After 08:30'
+                                    END AS label,
+                                    COUNT(DISTINCT p.id) AS studentCount,
+                                    GROUP_CONCAT(DISTINCT p.preferred_name ORDER BY p.preferred_name ASC) AS studentNames
+                                FROM activity_participant_attendance apa
+                                INNER JOIN person p ON apa.person_id = p.id
+                                WHERE DATE(apa.sign_in_time) = ${date}
+                                AND p.organization_id IN (
+                                    SELECT child_org_id FROM parent_child_organization 
+                                    WHERE parent_org_id IN (
+                                        SELECT child_org_id FROM parent_child_organization 
+                                        WHERE parent_org_id = ${parent_organization_id}
+                                    )
+                                )
+                                AND p.avinya_type_id IN (37, 10, 96, 110, 115, 120, 125)
+                                AND apa.activity_instance_id IN (SELECT id FROM activity_instance WHERE activity_id = ${activity_id})
+                                GROUP BY label
+                                ORDER BY MIN(apa.sign_in_time) ASC;`
+                        );
+                    }
+                }
             } else {
+                io:println("else block");
                 int|error? avinya_type_id = db_client->queryRow(
                             `SELECT p.avinya_type_id FROM organization o left join person p on o.id = p.organization_id WHERE o.id = ${organization_id} AND p.avinya_type_id NOT IN (99, 100) ORDER BY p.avinya_type_id LIMIT 1;`
                         );
@@ -4842,12 +4937,12 @@ AND p.organization_id IN (
         }
     }
 
-    isolated resource function get daily_attendance_summary_report(int? parent_organization_id,int? organization_id, int? avinya_type_id, string? from_date = "", string? to_date = "") returns DailyActivityParticipantAttendanceSummaryReportData[]|error? {
+    isolated resource function get daily_attendance_summary_report(int? parent_organization_id, int? organization_id, int? avinya_type_id, string? from_date = "", string? to_date = "") returns DailyActivityParticipantAttendanceSummaryReportData[]|error? {
 
         stream<ActivityParticipantAttendanceSummaryReport, error?> daily_attendance_summary_report_records = new;
 
         if (from_date != null && to_date != null) {
-            if(organization_id !=null){  //fetch the class wise attendance data .//fetch student attendance summary data.
+            if (organization_id != null) { //fetch the class wise attendance data .//fetch student attendance summary data.
                 lock {
 
                     daily_attendance_summary_report_records = db_client->query(
@@ -4897,7 +4992,7 @@ AND p.organization_id IN (
                                         GROUP BY DATE(pa.sign_in_time), ts.total_count order by DATE(pa.sign_in_time) asc;`);
 
                 }
-            }else if(parent_organization_id != null ){ //fetch organization employee attendance summary data
+            } else if (parent_organization_id != null) { //fetch organization employee attendance summary data
                 lock {
 
                     daily_attendance_summary_report_records = db_client->query(
@@ -4915,6 +5010,7 @@ AND p.organization_id IN (
                                             JOIN organization o ON o.id = p.organization_id
                                             WHERE
                                             p.id != 26 AND p.organization_id = ${parent_organization_id}
+                                            AND p.avinya_type_id !=128
                                         ) ts
                                         WHERE
                                         pa.sign_in_time IS NOT NULL

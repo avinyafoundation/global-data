@@ -10,7 +10,10 @@ public isolated service class ActivityParticipantAttendanceDataForLateAttendance
         updated: "",
         description: "",
         preferred_name: "",
-        digital_id: ""
+        digital_id: "",
+        label: "",
+        studentNames: "",
+        studentCount: -1
      };
 
     isolated function init(int? activity_participant_attendance_id = 0, ActivityParticipantAttendanceForLateAttendance? activity_participant_attendance = null) returns error? {
@@ -95,6 +98,24 @@ public isolated service class ActivityParticipantAttendanceDataForLateAttendance
         }
     }
 
+    isolated resource function get label() returns string? {
+        lock {
+            return self.activity_participant_attendance.label;
+        }
+    }
+
+    isolated resource function get student_count() returns int? {
+        lock {
+            return self.activity_participant_attendance.studentCount;
+        }
+    }
+
+    isolated resource function get student_name() returns string? {
+        lock {
+            return self.activity_participant_attendance.studentNames;
+        }
+    }
+
     isolated resource function get created() returns string? {
         lock {
                 return self.activity_participant_attendance.created;
@@ -113,7 +134,7 @@ public isolated service class ActivityParticipantAttendanceDataForLateAttendance
         }
     }
 
-     isolated resource function get out_marked_by() returns string? {
+    isolated resource function get out_marked_by() returns string? {
         lock {
                 return self.activity_participant_attendance.out_marked_by;
         }

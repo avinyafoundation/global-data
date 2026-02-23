@@ -500,6 +500,16 @@ public type ActivityParticipantAttendanceForLateAttendance record {|
     string? description;
     string? preferred_name;
     string? digital_id;
+    string? label;  //The label for the time range (e.g."07:30 - 07:45")
+    int studentCount; // Total number of unique students in this range(e.g."07:30 - 07:45")
+    string? studentNames;//List of names of students who signed in during this range
+|};
+
+public type ActivityParticipantAbsenceRaw record{|
+    # Total count of unique people absent in this context
+    int absentCount;
+    # List of names of those who were absent
+    string? absentNames;
 |};
 
 public type ActivityParticipantAttendanceSummaryReport record {|
