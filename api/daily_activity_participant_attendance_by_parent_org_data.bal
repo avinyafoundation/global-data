@@ -15,6 +15,12 @@ public isolated service class DailyActivityParticipantAttendanceByParentOrgData 
         
     }
 
+    //class id
+    isolated resource function get id() returns int? {
+        lock {
+            return self.daily_activity_participant_attendance_by_parent_org?.id;
+        }
+    }
 
     isolated resource function get description() returns string? {
         lock {
