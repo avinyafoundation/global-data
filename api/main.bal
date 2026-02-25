@@ -4697,18 +4697,19 @@ AND p.organization_id IN (
             return error("Provide non-null values for both 'From Date' and 'To Date'.");
         }
     }
-
-    isolated resource function get daily_students_attendance_by_parent_org(int? parent_organization_id) returns DailyActivityParticipantAttendanceByParentOrgData[]|error? {
+    
+    isolated resource function get daily_students_attendance_by_parent_org(int? parent_organization_id,string? date) returns DailyActivityParticipantAttendanceByParentOrgData[]|error? {
 
         stream<DailyActivityParticipantAttendanceByParentOrg, error?> daily_activity_participant_attendance_by_parent_org_records;
-
+        
         if (parent_organization_id != null) {
 
             lock {
                 daily_activity_participant_attendance_by_parent_org_records = db_client->query(
-                `SELECT 
-                    COUNT(pa.person_id) AS present_count, 
-                    o.description, 
+                `SELECT
+                    o.id,
+                    o.description,
+                    COALESCE(COUNT(pa.person_id), 0) AS present_count,
                     (
                         SELECT COUNT(p_total.id) 
                         FROM person p_total
@@ -4716,22 +4717,22 @@ AND p.organization_id IN (
                         AND p_total.avinya_type_id IN (37, 10, 96, 110, 115, 120, 125)
                     ) AS total_student_count
                 FROM 
-                    activity_participant_attendance pa
-                JOIN 
-                    person p ON pa.person_id = p.id
+                    organization o
                 LEFT JOIN 
-                    organization o ON o.id = p.organization_id
-                WHERE 
-                    pa.sign_in_time IS NOT NULL
+                    person p ON o.id = p.organization_id 
+                    AND p.avinya_type_id IN (37, 10, 96, 110, 115, 120, 125)
+                LEFT JOIN 
+                    activity_participant_attendance pa ON pa.person_id = p.id
+                    AND pa.sign_in_time IS NOT NULL
                     AND pa.activity_instance_id IN (
                         SELECT id
                         FROM activity_instance
                         WHERE activity_id = 4
                         ORDER BY id DESC
                     )
-                    AND p.avinya_type_id IN (37, 10, 96, 110, 115, 120, 125)
-                    AND DATE(pa.sign_in_time) = CURRENT_DATE()
-                    AND p.organization_id IN (
+                    AND DATE(pa.sign_in_time) = ${date}
+                WHERE 
+                    o.id IN (
                         SELECT id
                         FROM organization
                         WHERE id IN (
@@ -4742,11 +4743,10 @@ AND p.organization_id IN (
                                 FROM parent_child_organization
                                 WHERE parent_org_id = ${parent_organization_id}
                             )
-                        )
+                        ) AND avinya_type NOT IN (95, 97, 98, 112, 117, 122)
                     )
                 GROUP BY 
-                    p.organization_id, o.description, o.id;`
-                );
+                    o.id, o.description;`);
             }
 
             int parentOrg = (parent_organization_id == 2) ? parent_organization_id : 0; //this is add for bandaragama academy
@@ -4989,7 +4989,7 @@ AND p.organization_id IN (
                                             )
                                             )
                                         AND DATE(pa.sign_in_time) BETWEEN ${from_date} AND ${to_date}
-                                        GROUP BY DATE(pa.sign_in_time), ts.total_count order by DATE(pa.sign_in_time) asc;`);
+                                        GROUP BY DATE(pa.sign_in_time), ts.total_count order by DATE(pa.sign_in_time) desc;`);
 
                 }
             } else if (parent_organization_id != null) { //fetch organization employee attendance summary data
@@ -5021,7 +5021,7 @@ AND p.organization_id IN (
                                         )
                                         AND p.organization_id = ${parent_organization_id}
                                         AND DATE(pa.sign_in_time) BETWEEN ${from_date} AND ${to_date}
-                                        GROUP BY DATE(pa.sign_in_time), ts.total_count order by DATE(pa.sign_in_time) asc;`);
+                                        GROUP BY DATE(pa.sign_in_time), ts.total_count order by DATE(pa.sign_in_time) desc;`);
                 }
 
             }

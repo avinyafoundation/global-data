@@ -534,6 +534,7 @@ public type ActivityParticipantAttendanceMissedBySecurity record {|
 
 public type DailyActivityParticipantAttendanceByParentOrg record {|
     readonly string? record_type = "daily_activity_participant_attendance_by_parent_org";
+    int? id?;
     string? description;
     int? present_count;
     string? svg_src;
