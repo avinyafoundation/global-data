@@ -8435,7 +8435,7 @@ AND p.organization_id IN (
         }
         return;
     }
-
+    //delete the job post
     remote function delete_job_post(JobPost job_post) returns int?|error? {
 
         if (job_post.job_type == "text" || job_post.job_type == "text_with_link") {
