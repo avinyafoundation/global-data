@@ -6343,15 +6343,18 @@ AND p.organization_id IN (
                 fourth_db_transaction_fail = true;
                 message = "Unable to insert folder id";
             }
-
-            Person|error? personRaw = db_client->queryRow(
-                                        `SELECT *
+            
+            Person|error personRaw = db_client->queryRow(
+                                        `SELECT p.id
                                         FROM person p
-                                        left join  organization o  on o.id = p.organization_id
-                                        WHERE  o.id = ${person.organization_id} and
+                                        WHERE  p.organization_id IN (
+                                            SELECT child_org_id
+                                            FROM parent_child_organization pco
+                                            WHERE pco.parent_org_id = ${person.parent_organization_id}
+                                        ) and
                                         p.nic_no = ${person.nic_no};`
                                     );
-
+                      
             if (personRaw is Person) {
                 first_db_transaction_fail = true;
                 io:println("Person already exists.");
