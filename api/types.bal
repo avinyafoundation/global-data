@@ -500,6 +500,16 @@ public type ActivityParticipantAttendanceForLateAttendance record {|
     string? description;
     string? preferred_name;
     string? digital_id;
+    string? label;  //The label for the time range (e.g."07:30 - 07:45")
+    int studentCount; // Total number of unique students in this range(e.g."07:30 - 07:45")
+    string? studentNames;//List of names of students who signed in during this range
+|};
+
+public type ActivityParticipantAbsenceRaw record{|
+    # Total count of unique people absent in this context
+    int absentCount;
+    # List of names of those who were absent
+    string? absentNames;
 |};
 
 public type ActivityParticipantAttendanceSummaryReport record {|
@@ -524,6 +534,7 @@ public type ActivityParticipantAttendanceMissedBySecurity record {|
 
 public type DailyActivityParticipantAttendanceByParentOrg record {|
     readonly string? record_type = "daily_activity_participant_attendance_by_parent_org";
+    int? id?;
     string? description;
     int? present_count;
     string? svg_src;
@@ -1104,3 +1115,35 @@ type TaskCostRow record {
     decimal actual_cost;
     decimal estimated_cost;
 };
+
+//This type is used to represent the count of students in various categories for a given organization.
+public type StudentCountData record {|
+    int current_student_count;
+    int male_student_count;
+    int female_student_count;
+    int dropout_student_count;
+|};
+
+//This type is used to represent the distribution of students across different age groups for a given organization.
+public type AgeGroupData record {|
+    string age_group;
+    int count;
+|};
+
+//This type is used to represent the distribution of students across different age groups for a given organization, along with the total student count.
+public type AgeDistributionData record {|
+    AgeGroupData[] age_groups;
+    int total_students;
+|};
+
+//This type is used to represent the count of students in various districts for a given organization.
+public type DistrictStudentCount record {|
+    string district_name;
+    int count;
+|};
+
+//This type is used to represent the distribution of students across different districts for a given organization, along with the total student count.
+public type DistrictDistributionData record {|
+    DistrictStudentCount[] districts;
+    int total_students;
+|};
