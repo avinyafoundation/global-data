@@ -10541,18 +10541,63 @@ function updateMaintenanceTaskFinanceInfo
 
 isolated function deactivateMaintenanceTask(int taskId, string modifiedBy) returns MaintenanceTaskData|error? {
 
-    sql:ExecutionResult res = check db_client->execute(
-            `UPDATE maintenance_task SET
-                is_active = 0,
-                modified_by = ${modifiedBy}
-            WHERE id = ${taskId};`
+    // Step 1: Find the most recently created activity instance for this task
+    int|error? latestInstanceId = db_client->queryRow(
+        `SELECT id FROM activity_instance 
+         WHERE task_id = ${taskId} 
+         ORDER BY id DESC 
+         LIMIT 1`
+    );
+
+    if latestInstanceId is int {
+
+        // Step 2: Find the maintenance_finance record linked to this activity instance
+        int|error? financeId = db_client->queryRow(
+            `SELECT id FROM maintenance_finance 
+             WHERE activity_instance_id = ${latestInstanceId}`
         );
 
-    if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+        if financeId is int {
+
+            // Step 3: Delete all material_cost records linked to this finance record
+            sql:ExecutionResult _ = check db_client->execute(
+                `DELETE FROM material_cost 
+                 WHERE financial_id = ${financeId}`
+            );
+
+            // Step 4: Delete the maintenance_finance record
+            sql:ExecutionResult _ = check db_client->execute(
+                `DELETE FROM maintenance_finance 
+                 WHERE id = ${financeId}`
+            );
+        }
+
+        // Step 5: Delete all activity_participant records linked to this activity instance
+        sql:ExecutionResult _ = check db_client->execute(
+            `DELETE FROM activity_participant 
+             WHERE activity_instance_id = ${latestInstanceId}`
+        );
+
+        // Step 6: Delete the activity_instance record itself
+        sql:ExecutionResult _ = check db_client->execute(
+            `DELETE FROM activity_instance 
+             WHERE id = ${latestInstanceId}`
+        );
+    }
+
+    // Step 7: Deactivate the maintenance task
+    sql:ExecutionResult res = check db_client->execute(
+        `UPDATE maintenance_task SET
+            is_active = 0,
+            modified_by = ${modifiedBy}
+         WHERE id = ${taskId}`
+    );
+
+    if res.affectedRowCount == sql:EXECUTION_FAILED {
         return error("Failed to deactivate maintenance task record");
     }
 
-    if (res.affectedRowCount == 0) {
+    if res.affectedRowCount == 0 {
         return error("No task found with id: " + taskId.toString());
     }
 
