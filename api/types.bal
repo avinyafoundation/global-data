@@ -144,6 +144,7 @@ public type Person record {|
     boolean? is_graduated;
     string? profile_picture_folder_id;
     decimal? attendance_percentage; // Attendance percentage for the person
+    decimal? attendance_percentage_raw;
     int rank_position;
 |};
 
