@@ -90,6 +90,7 @@ public type Organization record {|
     string? description;
     string? notes;
     int? active;
+    decimal? attendance_percentage; // Attendance percentage for the class
 |};
 
 type ParentChildOrganization record {|
@@ -142,6 +143,8 @@ public type Person record {|
     int? updated_by;
     boolean? is_graduated;
     string? profile_picture_folder_id;
+    decimal? attendance_percentage; // Attendance percentage for the person
+    int rank_position;
 |};
 
 type ParentChildStudent record {|

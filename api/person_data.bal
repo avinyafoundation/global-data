@@ -448,4 +448,10 @@ public isolated service class PersonData {
             return self.person.profile_picture_folder_id;
         }
     }
+
+    isolated resource function get attendance_percentage() returns decimal? {
+        lock {
+            return self.person.attendance_percentage;
+        }
+    }
 }

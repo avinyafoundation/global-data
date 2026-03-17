@@ -268,4 +268,11 @@ public isolated service class OrganizationData {
         }
     }
 
+    
+    isolated resource function get attendance_percentage() returns decimal? {
+        lock {
+            return self.organization.attendance_percentage;
+        }
+    }
+
 }
