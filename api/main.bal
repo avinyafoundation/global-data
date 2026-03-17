@@ -5098,7 +5098,7 @@ AND p.organization_id IN (
                                                 o.description,
                                                 COALESCE(
                                                     ROUND(
-                                                        (COUNT(DISTINCT CONCAT(a.person_id, DATE(a.sign_in_time)))) * 100.0 /
+                                                        (COUNT(DISTINCT a.person_id, DATE(a.sign_in_time))) * 100.0 /
                                                         NULLIF(
                                                             (
                                                             COUNT(DISTINCT p.id) *
@@ -5167,10 +5167,6 @@ AND p.organization_id IN (
                                                         (SELECT value FROM organization_metadata 
                                                         WHERE organization_id=${organization_id} AND key_name='end_date')
                                                     )
-                                            LEFT JOIN monthly_leave_dates m
-                                                ON m.batch_id = ${organization_id}
-                                                AND YEAR(STR_TO_DATE(CONCAT(m.year,'-',m.month,'-01'),'%Y-%m-%d')) = YEAR(a.sign_in_time)
-                                                AND MONTH(STR_TO_DATE(CONCAT(m.year,'-',m.month,'-01'),'%Y-%m-%d')) = MONTH(a.sign_in_time)
                                             WHERE o.id IN (
                                                 SELECT id 
                                                 FROM organization 
