@@ -1064,21 +1064,26 @@ service /graphql on new graphql:Listener(4000) {
         return delete_id;
     }
 
-    isolated resource function get activity_evaluations(int activity_id) returns EvaluationData[]|error? {
-        stream<Evaluation, error?> activityEvaluations;
-        lock {
-            activityEvaluations = db_client->query(
-                `SELECT e.*
-                FROM
-                    evaluation e
-                        JOIN
-                    activity_instance ai ON e.activity_instance_id = ai.id
-                        JOIN
-                    activity a ON ai.activity_id = a.id
-                WHERE
-                    activity_id = ${activity_id};`
-            );
-        }
+    isolated resource function get activity_evaluations(int? person_id,int activity_id,string? from_date = "", string? to_date = "") returns EvaluationData[]|error? {
+        stream<Evaluation, error?> activityEvaluations= new();
+       
+       if (from_date != null && to_date != null) {
+            if(person_id !=null){
+              lock {
+                    activityEvaluations = db_client->query(
+                     `SELECT e.*
+                        FROM
+                            evaluation e
+                            WHERE 
+                            activity_instance_id IN 
+                            (SELECT id FROM activity_instance
+                             WHERE activity_id = ${activity_id} 
+                             and Date(created) BETWEEN ${from_date} AND ${to_date})
+                            and evaluatee_id = ${person_id};`
+                    );
+                }
+            }
+       }
 
         EvaluationData[] activityEvaluationsData = [];
 
@@ -1612,11 +1617,13 @@ service /graphql on new graphql:Listener(4000) {
 
     // only today's attendance can be added with this method
     remote function addBiometricAttendance(ActivityParticipantAttendance attendance) returns ActivityParticipantAttendanceData|error? {
-
+        ActivityParticipantAttendance|error recentRecord;
         // 1. DEBOUNCE CHECK: 5-Minute Window
         // We ignore any scan that happens within 5 minutes of a previous success for the same person.
         //for the same day
-        ActivityParticipantAttendance|error recentRecord = db_client->queryRow(
+        lock{
+
+        recentRecord = db_client->queryRow(
             `SELECT * FROM activity_participant_attendance 
             WHERE person_id = ${attendance.person_id} and 
             activity_instance_id = ${attendance.activity_instance_id}
@@ -1724,6 +1731,7 @@ service /graphql on new graphql:Listener(4000) {
             }
 
             return new (insert_id);
+        }
         }
     }
 
@@ -4937,6 +4945,318 @@ AND p.organization_id IN (
         }
     }
 
+    // Retrieves a ranked list of students based on their attendance percentage.
+    // organization_id - The unique identifier of the  batch.
+    // class_id - Optional filter to narrow results to a specific class. If nil, considers the entire organization.
+    // from_date - The start date for the attendance calculation (inclusive).
+    // to_date - The end date for the attendance calculation (inclusive).
+    // 'limit - The maximum number of student records to return.
+    /// sort - The direction of the ranking: 'DESC' for top performers, 'ASC' for lowest attendance.
+    isolated resource function get studentAttendanceRanking(int? organization_id = (),int? class_id = (), 
+    string? from_date = "", string? to_date = "",int? 'limit = (),string? sort = ())  returns PersonData[]|error?{
+      
+       string orderBy = (sort == "ASC") ? "ASC" : "DESC";
+
+        if(organization_id !=null){
+           stream<Person,error?> resultStream = db_client->query(
+                                        `SELECT 
+                                                id,
+                                                preferred_name,
+                                                organization_id,
+                                                COALESCE(attendance_percentage,0.0) AS attendance_percentage
+                                            FROM (
+                                                SELECT 
+                                                    id,
+                                                    preferred_name,
+                                                    organization_id,
+                                                    attendance_percentage,
+                                                    DENSE_RANK() OVER (ORDER BY attendance_percentage DESC) AS rank_position
+                                                FROM (
+                                                    SELECT 
+                                                        p.id,
+                                                        p.preferred_name,
+                                                        P.organization_id,
+                                                        ROUND(
+                                                            COUNT(DISTINCT DATE(a.sign_in_time)) * 100.0 /
+                                                            (
+                                                                DATEDIFF(
+                                                                    LEAST(
+                                                                        COALESCE(${to_date},
+                                                                            (SELECT value FROM organization_metadata 
+                                                                            WHERE organization_id=${organization_id} 
+                                                                            AND key_name='end_date')
+                                                                        ),
+                                                                        (SELECT value FROM organization_metadata 
+                                                                        WHERE organization_id=${organization_id} 
+                                                                        AND key_name='end_date')
+                                                                    ),
+                                                                    GREATEST(
+                                                                        COALESCE(${from_date},
+                                                                            (SELECT value FROM organization_metadata 
+                                                                            WHERE organization_id=${organization_id} 
+                                                                            AND key_name='start_date')
+                                                                        ),
+                                                                        (SELECT value FROM organization_metadata 
+                                                                        WHERE organization_id=${organization_id} 
+                                                                        AND key_name='start_date')
+                                                                    )
+                                                                ) + 1
+                                                                -
+                                                                COALESCE((
+                                                                    SELECT COUNT(*)
+                                                                    FROM monthly_leave_dates m
+                                                                    JOIN JSON_TABLE(
+                                                                        CONCAT('["', REPLACE(m.leave_dates, ',', '","'), '"]'),
+                                                                        '$[*]' COLUMNS (day_val INT PATH '$')
+                                                                    ) AS d
+                                                                    WHERE m.batch_id = ${organization_id}
+                                                                    AND STR_TO_DATE(
+                                                                        CONCAT(m.year, '-', m.month, '-', d.day_val),
+                                                                        '%Y-%m-%d'
+                                                                    ) BETWEEN 
+                                                                        COALESCE(${from_date},
+                                                                            (SELECT value FROM organization_metadata 
+                                                                            WHERE organization_id=${organization_id} 
+                                                                            AND key_name='start_date')
+                                                                        )
+                                                                        AND
+                                                                        COALESCE(${to_date},
+                                                                            (SELECT value FROM organization_metadata 
+                                                                            WHERE organization_id=${organization_id} 
+                                                                            AND key_name='end_date')
+                                                                        )
+                                                                ), 0)
+                                                            ),
+                                                        2) AS attendance_percentage
+                                                    FROM person p
+                                                    LEFT JOIN activity_participant_attendance a
+                                                        ON a.person_id = p.id
+                                                        AND DATE(a.sign_in_time) BETWEEN
+                                                            COALESCE(${from_date},
+                                                                (SELECT value FROM organization_metadata 
+                                                                WHERE organization_id=${organization_id} 
+                                                                AND key_name='start_date')
+                                                            )
+                                                            AND
+                                                            COALESCE(${to_date},
+                                                                (SELECT value FROM organization_metadata 
+                                                                WHERE organization_id=${organization_id} 
+                                                                AND key_name='end_date')
+                                                            )
+                                                    WHERE p.organization_id IN (
+                                                        SELECT child_org_id
+                                                        FROM parent_child_organization
+                                                        WHERE parent_org_id = ${organization_id}
+                                                    )
+                                                    AND p.avinya_type_id IN (37,10,96,110,115,120,125)
+                                                    GROUP BY 
+                                                        p.id,
+                                                        p.preferred_name,
+                                                        P.organization_id
+                                                ) attendance_data
+                                            ) ranked_students
+                                            WHERE rank_position <= ${'limit}
+                                            ORDER BY 
+                                            CASE WHEN ${orderBy} = 'ASC' THEN attendance_percentage END ASC,
+                                            CASE WHEN ${orderBy} = 'DESC' THEN attendance_percentage END DESC;
+                                            `);
+            
+            PersonData[] attendanceRankingData = [];
+
+            check from Person  person_record in resultStream 
+               do{
+                  PersonData|error personAttendanceData = new PersonData(null,0,person_record);
+                  if !(personAttendanceData is error){
+                    attendanceRankingData.push(personAttendanceData);
+                  }
+               };
+            check resultStream.close();
+            return attendanceRankingData;
+        }else{
+            return error("Provide non-null value for organization id");
+        }
+    }
+    
+    // Calculates attendance percentage for classes in a batch or students in a class.
+    // organization_id - The unique identifier of the  batch.
+    // class_id - Optional filter to narrow results to a specific class. If provided, student-level attendance
+    // percentages will be calculated for that class.
+    // from_date - The start date for the attendance calculation (inclusive).
+    // to_date - The end date for the attendance calculation (inclusive).
+    // 'limit - The maximum number of  records to return.
+    /// sort - Sorting order for attendance percentage ("ASC" or "DESC").
+    isolated resource function get calculateClassOrStudentAttendancePercentage(int? organization_id = (),int? class_id = (), 
+    string? from_date = "", string? to_date = "",int? 'limit = (),string? sort = ())  returns OrganizationData[]|error?{
+      
+       string orderBy = (sort == "ASC") ? "ASC" : "DESC";
+        if(organization_id !=null){  //Calculate attendance percentage for all the classes in the current batch 
+
+           stream<Organization,error?> orgAttendanceResultStream = db_client->query(
+                                        `SELECT 
+                                                o.id,
+                                                o.name_en,
+                                                o.description,
+                                                COALESCE(
+                                                    ROUND(
+                                                        (COUNT(DISTINCT a.person_id, DATE(a.sign_in_time))) * 100.0 /
+                                                        NULLIF(
+                                                            (
+                                                                COUNT(DISTINCT p.id) * (
+                                                                    (DATEDIFF(
+                                                                        LEAST(
+                                                                            COALESCE(${to_date}, (SELECT value FROM organization_metadata WHERE organization_id=${organization_id} AND key_name='end_date')),
+                                                                            (SELECT value FROM organization_metadata WHERE organization_id=${organization_id} AND key_name='end_date')
+                                                                        ),
+                                                                        GREATEST(
+                                                                            COALESCE(${from_date}, (SELECT value FROM organization_metadata WHERE organization_id=${organization_id} AND key_name='start_date')),
+                                                                            (SELECT value FROM organization_metadata WHERE organization_id=${organization_id} AND key_name='start_date')
+                                                                        )
+                                                                    ) + 1)
+                                                                    -
+                                                                    COALESCE((
+                                                                        SELECT COUNT(*)
+                                                                        FROM monthly_leave_dates m
+                                                                        JOIN JSON_TABLE(
+                                                                            CONCAT('["', REPLACE(m.leave_dates, ',', '","'), '"]'),
+                                                                            '$[*]' COLUMNS (day_val INT PATH '$')
+                                                                        ) AS d
+                                                                        WHERE m.batch_id = ${organization_id}
+                                                                        AND STR_TO_DATE(
+                                                                            CONCAT(m.year, '-', m.month, '-', d.day_val),
+                                                                            '%Y-%m-%d'
+                                                                        ) BETWEEN 
+                                                                            COALESCE(${from_date}, (SELECT value FROM organization_metadata WHERE organization_id=${organization_id} AND key_name='start_date'))
+                                                                            AND
+                                                                            COALESCE(${to_date}, (SELECT value FROM organization_metadata WHERE organization_id=${organization_id} AND key_name='end_date'))
+                                                                    ), 0)
+                                                                )
+                                                            ), 0
+                                                        ), 2
+                                                    ), 0
+                                                ) AS attendance_percentage
+                                            FROM organization o
+                                            JOIN parent_child_organization pco
+                                                ON pco.child_org_id = o.id
+                                            LEFT JOIN person p
+                                                ON p.organization_id = o.id
+                                                AND p.avinya_type_id IN (37,10,96,110,115,120,125)
+                                            LEFT JOIN activity_participant_attendance a
+                                                ON a.person_id = p.id
+                                                AND DATE(a.sign_in_time) BETWEEN
+                                                    COALESCE(${from_date},
+                                                        (SELECT value FROM organization_metadata 
+                                                        WHERE organization_id=${organization_id} AND key_name='start_date')
+                                                    )
+                                                    AND
+                                                    COALESCE(${to_date},
+                                                        (SELECT value FROM organization_metadata 
+                                                        WHERE organization_id=${organization_id} AND key_name='end_date')
+                                                    )
+                                            WHERE o.id IN (
+                                                SELECT id 
+                                                FROM organization 
+                                                WHERE id IN (
+                                                    SELECT child_org_id
+                                                    FROM parent_child_organization
+                                                    WHERE parent_org_id = ${organization_id}
+                                                )
+                                                AND avinya_type IN (87,10,96,113,118,123)
+                                            )
+                                            GROUP BY o.id,o.name_en,o.description
+                                            ORDER BY 
+                                            CASE WHEN ${orderBy} = 'ASC' THEN attendance_percentage END ASC,
+                                            CASE WHEN ${orderBy} = 'DESC' THEN attendance_percentage END DESC
+                                            LIMIT ${'limit};`);
+            
+            OrganizationData[] organizationsData = [];
+
+            check from Organization  org_record in orgAttendanceResultStream 
+               do{
+                  OrganizationData|error orgAttendanceRecord = new OrganizationData(null,0,org_record);
+                  if !(orgAttendanceRecord is error){
+                    organizationsData.push(orgAttendanceRecord);
+                  }
+               };
+            check orgAttendanceResultStream.close();
+            return organizationsData;
+
+        }
+        // else if(class_id !=null){ //calculate the each student attendance percentage in the particular class id
+            
+        //     stream<Person,error?> personAttendanceResultStream =  db_client->query(
+        //                                 `SELECT 
+        //                                     p.id,
+        //                                     p.preferred_name,
+        //                                     ROUND(
+        //                                         SUM(CASE WHEN a.sign_in_time IS NOT NULL THEN 1 ELSE 0 END) * 100.0 /
+        //                                         (
+        //                                             DATEDIFF(
+        //                                                 LEAST(
+        //                                                     COALESCE(${to_date},
+        //                                                         (SELECT value FROM organization_metadata 
+        //                                                         WHERE organization_id=${organization_id} AND key_name='end_date')
+        //                                                     ),
+        //                                                     (SELECT value FROM organization_metadata 
+        //                                                     WHERE organization_id=${organization_id} AND key_name='end_date')
+        //                                                 ),
+        //                                                 GREATEST(
+        //                                                     COALESCE(${from_date},
+        //                                                         (SELECT value FROM organization_metadata 
+        //                                                         WHERE organization_id=${organization_id} AND key_name='start_date')
+        //                                                     ),
+        //                                                     (SELECT value FROM organization_metadata 
+        //                                                     WHERE organization_id=${organization_id} AND key_name='start_date')
+        //                                                 )
+        //                                             ) + 1
+        //                                             -
+        //                                             COALESCE(
+        //                                                 SUM(LENGTH(m.leave_dates) - LENGTH(REPLACE(m.leave_dates, ',', '')) + 1),
+        //                                                 0
+        //                                             )
+        //                                         ),
+        //                                     2) AS attendance_percentage
+        //                                 FROM person p
+        //                                 LEFT JOIN activity_participant_attendance a
+        //                                     ON a.person_id = p.id
+        //                                     AND DATE(a.sign_in_time) BETWEEN
+        //                                         COALESCE(${from_date},
+        //                                             (SELECT value FROM organization_metadata 
+        //                                             WHERE organization_id=${organization_id} AND key_name='start_date')
+        //                                         )
+        //                                         AND
+        //                                         COALESCE(${to_date},
+        //                                             (SELECT value FROM organization_metadata 
+        //                                             WHERE organization_id=${organization_id} AND key_name='end_date')
+        //                                         )
+        //                                 LEFT JOIN monthly_leave_dates m
+        //                                     ON m.batch_id = ${organization_id}
+        //                                     AND YEAR(STR_TO_DATE(CONCAT(m.year,'-',m.month,'-01'), '%Y-%m-%d')) = YEAR(a.sign_in_time)
+        //                                     AND MONTH(STR_TO_DATE(CONCAT(m.year,'-',m.month,'-01'), '%Y-%m-%d')) = MONTH(a.sign_in_time)
+        //                                 WHERE p.organization_id = ${class_id}
+        //                                 AND p.avinya_type_id IN (37, 10, 96, 110, 115, 120, 125)
+        //                                 GROUP BY 
+        //                                     p.id,
+        //                                     p.preferred_name
+        //                                 ORDER BY attendance_percentage ${orderBy}
+        //                                 LIMIT ${'limit};`);
+        //     PersonData[] personAttendanceData = [];
+            
+        //     check from Person  person_record in personAttendanceResultStream 
+        //        do{
+        //           PersonData|error personRecord = new PersonData(null,0,person_record);
+        //           if !(personRecord is error){
+        //             personAttendanceData.push(personRecord);
+        //           }
+        //        };
+        //     check personAttendanceResultStream.close();
+        //     return personAttendanceData;
+            
+       // }
+        else{
+            return error("Provide non-null value for organization id and class id");
+        }
+    }
+
     isolated resource function get daily_attendance_summary_report(int? parent_organization_id, int? organization_id, int? avinya_type_id, string? from_date = "", string? to_date = "") returns DailyActivityParticipantAttendanceSummaryReportData[]|error? {
 
         stream<ActivityParticipantAttendanceSummaryReport, error?> daily_attendance_summary_report_records = new;
@@ -6343,15 +6663,18 @@ AND p.organization_id IN (
                 fourth_db_transaction_fail = true;
                 message = "Unable to insert folder id";
             }
-
-            Person|error? personRaw = db_client->queryRow(
-                                        `SELECT *
+            
+            Person|error personRaw = db_client->queryRow(
+                                        `SELECT p.id
                                         FROM person p
-                                        left join  organization o  on o.id = p.organization_id
-                                        WHERE  o.id = ${person.organization_id} and
+                                        WHERE  p.organization_id IN (
+                                            SELECT child_org_id
+                                            FROM parent_child_organization pco
+                                            WHERE pco.parent_org_id = ${person.parent_organization_id}
+                                        ) and
                                         p.nic_no = ${person.nic_no};`
                                     );
-
+                      
             if (personRaw is Person) {
                 first_db_transaction_fail = true;
                 io:println("Person already exists.");
@@ -10538,18 +10861,63 @@ function updateMaintenanceTaskFinanceInfo
 
 isolated function deactivateMaintenanceTask(int taskId, string modifiedBy) returns MaintenanceTaskData|error? {
 
-    sql:ExecutionResult res = check db_client->execute(
-            `UPDATE maintenance_task SET
-                is_active = 0,
-                modified_by = ${modifiedBy}
-            WHERE id = ${taskId};`
+    // Step 1: Find the most recently created activity instance for this task
+    int|error? latestInstanceId = db_client->queryRow(
+        `SELECT id FROM activity_instance 
+         WHERE task_id = ${taskId} 
+         ORDER BY id DESC 
+         LIMIT 1`
+    );
+
+    if latestInstanceId is int {
+
+        // Step 2: Find the maintenance_finance record linked to this activity instance
+        int|error? financeId = db_client->queryRow(
+            `SELECT id FROM maintenance_finance 
+             WHERE activity_instance_id = ${latestInstanceId}`
         );
 
-    if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+        if financeId is int {
+
+            // Step 3: Delete all material_cost records linked to this finance record
+            sql:ExecutionResult _ = check db_client->execute(
+                `DELETE FROM material_cost 
+                 WHERE financial_id = ${financeId}`
+            );
+
+            // Step 4: Delete the maintenance_finance record
+            sql:ExecutionResult _ = check db_client->execute(
+                `DELETE FROM maintenance_finance 
+                 WHERE id = ${financeId}`
+            );
+        }
+
+        // Step 5: Delete all activity_participant records linked to this activity instance
+        sql:ExecutionResult _ = check db_client->execute(
+            `DELETE FROM activity_participant 
+             WHERE activity_instance_id = ${latestInstanceId}`
+        );
+
+        // Step 6: Delete the activity_instance record itself
+        sql:ExecutionResult _ = check db_client->execute(
+            `DELETE FROM activity_instance 
+             WHERE id = ${latestInstanceId}`
+        );
+    }
+
+    // Step 7: Deactivate the maintenance task
+    sql:ExecutionResult res = check db_client->execute(
+        `UPDATE maintenance_task SET
+            is_active = 0,
+            modified_by = ${modifiedBy}
+         WHERE id = ${taskId}`
+    );
+
+    if res.affectedRowCount == sql:EXECUTION_FAILED {
         return error("Failed to deactivate maintenance task record");
     }
 
-    if (res.affectedRowCount == 0) {
+    if res.affectedRowCount == 0 {
         return error("No task found with id: " + taskId.toString());
     }
 
