@@ -5101,54 +5101,39 @@ AND p.organization_id IN (
                                                         (COUNT(DISTINCT a.person_id, DATE(a.sign_in_time))) * 100.0 /
                                                         NULLIF(
                                                             (
-                                                            COUNT(DISTINCT p.id) *
-                                                                DATEDIFF(
-                                                                    LEAST(
-                                                                        COALESCE(${to_date},
-                                                                            (SELECT value FROM organization_metadata 
-                                                                            WHERE organization_id=${organization_id} AND key_name='end_date')
+                                                                COUNT(DISTINCT p.id) * (
+                                                                    (DATEDIFF(
+                                                                        LEAST(
+                                                                            COALESCE(${to_date}, (SELECT value FROM organization_metadata WHERE organization_id=${organization_id} AND key_name='end_date')),
+                                                                            (SELECT value FROM organization_metadata WHERE organization_id=${organization_id} AND key_name='end_date')
                                                                         ),
-                                                                        (SELECT value FROM organization_metadata 
-                                                                        WHERE organization_id=${organization_id} AND key_name='end_date')
-                                                                    ),
-                                                                    GREATEST(
-                                                                        COALESCE(${from_date},
-                                                                            (SELECT value FROM organization_metadata 
-                                                                            WHERE organization_id=${organization_id} AND key_name='start_date')
-                                                                        ),
-                                                                        (SELECT value FROM organization_metadata 
-                                                                        WHERE organization_id=${organization_id} AND key_name='start_date')
-                                                                    )
-                                                                ) + 1
-                                                                -
-                                                                COALESCE((
-                                                                    SELECT COUNT(*)
-                                                                    FROM monthly_leave_dates m
-                                                                    JOIN JSON_TABLE(
-                                                                        CONCAT('["', REPLACE(m.leave_dates, ',', '","'), '"]'),
-                                                                        '$[*]' COLUMNS (day_val INT PATH '$')
-                                                                    ) AS d
-                                                                    WHERE m.batch_id = ${organization_id}
-                                                                    AND STR_TO_DATE(
-                                                                        CONCAT(m.year, '-', m.month, '-', d.day_val),
-                                                                        '%Y-%m-%d'
-                                                                    ) BETWEEN 
-                                                                        COALESCE(${from_date},
-                                                                            (SELECT value FROM organization_metadata 
-                                                                            WHERE organization_id=${organization_id} 
-                                                                            AND key_name='start_date')
+                                                                        GREATEST(
+                                                                            COALESCE(${from_date}, (SELECT value FROM organization_metadata WHERE organization_id=${organization_id} AND key_name='start_date')),
+                                                                            (SELECT value FROM organization_metadata WHERE organization_id=${organization_id} AND key_name='start_date')
                                                                         )
-                                                                        AND
-                                                                        COALESCE(${to_date},
-                                                                            (SELECT value FROM organization_metadata 
-                                                                            WHERE organization_id=${organization_id} 
-                                                                            AND key_name='end_date')
-                                                                        )
-                                                                ), 0)
-                                                            ),0
-                                                        ),
-                                                    2),
-                                                0) AS attendance_percentage
+                                                                    ) + 1)
+                                                                    -
+                                                                    COALESCE((
+                                                                        SELECT COUNT(*)
+                                                                        FROM monthly_leave_dates m
+                                                                        JOIN JSON_TABLE(
+                                                                            CONCAT('["', REPLACE(m.leave_dates, ',', '","'), '"]'),
+                                                                            '$[*]' COLUMNS (day_val INT PATH '$')
+                                                                        ) AS d
+                                                                        WHERE m.batch_id = ${organization_id}
+                                                                        AND STR_TO_DATE(
+                                                                            CONCAT(m.year, '-', m.month, '-', d.day_val),
+                                                                            '%Y-%m-%d'
+                                                                        ) BETWEEN 
+                                                                            COALESCE(${from_date}, (SELECT value FROM organization_metadata WHERE organization_id=${organization_id} AND key_name='start_date'))
+                                                                            AND
+                                                                            COALESCE(${to_date}, (SELECT value FROM organization_metadata WHERE organization_id=${organization_id} AND key_name='end_date'))
+                                                                    ), 0)
+                                                                )
+                                                            ), 0
+                                                        ), 2
+                                                    ), 0
+                                                ) AS attendance_percentage
                                             FROM organization o
                                             JOIN parent_child_organization pco
                                                 ON pco.child_org_id = o.id
