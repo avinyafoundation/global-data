@@ -10170,6 +10170,9 @@ AND p.organization_id IN (
             query = sql:queryConcat(query, ` AND ai.overall_task_status = ${overallTaskStatus}`);
         }
 
+        // Sort by end_time in descending order
+        query = sql:queryConcat(query, ` ORDER BY ai.end_time DESC`);
+
         // Add pagination
         query = sql:queryConcat(query, ` LIMIT ${'limit} OFFSET ${offset}`);
 
