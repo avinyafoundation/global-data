@@ -10078,6 +10078,9 @@ AND p.organization_id IN (
             );
         }
 
+        // Add sorting
+        query = sql:queryConcat(query, ` ORDER BY ai.end_time DESC`);
+
         // Add pagination
         query = sql:queryConcat(query, ` LIMIT ${'limit} OFFSET ${offset}`);
 
