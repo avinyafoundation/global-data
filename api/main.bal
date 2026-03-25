@@ -10695,53 +10695,35 @@ AND p.organization_id IN (
         return true;
     }
 
-    resource function get meal_servings() returns MealServingData[]|error {
-        stream<MealServing, error?> meal_servings_stream = db_client->query(
-            `SELECT * FROM meal_serving ORDER BY serving_date ASC, meal_type ASC`
-        );
+    resource function get meal_servings(int? id = (), string? fromDate = (), string? toDate = (), int 'limit = 10, int offset = 0) returns MealServingData[]|error {
+        sql:ParameterizedQuery query = `SELECT * FROM meal_serving WHERE 1=1`;
+        
+        if id is int {
+            query = sql:queryConcat(query, ` AND id = ${id}`);
+        }
+        
+        if (fromDate is string) {
+            query = sql:queryConcat(query, ` AND serving_date >= ${fromDate}`);
+        }
+        
+        if (toDate is string) {
+            query = sql:queryConcat(query, ` AND serving_date <= ${toDate}`);
+        }
+        
+        query = sql:queryConcat(query, ` ORDER BY serving_date DESC LIMIT ${'limit} OFFSET ${offset}`);
+        
+        stream<MealServing, error?> meal_servings_stream = db_client->query(query);
 
         MealServingData[] mealServingDatas = [];
-        check from MealServing serving in meal_servings_stream
+        check from MealServing item in meal_servings_stream
             do {
-                MealServingData|error servingData = new MealServingData(0, serving);
+                MealServingData|error servingData = new MealServingData(0, item);
                 if !(servingData is error) {
                     mealServingDatas.push(servingData);
                 }
             };
 
         check meal_servings_stream.close();
-        return mealServingDatas;
-    }
-
-    isolated resource function get meal_serving_by_id(int id) returns MealServingData|error {
-        return new MealServingData(id, ());
-    }
-
-    resource function get meal_serving_by_date(string? from_date = (), string? to_date = (), int 'limit = 10, int offset = 0) returns MealServingData[]|error {
-        sql:ParameterizedQuery query = `SELECT * FROM meal_serving WHERE 1=1`;
-        
-        if (from_date is string) {
-            query = sql:queryConcat(query, ` AND serving_date >= ${from_date}`);
-        }
-        
-        if (to_date is string) {
-            query = sql:queryConcat(query, ` AND serving_date <= ${to_date}`);
-        }
-        
-        query = sql:queryConcat(query, ` ORDER BY serving_date DESC LIMIT ${'limit} OFFSET ${offset}`);
-        
-        stream<MealServing, error?> meal_servings = db_client->query(query);
-
-        MealServingData[] mealServingDatas = [];
-        check from MealServing item in meal_servings
-            do {
-                MealServingData|error mealServingData = new MealServingData(0, item);
-                if !(mealServingData is error) {
-                    mealServingDatas.push(mealServingData);
-                }
-            };
-
-        check meal_servings.close();
         return mealServingDatas;
     }
 
