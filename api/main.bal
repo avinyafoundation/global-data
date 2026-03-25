@@ -10717,10 +10717,20 @@ AND p.organization_id IN (
         return new MealServingData(id, ());
     }
 
-    resource function get meal_serving_by_date(string date) returns MealServingData[]|error {
-        stream<MealServing, error?> meal_servings = db_client->query(
-            `SELECT * FROM meal_serving WHERE serving_date = ${date}`
-        );
+    resource function get meal_serving_by_date(string? from_date = (), string? to_date = (), int 'limit = 10, int offset = 0) returns MealServingData[]|error {
+        sql:ParameterizedQuery query = `SELECT * FROM meal_serving WHERE 1=1`;
+        
+        if (from_date is string) {
+            query = sql:queryConcat(query, ` AND serving_date >= ${from_date}`);
+        }
+        
+        if (to_date is string) {
+            query = sql:queryConcat(query, ` AND serving_date <= ${to_date}`);
+        }
+        
+        query = sql:queryConcat(query, ` ORDER BY serving_date DESC LIMIT ${'limit} OFFSET ${offset}`);
+        
+        stream<MealServing, error?> meal_servings = db_client->query(query);
 
         MealServingData[] mealServingDatas = [];
         check from MealServing item in meal_servings
