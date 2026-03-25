@@ -10823,7 +10823,7 @@ AND p.organization_id IN (
         return true;
     }
 
-    resource function get last_7_days_waste() returns DailyWaste[]|error {
+    resource function get daily_waste(int days = 7) returns DailyWaste[]|error {
         stream<DailyWaste, error?> waste_data = db_client->query(
             `SELECT ms.serving_date as date, 
                 COALESCE(SUM(fw.wasted_portions * fi.cost_per_portion), 0) AS total_waste
@@ -10832,7 +10832,7 @@ AND p.organization_id IN (
              LEFT JOIN food_item fi ON fw.food_item_id = fi.id
              GROUP BY ms.serving_date
              ORDER BY ms.serving_date DESC
-             LIMIT 7`
+             LIMIT ${days}`
         );
 
         DailyWaste[] wasteData = [];
@@ -10845,7 +10845,7 @@ AND p.organization_id IN (
         return wasteData;
     }
 
-    resource function get top_wasted_items_recent_week() returns TopWastedFood[]|error {
+    resource function get top_wasted_items_recent_week(int 'limit = 3) returns TopWastedFood[]|error {
         stream<TopWastedFood, error?> top_wasted = db_client->query(
             `SELECT 
                 fi.id AS food_item_id,
@@ -10858,7 +10858,7 @@ AND p.organization_id IN (
              WHERE ms.serving_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
              GROUP BY fi.id, fi.name
              ORDER BY total_portions DESC
-             LIMIT 3`
+             LIMIT ${'limit}`
         );
 
         TopWastedFood[] topItems = [];
