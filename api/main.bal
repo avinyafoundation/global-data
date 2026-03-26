@@ -10695,8 +10695,8 @@ AND p.organization_id IN (
         return true;
     }
 
-    resource function get meal_servings(int? id = (), string? fromDate = (), string? toDate = (), int? 'limit = (), int? offset = ()) returns MealServingData[]|error {
-        sql:ParameterizedQuery query = `SELECT * FROM meal_serving WHERE 1=1`;
+    resource function get meal_servings(int organizationId, int? id = (), string? fromDate = (), string? toDate = (), int? 'limit = (), int? offset = ()) returns MealServingData[]|error {
+        sql:ParameterizedQuery query = `SELECT * FROM meal_serving WHERE organization_id = ${organizationId}`;
         
         if id is int {
             query = sql:queryConcat(query, ` AND id = ${id}`);
