@@ -10695,7 +10695,7 @@ AND p.organization_id IN (
         return true;
     }
 
-    resource function get meal_servings(int? id = (), string? fromDate = (), string? toDate = (), int 'limit = 10, int offset = 0) returns MealServingData[]|error {
+    resource function get meal_servings(int? id = (), string? fromDate = (), string? toDate = (), int? 'limit = (), int? offset = ()) returns MealServingData[]|error {
         sql:ParameterizedQuery query = `SELECT * FROM meal_serving WHERE 1=1`;
         
         if id is int {
@@ -10710,7 +10710,12 @@ AND p.organization_id IN (
             query = sql:queryConcat(query, ` AND serving_date <= ${toDate}`);
         }
         
-        query = sql:queryConcat(query, ` ORDER BY serving_date DESC LIMIT ${'limit} OFFSET ${offset}`);
+        query = sql:queryConcat(query, ` ORDER BY serving_date DESC`);
+        
+        if 'limit is int {
+            int resultOffset = offset ?: 0;
+            query = sql:queryConcat(query, ` LIMIT ${'limit} OFFSET ${resultOffset}`);
+        }
         
         stream<MealServing, error?> meal_servings_stream = db_client->query(query);
 
