@@ -1151,3 +1151,58 @@ public type DistrictDistributionData record {|
     DistrictStudentCount[] districts;
     int total_students;
 |};
+
+//==============================Food Waste Module Types==============================//
+
+// Food Item Types
+public type FoodItem record {| 
+    int id?;
+    string name;
+    decimal cost_per_portion;
+    string meal_type;
+    string? created;
+    string? updated;
+    int? is_deleted;
+|};
+
+// Meal Serving Types
+public type MealServing record {|
+    int id?;
+    string serving_date; 
+    string meal_type;  
+    int served_count;
+    int? organization_id;
+    string? notes;  
+    string? created;
+    string? updated;
+|};
+
+// Food Waste Types  
+public type FoodWaste record {|
+    int id?;
+    int meal_serving_id;
+    int food_item_id;
+    int wasted_portions; 
+    string? created;
+    string? updated;
+|};
+
+// Daily Waste Summary Type
+public type DailyWaste record {|
+    string date;
+    decimal? total_waste;
+|};
+
+// Top Wasted Food Item Type
+public type TopWastedFood record {|
+    int food_item_id;
+    string food_name;
+    int total_portions;
+    decimal total_cost;
+|};
+
+// Analytics Data Type
+public type AnalyticsData record {|
+    decimal average_daily_waste_cost;
+    decimal weekly_total_cost;
+|};

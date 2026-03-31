@@ -10621,6 +10621,285 @@ AND p.organization_id IN (
         return new MaintenanceMonthlyTaskCostReportData(report);
     }
 
+    //==============================Food Waste Module API Implementation==============================//
+
+    resource function get food_items(string? meal_type) returns FoodItemData[]|error {
+        // Get all food items from menu, optionally filtered by meal type (breakfast or lunch)
+        
+        sql:ParameterizedQuery query = `SELECT * FROM food_item WHERE (is_deleted = 0 OR is_deleted IS NULL)`;
+        
+        if (meal_type != null && meal_type.trim() != "") {
+            query = sql:queryConcat(query, ` AND meal_type = ${meal_type}`);
+        }
+
+        stream<FoodItem, error?> food_items = db_client->query(query);
+
+        FoodItemData[] foodItemDatas = [];
+        check from FoodItem item in food_items
+            do {
+                FoodItemData|error foodItemData = new FoodItemData(0, item);
+                if !(foodItemData is error) {
+                    foodItemDatas.push(foodItemData);
+                }
+            };
+
+        check food_items.close();
+        return foodItemDatas;
+    }
+
+    remote function add_food_item(FoodItem food_item) returns FoodItemData|error? {
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO food_item (name, cost_per_portion, meal_type) 
+             VALUES (${food_item.name}, ${food_item.cost_per_portion}, ${food_item.meal_type})`
+        );
+
+        int|string? insert_id = res.lastInsertId;
+        if !(insert_id is int) {
+            return error("Unable to insert Food Item");
+        }
+        return new FoodItemData(insert_id, ());
+    }
+
+    remote function update_food_item(FoodItem food_item) returns FoodItemData|error? {
+        int id = food_item.id ?: 0;
+        if (id == 0) {
+            return error("Unable to update Food Item");
+        }
+
+        sql:ExecutionResult res = check db_client->execute(
+            `UPDATE food_item SET 
+             name = ${food_item.name},
+             cost_per_portion = ${food_item.cost_per_portion},
+             meal_type = ${food_item.meal_type}
+             WHERE id = ${id}`
+        );
+
+        if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+            return error("Unable to update Food Item");
+        }
+        return new FoodItemData(id, ());
+    }
+
+    remote function delete_food_item(int id) returns boolean|error {
+        sql:ExecutionResult res = check db_client->execute(
+            `UPDATE food_item SET is_deleted = 1 WHERE id = ${id} AND (is_deleted = 0 OR is_deleted IS NULL)`
+        );
+        if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+            return error("Unable to delete Food Item");
+        }
+
+        if (res.affectedRowCount == 0) {
+            return error("Food Item not found or already deleted");
+        }
+
+        return true;
+    }
+
+    resource function get meal_servings(int organizationId, int? id = (), string? fromDate = (), string? toDate = (), int? 'limit = (), int? offset = ()) returns MealServingData[]|error {
+        sql:ParameterizedQuery query = `SELECT * FROM meal_serving WHERE organization_id = ${organizationId}`;
+        
+        if id is int {
+            query = sql:queryConcat(query, ` AND id = ${id}`);
+        }
+        
+        if (fromDate is string) {
+            query = sql:queryConcat(query, ` AND serving_date >= ${fromDate}`);
+        }
+        
+        if (toDate is string) {
+            query = sql:queryConcat(query, ` AND serving_date <= ${toDate}`);
+        }
+        
+        query = sql:queryConcat(query, ` ORDER BY serving_date DESC`);
+        
+        if 'limit is int {
+            int resultOffset = offset ?: 0;
+            query = sql:queryConcat(query, ` LIMIT ${'limit} OFFSET ${resultOffset}`);
+        }
+        
+        stream<MealServing, error?> meal_servings_stream = db_client->query(query);
+
+        MealServingData[] mealServingDatas = [];
+        check from MealServing item in meal_servings_stream
+            do {
+                MealServingData|error servingData = new MealServingData(0, item);
+                if !(servingData is error) {
+                    mealServingDatas.push(servingData);
+                }
+            };
+
+        check meal_servings_stream.close();
+        return mealServingDatas;
+    }
+
+    remote function add_meal_serving(MealServing meal_serving) returns MealServingData|error? {
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO meal_serving (serving_date, meal_type, served_count, organization_id, notes) 
+             VALUES (${meal_serving.serving_date}, ${meal_serving.meal_type}, ${meal_serving.served_count}, ${meal_serving.organization_id}, ${meal_serving.notes})`
+        );
+
+        int|string? insert_id = res.lastInsertId;
+        if !(insert_id is int) {
+            return error("Unable to insert Meal Serving");
+        }
+        return new MealServingData(insert_id, ());
+    }
+
+    remote function update_meal_serving(MealServing meal_serving) returns MealServingData|error? {
+        int id = meal_serving.id ?: 0;
+        if (id == 0) {
+            return error("Unable to update Meal Serving");
+        }
+
+        sql:ExecutionResult res = check db_client->execute(
+            `UPDATE meal_serving SET 
+             serving_date = ${meal_serving.serving_date},
+             meal_type = ${meal_serving.meal_type},
+             served_count = ${meal_serving.served_count},
+             notes = ${meal_serving.notes}
+             WHERE id = ${id}`
+        );
+
+        if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+            return error("Unable to update Meal Serving");
+        }
+        return new MealServingData(id, ());
+    }
+
+    remote function delete_meal_serving(int id) returns boolean|error {
+        sql:ExecutionResult res = check db_client->execute(
+            `DELETE FROM meal_serving WHERE id = ${id}`
+        );
+        
+        if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+            return error("Unable to delete Meal Serving");
+        }
+        
+        if (res.affectedRowCount == 0) {
+            return error("Meal Serving not found");
+        }
+        
+        return true;
+    }
+
+    remote function add_food_waste(FoodWaste food_waste) returns FoodWasteData|error? {
+        sql:ExecutionResult res = check db_client->execute(
+            `INSERT INTO food_waste (meal_serving_id, food_item_id, wasted_portions) 
+             VALUES (${food_waste.meal_serving_id}, ${food_waste.food_item_id}, ${food_waste.wasted_portions})`
+        );
+
+        int|string? insert_id = res.lastInsertId;
+        if !(insert_id is int) {
+            return error("Unable to insert Food Waste");
+        }
+        return new FoodWasteData(insert_id, ());
+    }
+
+    remote function delete_food_waste(int id) returns boolean|error {
+        sql:ExecutionResult res = check db_client->execute(
+            `DELETE FROM food_waste WHERE id = ${id}`
+        );
+        if (res.affectedRowCount == sql:EXECUTION_FAILED) {
+            return error("Unable to delete Food Waste");
+        }
+
+        if (res.affectedRowCount == 0) {
+            return error("Food Waste not found");
+        }
+
+        return true;
+    }
+
+    resource function get daily_waste(int days = 7) returns DailyWaste[]|error {
+        stream<DailyWaste, error?> waste_data = db_client->query(
+            `SELECT ms.serving_date as date, 
+                COALESCE(SUM(fw.wasted_portions * fi.cost_per_portion), 0) AS total_waste
+             FROM meal_serving ms
+             LEFT JOIN food_waste fw ON ms.id = fw.meal_serving_id
+             LEFT JOIN food_item fi ON fw.food_item_id = fi.id
+             GROUP BY ms.serving_date
+             ORDER BY ms.serving_date DESC
+             LIMIT ${days}`
+        );
+
+        DailyWaste[] wasteData = [];
+        check from DailyWaste item in waste_data
+            do {
+                wasteData.push(item);
+            };
+
+        check waste_data.close();
+        return wasteData;
+    }
+
+    resource function get top_wasted_items_recent_week(int 'limit = 3) returns TopWastedFood[]|error {
+        stream<TopWastedFood, error?> top_wasted = db_client->query(
+            `SELECT 
+                fi.id AS food_item_id,
+                fi.name AS food_name,
+                CAST(SUM(fw.wasted_portions) AS SIGNED) AS total_portions,
+                SUM(fw.wasted_portions * fi.cost_per_portion) AS total_cost
+             FROM food_waste fw
+             INNER JOIN food_item fi ON fw.food_item_id = fi.id
+             INNER JOIN meal_serving ms ON fw.meal_serving_id = ms.id
+             WHERE ms.serving_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+             GROUP BY fi.id, fi.name
+             ORDER BY total_portions DESC
+             LIMIT ${'limit}`
+        );
+
+        TopWastedFood[] topItems = [];
+        check from TopWastedFood item in top_wasted
+            do {
+                topItems.push(item);
+            };
+
+        check top_wasted.close();
+        return topItems;
+    }
+
+    resource function get getAnalyticsData(int? days = 30) returns AnalyticsData|error {
+        int period = days ?: 30;
+        
+        // Get average daily waste cost
+        decimal|error? avgResult = db_client->queryRow(
+            `SELECT AVG(daily_total) AS average_cost
+             FROM (
+                 SELECT ms.serving_date, 
+                        COALESCE(SUM(fw.wasted_portions * fi.cost_per_portion), 0) AS daily_total
+                 FROM meal_serving ms
+                 LEFT JOIN food_waste fw ON ms.id = fw.meal_serving_id
+                 LEFT JOIN food_item fi ON fw.food_item_id = fi.id
+                 WHERE ms.serving_date >= DATE_SUB(CURDATE(), INTERVAL ${period} DAY)
+                 GROUP BY ms.serving_date
+             ) AS daily_waste`
+        );
+
+        decimal averageCost = 0.0;
+        if (avgResult is decimal) {
+            averageCost = avgResult;
+        }
+
+        // Get weekly total cost (last 7 days)
+        decimal|error? weeklyResult = db_client->queryRow(
+            `SELECT COALESCE(SUM(fw.wasted_portions * fi.cost_per_portion), 0) AS weekly_total
+             FROM food_waste fw
+             INNER JOIN food_item fi ON fw.food_item_id = fi.id
+             INNER JOIN meal_serving ms ON fw.meal_serving_id = ms.id
+             WHERE ms.serving_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)`
+        );
+
+        decimal weeklyTotal = 0.0;
+        if (weeklyResult is decimal) {
+            weeklyTotal = weeklyResult;
+        }
+
+        return {
+            average_daily_waste_cost: averageCost,
+            weekly_total_cost: weeklyTotal
+        };
+    }
+
 }
 
 function updateMaintenanceTaskFinanceInfo
@@ -10929,6 +11208,10 @@ isolated function deactivateMaintenanceTask(int taskId, string modifiedBy) retur
 
     return new (taskId);
 }
+
+// FOOD WASTE APP API FUNCTIONS
+
+
 
 // isolated function getProfilePicture(drive:Client driveClient, string id) returns PersonProfilePicture|error {
 
