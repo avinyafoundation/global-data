@@ -293,3 +293,24 @@ function getRecurrenceDays(string scheduleType) returns int {
         return 0; // default/fallback
     }
 }
+
+function getNextTaskStartDate(int recurrenceDays) returns string|error {
+     //current time in utc
+    time:Utc currentDateInUtc = time:utcNow();
+
+    // add 19800 seconds = 5 hours and 30 min(india standard time)
+    time:Utc utcAddSeconds = time:utcAddSeconds(currentDateInUtc, 19800);
+
+    //utc to string
+    string formatted = time:utcToString(utcAddSeconds);
+
+    //transform the date time to this format = YYYY-MM-DDTHH:MM:SSZ
+    string formated = regex:replaceAll(formatted, "\\.\\d+Z", "Z");
+
+    string remove = removeTandZ(formated);
+
+    //Calculate and get the task start date
+    string|error taskStartDate = addDaysToDate(remove, recurrenceDays);
+
+    return taskStartDate;
+}
