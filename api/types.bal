@@ -145,7 +145,7 @@ public type Person record {|
     string? profile_picture_folder_id;
     decimal? attendance_percentage; // Attendance percentage for the person
     decimal? attendance_percentage_raw;
-    int rank_position;
+    int? rank_position;
 |};
 
 type ParentChildStudent record {|
