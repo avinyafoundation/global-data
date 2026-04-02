@@ -10910,6 +10910,51 @@ AND p.organization_id IN (
         return new MaintenanceMonthlyTaskCostReportData(report);
     }
 
+
+
+    // Get Activity Instances by checking Activity Participant table's end_date
+    // and participant_task_status = 'Completed'
+    isolated resource function get activityInstancesByParticipantEndDate(
+            string endDate  // Expected format: YYYY-MM-DD
+    ) returns ActivityInstanceData[]|error? {
+
+        // Build query to fetch activity instances where the participant's
+        // end_date matches the given date and task status is 'Completed'
+        sql:ParameterizedQuery query = `
+            SELECT DISTINCT ai.*
+            FROM activity_instance ai
+            INNER JOIN activity_participant ap ON ap.activity_instance_id = ai.id
+            WHERE DATE(ap.end_date) = DATE(${endDate})
+            AND ap.participant_task_status = 'Completed'
+        `;
+
+        stream<ActivityInstance, error?> activityInstancesStream;
+
+        // Execute the query within a lock to ensure thread safety
+        lock {
+            activityInstancesStream = db_client->query(query);
+        }
+
+        ActivityInstanceData[] activityInstanceDatas = [];
+
+        // Process the stream and build the ActivityInstanceData array
+        check from ActivityInstance instance in activityInstancesStream
+            do {
+                ActivityInstanceData|error activityInstanceData = new ActivityInstanceData((), instance.id, instance);
+                // Skip and ignore if ActivityInstanceData construction fails
+                if !(activityInstanceData is error) {
+                    activityInstanceDatas.push(activityInstanceData);
+                }
+            };
+
+        // Close the stream to release database resources
+        check activityInstancesStream.close();
+
+        // Returns empty array if no matching records found
+        return activityInstanceDatas;
+    }
+
+
     //==============================Food Waste Module API Implementation==============================//
 
     resource function get food_items(string? meal_type) returns FoodItemData[]|error {
