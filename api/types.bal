@@ -1175,12 +1175,13 @@ public type MealServing record {|
     string? notes;  
     string? created;
     string? updated;
+    FoodWaste[]? food_wastes?;
 |};
 
 // Food Waste Types  
 public type FoodWaste record {|
     int id?;
-    int meal_serving_id;
+    int meal_serving_id?;
     int food_item_id;
     int wasted_portions; 
     string? created;
