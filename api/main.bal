@@ -11232,7 +11232,7 @@ AND p.organization_id IN (
         return wasteData;
     }
 
-    resource function get top_wasted_items_recent_week(int organizationId, int 'limit = 3) returns TopWastedFood[]|error {
+    resource function get top_wasted_items(int organizationId, int days = 7, int 'limit = 3) returns TopWastedFood[]|error {
         stream<TopWastedFood, error?> top_wasted = db_client->query(
             `SELECT 
                 fi.id AS food_item_id,
@@ -11242,7 +11242,7 @@ AND p.organization_id IN (
              FROM food_waste fw
              INNER JOIN food_item fi ON fw.food_item_id = fi.id
              INNER JOIN meal_serving ms ON fw.meal_serving_id = ms.id
-             WHERE ms.organization_id = ${organizationId} AND ms.serving_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+             WHERE ms.organization_id = ${organizationId} AND ms.serving_date >= DATE_SUB(CURDATE(), INTERVAL ${days} DAY)
              GROUP BY fi.id, fi.name
              ORDER BY total_portions DESC
              LIMIT ${'limit}`
