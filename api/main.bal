@@ -11090,6 +11090,17 @@ AND p.organization_id IN (
         if !(insert_id is int) {
             return error("Unable to insert Meal Serving");
         }
+        
+        FoodWaste[]? food_wastes = meal_serving?.food_wastes;
+        if food_wastes != null {
+            foreach FoodWaste fw in food_wastes {
+                sql:ExecutionResult _ = check db_client->execute(
+                    `INSERT INTO food_waste (meal_serving_id, food_item_id, wasted_portions) 
+                     VALUES (${insert_id}, ${fw.food_item_id}, ${fw.wasted_portions})`
+                );
+            }
+        }
+        
         return new MealServingData(insert_id, ());
     }
 
@@ -11111,6 +11122,46 @@ AND p.organization_id IN (
         if (res.affectedRowCount == sql:EXECUTION_FAILED) {
             return error("Unable to update Meal Serving");
         }
+        
+        FoodWaste[]? food_wastes = meal_serving?.food_wastes;
+        if (food_wastes != null) {
+            int[] existingFoodWasteIds = [];
+            stream<FoodWaste, error?> existing_wastes = db_client->query(
+                `SELECT * FROM food_waste WHERE meal_serving_id = ${id}`
+            );
+            
+            check existing_wastes.forEach(function(FoodWaste fw) {
+                if fw.id is int {
+                    existingFoodWasteIds.push(fw.id ?: 0);
+                }
+            });
+            
+            int[] frontendIds = food_wastes.filter(fw => fw.id is int && fw.id != 0).map(fw => <int>fw.id);
+            
+            int[] deleteIds = [];
+            foreach int eId in existingFoodWasteIds {
+                if !contains(frontendIds, eId) {
+                    deleteIds.push(eId);
+                }
+            }
+            
+            foreach int dId in deleteIds {
+                sql:ExecutionResult _ = check db_client->execute(`DELETE FROM food_waste WHERE id = ${dId}`);
+            }
+            
+            foreach FoodWaste fw in food_wastes {
+                if fw.id is int && fw.id != 0 {
+                    sql:ExecutionResult _ = check db_client->execute(
+                        `UPDATE food_waste SET food_item_id = ${fw.food_item_id}, wasted_portions = ${fw.wasted_portions} WHERE id = ${fw.id}`
+                    );
+                } else {
+                    sql:ExecutionResult _ = check db_client->execute(
+                        `INSERT INTO food_waste (meal_serving_id, food_item_id, wasted_portions) VALUES (${id}, ${fw.food_item_id}, ${fw.wasted_portions})`
+                    );
+                }
+            }
+        }
+        
         return new MealServingData(id, ());
     }
 
