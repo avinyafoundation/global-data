@@ -10012,6 +10012,20 @@ AND p.organization_id IN (
                     }
                 }
             }
+        } else if (taskStatus == "Incomplete") {
+
+                sql:ExecutionResult taskParticipantRes = check db_client->execute(
+                `UPDATE activity_participant SET
+                    end_date = CURDATE(),
+                    participant_task_status = ${"Incomplete"}
+                WHERE person_id=${participantId} AND activity_instance_id = ${taskActivityInstanceId};`
+                );
+
+                if (taskParticipantRes.affectedRowCount == sql:EXECUTION_FAILED) {
+                    return error("Failed to update task activity participant record");
+                }
+
+            return new(taskParticipantRowId);
         }
 
         return;
