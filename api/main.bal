@@ -9854,18 +9854,6 @@ AND p.organization_id IN (
                     return error("Failed to update task activity participant record");
                 }
 
-            ActivityInstance|error? futureTaskActivityInstanceRow = db_client->queryRow(
-            `SELECT *
-                FROM activity_instance
-            WHERE task_id = ${taskId} AND Date(start_time) > CURDATE() LIMIT 1`);
-        
-    
-            if (futureTaskActivityInstanceRow is ActivityInstance) {
-                io:println("Future task activity instance already exists. ID: " + futureTaskActivityInstanceRow.id.toString());
-                return new(taskParticipantRowId);
-            }else if (futureTaskActivityInstanceRow is sql:NoRowsError){
-                io:println("No future task found. Proceeding to create one...");
-            transaction {
                     boolean allCompleted = true;
                     stream<record {|int pending_count;|}, error?> completedResults;
 
@@ -9896,6 +9884,19 @@ AND p.organization_id IN (
                             taskProgressUpdateFailed = true;
                             message = "Failed to update task activity instance record";
                         }
+
+                        ActivityInstance|error? futureTaskActivityInstanceRow = db_client->queryRow(
+                        `SELECT *
+                            FROM activity_instance
+                        WHERE task_id = ${taskId} AND Date(start_time) > CURDATE() LIMIT 1`);
+                    
+                
+                        if (futureTaskActivityInstanceRow is ActivityInstance) {
+                            io:println("Future task activity instance already exists. ID: " + futureTaskActivityInstanceRow.id.toString());
+                            return new(taskParticipantRowId);
+                        }
+
+                    transaction {
 
                         MaintenanceTask|error? maintenanceTaskRow = check db_client->queryRow(
                                                                     `SELECT *
@@ -9992,6 +9993,15 @@ AND p.organization_id IN (
                                 }
                             }
                         }
+                        if (taskProgressUpdateFailed) {
+                        rollback;
+                        return error(message);
+                        } else {
+                            // Commit the transaction if all transactions are successful
+                            check commit;
+                            return new (taskParticipantRowId);
+                        }
+                     }
                     } else {
                         sql:ExecutionResult taskActivityInstanceRes = check db_client->execute(
                                             `UPDATE activity_instance SET
@@ -9999,19 +10009,9 @@ AND p.organization_id IN (
                                             WHERE id = ${taskActivityInstanceId} AND activity_id=21;`);
 
                         if (taskActivityInstanceRes.affectedRowCount == sql:EXECUTION_FAILED) {
-                            message = "Failed to update task activity instance record";
+                            return error("Failed to update task activity instance record");
                         }
                     }
-                    if (taskProgressUpdateFailed) {
-                        rollback;
-                        return error(message);
-                    } else {
-                        // Commit the transaction if all transactions are successful
-                        check commit;
-                        return new (taskParticipantRowId);
-                    }
-                }
-            }
         } else if (taskStatus == "Incomplete") {
 
                 sql:ExecutionResult taskParticipantRes = check db_client->execute(
