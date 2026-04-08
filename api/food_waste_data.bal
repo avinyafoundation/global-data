@@ -23,7 +23,7 @@ public isolated service class FoodWasteData {
 
     isolated resource function get meal_serving_id() returns int {
         lock {
-            return self.food_waste.meal_serving_id;
+            return self.food_waste.meal_serving_id ?: 0;
         }
     }
 
@@ -62,7 +62,7 @@ public isolated service class FoodWasteData {
     isolated resource function get meal_serving() returns MealServingData|error {
         int mealServingId;
         lock {
-            mealServingId = self.food_waste.meal_serving_id;
+            mealServingId = self.food_waste.meal_serving_id ?: 0;
         }
         return new MealServingData(mealServingId, ());
     }

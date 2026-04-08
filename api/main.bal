@@ -11090,6 +11090,17 @@ AND p.organization_id IN (
         if !(insert_id is int) {
             return error("Unable to insert Meal Serving");
         }
+        
+        FoodWaste[]? food_wastes = meal_serving?.food_wastes;
+        if food_wastes != null {
+            foreach FoodWaste fw in food_wastes {
+                sql:ExecutionResult _ = check db_client->execute(
+                    `INSERT INTO food_waste (meal_serving_id, food_item_id, wasted_portions) 
+                     VALUES (${insert_id}, ${fw.food_item_id}, ${fw.wasted_portions})`
+                );
+            }
+        }
+        
         return new MealServingData(insert_id, ());
     }
 
@@ -11111,6 +11122,46 @@ AND p.organization_id IN (
         if (res.affectedRowCount == sql:EXECUTION_FAILED) {
             return error("Unable to update Meal Serving");
         }
+        
+        FoodWaste[]? food_wastes = meal_serving?.food_wastes;
+        if (food_wastes != null) {
+            int[] existingFoodWasteIds = [];
+            stream<FoodWaste, error?> existing_wastes = db_client->query(
+                `SELECT * FROM food_waste WHERE meal_serving_id = ${id}`
+            );
+            
+            check existing_wastes.forEach(function(FoodWaste fw) {
+                if fw.id is int {
+                    existingFoodWasteIds.push(fw.id ?: 0);
+                }
+            });
+            
+            int[] frontendIds = food_wastes.filter(fw => fw.id is int && fw.id != 0).map(fw => <int>fw.id);
+            
+            int[] deleteIds = [];
+            foreach int eId in existingFoodWasteIds {
+                if !contains(frontendIds, eId) {
+                    deleteIds.push(eId);
+                }
+            }
+            
+            foreach int dId in deleteIds {
+                sql:ExecutionResult _ = check db_client->execute(`DELETE FROM food_waste WHERE id = ${dId}`);
+            }
+            
+            foreach FoodWaste fw in food_wastes {
+                if fw.id is int && fw.id != 0 {
+                    sql:ExecutionResult _ = check db_client->execute(
+                        `UPDATE food_waste SET food_item_id = ${fw.food_item_id}, wasted_portions = ${fw.wasted_portions} WHERE id = ${fw.id}`
+                    );
+                } else {
+                    sql:ExecutionResult _ = check db_client->execute(
+                        `INSERT INTO food_waste (meal_serving_id, food_item_id, wasted_portions) VALUES (${id}, ${fw.food_item_id}, ${fw.wasted_portions})`
+                    );
+                }
+            }
+        }
+        
         return new MealServingData(id, ());
     }
 
@@ -11158,13 +11209,14 @@ AND p.organization_id IN (
         return true;
     }
 
-    resource function get daily_waste(int days = 7) returns DailyWaste[]|error {
+    resource function get daily_waste(int organizationId, int days = 7) returns DailyWaste[]|error {
         stream<DailyWaste, error?> waste_data = db_client->query(
             `SELECT ms.serving_date as date, 
                 COALESCE(SUM(fw.wasted_portions * fi.cost_per_portion), 0) AS total_waste
              FROM meal_serving ms
              LEFT JOIN food_waste fw ON ms.id = fw.meal_serving_id
              LEFT JOIN food_item fi ON fw.food_item_id = fi.id
+             WHERE ms.organization_id = ${organizationId}
              GROUP BY ms.serving_date
              ORDER BY ms.serving_date DESC
              LIMIT ${days}`
@@ -11180,7 +11232,7 @@ AND p.organization_id IN (
         return wasteData;
     }
 
-    resource function get top_wasted_items_recent_week(int 'limit = 3) returns TopWastedFood[]|error {
+    resource function get top_wasted_items(int organizationId, int days = 7, int 'limit = 3) returns TopWastedFood[]|error {
         stream<TopWastedFood, error?> top_wasted = db_client->query(
             `SELECT 
                 fi.id AS food_item_id,
@@ -11190,7 +11242,7 @@ AND p.organization_id IN (
              FROM food_waste fw
              INNER JOIN food_item fi ON fw.food_item_id = fi.id
              INNER JOIN meal_serving ms ON fw.meal_serving_id = ms.id
-             WHERE ms.serving_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+             WHERE ms.organization_id = ${organizationId} AND ms.serving_date >= DATE_SUB(CURDATE(), INTERVAL ${days} DAY)
              GROUP BY fi.id, fi.name
              ORDER BY total_portions DESC
              LIMIT ${'limit}`
@@ -11206,7 +11258,7 @@ AND p.organization_id IN (
         return topItems;
     }
 
-    resource function get getAnalyticsData(int? days = 30) returns AnalyticsData|error {
+    resource function get getAnalyticsData(int organizationId, int? days = 30) returns AnalyticsData|error {
         int period = days ?: 30;
         
         // Get average daily waste cost
@@ -11218,7 +11270,7 @@ AND p.organization_id IN (
                  FROM meal_serving ms
                  LEFT JOIN food_waste fw ON ms.id = fw.meal_serving_id
                  LEFT JOIN food_item fi ON fw.food_item_id = fi.id
-                 WHERE ms.serving_date >= DATE_SUB(CURDATE(), INTERVAL ${period} DAY)
+                 WHERE ms.organization_id = ${organizationId} AND ms.serving_date >= DATE_SUB(CURDATE(), INTERVAL ${period} DAY)
                  GROUP BY ms.serving_date
              ) AS daily_waste`
         );
@@ -11234,7 +11286,7 @@ AND p.organization_id IN (
              FROM food_waste fw
              INNER JOIN food_item fi ON fw.food_item_id = fi.id
              INNER JOIN meal_serving ms ON fw.meal_serving_id = ms.id
-             WHERE ms.serving_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)`
+             WHERE ms.organization_id = ${organizationId} AND ms.serving_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)`
         );
 
         decimal weeklyTotal = 0.0;
