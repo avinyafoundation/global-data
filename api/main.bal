@@ -9891,11 +9891,12 @@ AND p.organization_id IN (
                         WHERE task_id = ${taskId} AND Date(start_time) > CURDATE() LIMIT 1`);
                     
                 
-                        if (futureTaskActivityInstanceRow is ActivityInstance) {
-                            io:println("Future task activity instance already exists. ID: " + futureTaskActivityInstanceRow.id.toString());
-                            return new(taskParticipantRowId);
-                        }
-
+                    if (futureTaskActivityInstanceRow is ActivityInstance) {
+                        io:println("Future task activity instance already exists. ID: " + futureTaskActivityInstanceRow.id.toString());
+                        return new(taskParticipantRowId);
+                    
+                    }else if(futureTaskActivityInstanceRow is ()){
+                   
                     transaction {
 
                         MaintenanceTask|error? maintenanceTaskRow = check db_client->queryRow(
@@ -10001,6 +10002,7 @@ AND p.organization_id IN (
                             check commit;
                             return new (taskParticipantRowId);
                         }
+                      }
                      }
                     } else {
                         sql:ExecutionResult taskActivityInstanceRes = check db_client->execute(
