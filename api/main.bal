@@ -9886,21 +9886,26 @@ AND p.organization_id IN (
                             taskProgressUpdateFailed = true;
                             message = "Failed to update task activity instance record";
                         }
+                    
+                    record {| int count; |} result = check  db_client->queryRow(
+                        `SELECT 
+                            CASE 
+                                WHEN EXISTS (
+                                    SELECT 1
+                                    FROM activity_instance
+                                    WHERE task_id = ${taskId}
+                                    AND start_time > ${taskActivityInstanceStartDate}
+                                )
+                                THEN 1 
+                                ELSE 0 
+                            END;`);
 
-                        ActivityInstance|error? futureTaskActivityInstanceRow = db_client->queryRow(
-                        `SELECT *
-                            FROM activity_instance
-                        WHERE task_id = ${taskId} AND Date(start_time) > Date(${taskActivityInstanceStartDate}) LIMIT 1`);
+                    int futureTaskActivityInstanceCount = result.count;
                     
-                
-                    if (futureTaskActivityInstanceRow is ActivityInstance) {
-                        io:println("Future task activity instance already exists. ID: " + futureTaskActivityInstanceRow.id.toString());
+                    if (futureTaskActivityInstanceCount == 1) {
                         return new(taskParticipantRowId);
-                    
-                    }else if (futureTaskActivityInstanceRow is error) {
-                        io:println("DB error: ", futureTaskActivityInstanceRow.message());
-                        return error(futureTaskActivityInstanceRow.message()); // or handle properly
-                    }else{
+                
+                    }else if(futureTaskActivityInstanceCount == 0){
 
                      io:println("no task create and create a new one progress");
                     transaction {
