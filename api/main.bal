@@ -9719,6 +9719,7 @@ AND p.organization_id IN (
         int taskActivityInstanceId = taskParticipant.activity_instance_id ?: 0;
         string taskStatus = taskParticipant.participant_task_status ?: "";
         int taskId = 0;
+        string taskActivityInstanceStartDate = "";
         int taskParticipantRowId = 0;
         int|string? insertTaskActivityInstanceId = null;
 
@@ -9745,6 +9746,7 @@ AND p.organization_id IN (
 
         if (taskActivityInstanceRow is ActivityInstance) {
             taskId = taskActivityInstanceRow.task_id ?: 0;
+            taskActivityInstanceStartDate = taskActivityInstanceRow.start_time ?:"";
         }
 
         int[] taskParticipantsIds = [];
@@ -9888,15 +9890,19 @@ AND p.organization_id IN (
                         ActivityInstance|error? futureTaskActivityInstanceRow = db_client->queryRow(
                         `SELECT *
                             FROM activity_instance
-                        WHERE task_id = ${taskId} AND Date(start_time) > CURDATE() LIMIT 1`);
+                        WHERE task_id = ${taskId} AND Date(start_time) > Date(${taskActivityInstanceStartDate}) LIMIT 1`);
                     
                 
                     if (futureTaskActivityInstanceRow is ActivityInstance) {
                         io:println("Future task activity instance already exists. ID: " + futureTaskActivityInstanceRow.id.toString());
                         return new(taskParticipantRowId);
                     
-                    }else if(futureTaskActivityInstanceRow is ()){
-                   
+                    }else if (futureTaskActivityInstanceRow is error) {
+                        io:println("DB error: ", futureTaskActivityInstanceRow.message());
+                        return error(futureTaskActivityInstanceRow.message()); // or handle properly
+                    }else{
+
+                     io:println("no task create and create a new one progress");
                     transaction {
 
                         MaintenanceTask|error? maintenanceTaskRow = check db_client->queryRow(
