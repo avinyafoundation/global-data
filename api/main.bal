@@ -9898,7 +9898,7 @@ AND p.organization_id IN (
                                 )
                                 THEN 1 
                                 ELSE 0 
-                            END;`);
+                            END AS count;`);
 
                     int futureTaskActivityInstanceCount = result.count;
                     
@@ -10024,6 +10024,7 @@ AND p.organization_id IN (
                         if (taskActivityInstanceRes.affectedRowCount == sql:EXECUTION_FAILED) {
                             return error("Failed to update task activity instance record");
                         }
+                        return new(taskParticipantRowId);
                     }
         } else if (taskStatus == "Incomplete") {
 
