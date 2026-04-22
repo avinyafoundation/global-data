@@ -9719,6 +9719,7 @@ AND p.organization_id IN (
         int taskActivityInstanceId = taskParticipant.activity_instance_id ?: 0;
         string taskStatus = taskParticipant.participant_task_status ?: "";
         int taskId = 0;
+        string taskActivityInstanceStartDate = "";
         int taskParticipantRowId = 0;
         int|string? insertTaskActivityInstanceId = null;
 
@@ -9745,6 +9746,7 @@ AND p.organization_id IN (
 
         if (taskActivityInstanceRow is ActivityInstance) {
             taskId = taskActivityInstanceRow.task_id ?: 0;
+            taskActivityInstanceStartDate = taskActivityInstanceRow.start_time ?:"";
         }
 
         int[] taskParticipantsIds = [];
@@ -9884,18 +9886,28 @@ AND p.organization_id IN (
                             taskProgressUpdateFailed = true;
                             message = "Failed to update task activity instance record";
                         }
-
-                        ActivityInstance|error? futureTaskActivityInstanceRow = db_client->queryRow(
-                        `SELECT *
-                            FROM activity_instance
-                        WHERE task_id = ${taskId} AND Date(start_time) > CURDATE() LIMIT 1`);
                     
-                
-                        if (futureTaskActivityInstanceRow is ActivityInstance) {
-                            io:println("Future task activity instance already exists. ID: " + futureTaskActivityInstanceRow.id.toString());
-                            return new(taskParticipantRowId);
-                        }
+                    record {| int count; |} result = check  db_client->queryRow(
+                        `SELECT 
+                            CASE 
+                                WHEN EXISTS (
+                                    SELECT 1
+                                    FROM activity_instance
+                                    WHERE task_id = ${taskId}
+                                    AND start_time > ${taskActivityInstanceStartDate}
+                                )
+                                THEN 1 
+                                ELSE 0 
+                            END AS count;`);
 
+                    int futureTaskActivityInstanceCount = result.count;
+                    
+                    if (futureTaskActivityInstanceCount == 1) {
+                        return new(taskParticipantRowId);
+                
+                    }else if(futureTaskActivityInstanceCount == 0){
+
+                     io:println("no task create and create a new one progress");
                     transaction {
 
                         MaintenanceTask|error? maintenanceTaskRow = check db_client->queryRow(
@@ -10001,6 +10013,7 @@ AND p.organization_id IN (
                             check commit;
                             return new (taskParticipantRowId);
                         }
+                      }
                      }
                     } else {
                         sql:ExecutionResult taskActivityInstanceRes = check db_client->execute(
@@ -10011,6 +10024,7 @@ AND p.organization_id IN (
                         if (taskActivityInstanceRes.affectedRowCount == sql:EXECUTION_FAILED) {
                             return error("Failed to update task activity instance record");
                         }
+                        return new(taskParticipantRowId);
                     }
         } else if (taskStatus == "Incomplete") {
 
