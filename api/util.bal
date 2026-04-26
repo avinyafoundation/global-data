@@ -19,6 +19,13 @@ configurable int PORT = ?;
 # Database name
 configurable string DATABASE = ?;
 
+#Connection Pool
+configurable int MAX_OPEN_CONNECTIONS= ?;
+
+configurable decimal MAX_CONNECTION_LIFE_TIME = ?;
+
+configurable int MIN_IDLE_CONNECTIONS = ?;
+
 #Fcm scope
 configurable string FCM_SCOPE = ?;
 
@@ -33,7 +40,12 @@ configurable string FCM_PROJECT_ID = ?;
 
 
 # MySQL database client
-final mysql:Client db_client = check new (host = HOST, user = USER, password = PASSWORD, port = PORT, database = DATABASE);
+final mysql:Client db_client = check new (host = HOST, user = USER, password = PASSWORD, port = PORT, database = DATABASE,
+                                  connectionPool = {
+                                    maxOpenConnections: MAX_OPEN_CONNECTIONS,
+                                    maxConnectionLifeTime: MAX_CONNECTION_LIFE_TIME,
+                                    minIdleConnections: MIN_IDLE_CONNECTIONS
+                                  });
 
 // mysql:Client db_client = check new (host = HOST, port = PORT, user = USER, password = PASSWORD, database = DATABASE, options = {
 //         ssl: {
