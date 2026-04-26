@@ -501,7 +501,6 @@ service /graphql on new graphql:Listener(4000) {
 
     isolated resource function get activity_instances_today(int activity_id) returns ActivityInstanceData[]|error? {
      
-     lock{ 
         // first check if activity instances for today are already created
         ActivityInstance|error todayActitivutyInstance = db_client->queryRow(
             `SELECT *
@@ -513,6 +512,19 @@ service /graphql on new graphql:Listener(4000) {
         if !(todayActitivutyInstance is ActivityInstance) {
             log:printError("No activity instance today");
             log:printInfo("Creating activity instances for today");
+
+          lock{
+            
+            // Double-check inside lock to prevent race condition
+            // (another request may have already inserted while we waited)
+            ActivityInstance|error recheckInstance = db_client->queryRow(
+                `SELECT *
+                FROM activity_instance
+                WHERE DATE(start_time) = CURDATE() AND activity_id IN (1, 2, 3, 4, 5, 8, 9, 10, 11, 12, 13);`
+            );
+
+            // Only insert if STILL not created (prevents duplicate insert)
+            if !(recheckInstance is ActivityInstance) {
 
             sql:ExecutionResult res = check db_client->execute(
             `INSERT INTO activity_instance (activity_id, name, daily_sequence, start_time, end_time) VALUES
@@ -534,28 +546,19 @@ service /graphql on new graphql:Listener(4000) {
             if !(insert_id is int) {
                 return error("Unable to create activity instances for today");
             }
-
-            // duty participants rotation cycle code block[425 line to 431 line]
-            var updateResult = updateDutyParticipantsRotationCycle();
-
-            if (updateResult is error) {
-                log:printError("Error updating Rotation Cycle of duty participants: ", updateResult);
-            } else {
-                log:printInfo("Duty participants Rotation Cycle updated successfully");
             }
-
+          }
         }
-      }
+      
         // now move on to finding the activity instances for today for given activity id
         stream<ActivityInstance, error?> pctiActivityInstancesToday;
-        lock {
+     
             pctiActivityInstancesToday = db_client->query(
                 `SELECT *
                 FROM activity_instance
                 WHERE activity_id = ${activity_id} AND
                 DATE(start_time) = CURDATE();`
             );
-        }
 
         ActivityInstanceData[] pctiActivityInstancesTodayData = [];
 
@@ -1625,27 +1628,29 @@ service /graphql on new graphql:Listener(4000) {
         //for the same day
         lock{
 
-        recentRecord = db_client->queryRow(
-            `SELECT * FROM activity_participant_attendance 
-            WHERE person_id = ${attendance.person_id} and 
-            activity_instance_id = ${attendance.activity_instance_id}
-            AND (
-                (sign_in_time > NOW() - INTERVAL 5 MINUTE) OR 
-                (sign_out_time > NOW() - INTERVAL 5 MINUTE)
-            )
-            LIMIT 1;`
-        );
+            recentRecord = db_client->queryRow(
+                `SELECT * FROM activity_participant_attendance 
+                WHERE person_id = ${attendance.person_id} and 
+                activity_instance_id = ${attendance.activity_instance_id}
+                AND (
+                    (sign_in_time > NOW() - INTERVAL 5 MINUTE) OR 
+                    (sign_out_time > NOW() - INTERVAL 5 MINUTE)
+                )
+                LIMIT 1;`
+            );
 
-        if (recentRecord is ActivityParticipantAttendance) {
-            log:printInfo(string `Cooldown active. Ignoring scan for Person: ${attendance.person_id.toString()} (Last scan < 5 mins ago)`);
-            return new (recentRecord.id);
-        } else if (recentRecord is sql:NoRowsError) {
-            // SUCCESS CASE: No record found, so we proceed normally to the next step
-            log:printDebug("No recent records found. Proceeding with attendance logic.");
-        } else {
-            // ERROR CASE: A real database error happened (e.g., Connection lost)
-            // We stop and return the error immediately
-            return error(recentRecord.message());
+            if (recentRecord is ActivityParticipantAttendance) {
+                log:printInfo(string `Cooldown active. Ignoring scan for Person: ${attendance.person_id.toString()} (Last scan < 5 mins ago)`);
+                return new (recentRecord.id);
+            } else if (recentRecord is sql:NoRowsError) {
+                // SUCCESS CASE: No record found, so we proceed normally to the next step
+                log:printDebug("No recent records found. Proceeding with attendance logic.");
+            } else {
+                // ERROR CASE: A real database error happened (e.g., Connection lost)
+                // We stop and return the error immediately
+                return error(recentRecord.message());
+            }
+            
         }
 
         // 1. Check if a sign-in exists for today
@@ -1733,7 +1738,6 @@ service /graphql on new graphql:Listener(4000) {
             }
 
             return new (insert_id);
-        }
         }
     }
 
