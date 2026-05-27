@@ -1626,7 +1626,6 @@ service /graphql on new graphql:Listener(4000) {
         // 1. DEBOUNCE CHECK: 5-Minute Window
         // We ignore any scan that happens within 5 minutes of a previous success for the same person.
         //for the same day
-        lock{
 
             recentRecord = db_client->queryRow(
                 `SELECT * FROM activity_participant_attendance 
@@ -1650,8 +1649,6 @@ service /graphql on new graphql:Listener(4000) {
                 // We stop and return the error immediately
                 return error(recentRecord.message());
             }
-            
-        }
 
         // 1. Check if a sign-in exists for today
         ActivityParticipantAttendance|error todayActivityParticipantAttendance = db_client->queryRow(
@@ -9698,6 +9695,8 @@ AND p.organization_id IN (
                 message = <string>financeInfoUpdateResult.message;
             }
 
+            check taskActivityPartipantsData.close();
+
             if (taskUpdateFailed) {
                 rollback;
                 if (message == "") {
@@ -9756,18 +9755,19 @@ AND p.organization_id IN (
         int[] taskParticipantsIds = [];
         stream<ActivityParticipant, error?> taskActivityParticipantsData;
 
-        lock {
+        
             taskActivityParticipantsData = db_client->query(
                 `SELECT *
                     from activity_participant
                     where activity_instance_id=${taskActivityInstanceId};`);
-        }
+
 
         check taskActivityParticipantsData.forEach(function(ActivityParticipant p) {
             if p.person_id is int {
                 taskParticipantsIds.push(p.person_id ?: 0);
             }
         });
+        check taskActivityParticipantsData.close();
 
         if (taskStatus == "Pending") {
 
@@ -9785,14 +9785,14 @@ AND p.organization_id IN (
                 return error("Failed to update task activity participant record");
             }
 
-            lock {
+            
                 results = db_client->query(
                                     `SELECT 1 AS has_started
                                         FROM activity_participant
                                         WHERE activity_instance_id=${taskActivityInstanceId}
                                         AND participant_task_status IN ('InProgress','Completed')
                                         LIMIT 1;`);
-            }
+
 
             var firstRow = results.next();
             hasStarted = firstRow is record {|record {|int has_started;|} value;|};
@@ -9811,6 +9811,7 @@ AND p.organization_id IN (
                     return error("Failed to update task activity instance record");
                 }
             }
+            check results.close();
             return new (taskParticipantRowId);
 
         } else if (taskStatus == "InProgress") {
@@ -9863,21 +9864,22 @@ AND p.organization_id IN (
                     boolean allCompleted = true;
                     stream<record {|int pending_count;|}, error?> completedResults;
 
-                    lock {
+                    
                         completedResults = db_client->query(
                                         `SELECT COUNT(*) AS pending_count
                                             FROM activity_participant
                                             WHERE activity_instance_id = ${taskActivityInstanceId}
                                             AND participant_task_status != 'Completed'`
                                         );
-                    }
+
 
                     var completedRow = completedResults.next();
                     
                     allCompleted = completedRow is record {|record {|int pending_count;|} value;|}
                         ? completedRow.value.pending_count == 0
                         : false;
-
+                    
+                    check completedResults.close();
                     if (allCompleted) {
 
                         sql:ExecutionResult taskActivityInstanceRes = check db_client->execute(
@@ -10048,8 +10050,7 @@ AND p.organization_id IN (
 
         return;
     }
-
-
+    
     //Update Task Activity Instance
     remote function updateTaskInstance(ActivityInstance taskActivityInstance) returns ActivityInstanceData|error ?{
         int taskId = 0;
@@ -10060,21 +10061,17 @@ AND p.organization_id IN (
         int[] taskParticipantsIds = [];
         stream<ActivityParticipant,error?> taskActivityParticipantsData;
         string message = "";
-        
-        lock {
             taskActivityParticipantsData = db_client->query(
                 `SELECT *
                     from activity_participant
                     where activity_instance_id=${taskActivityInstanceId};`);
-        }
 
         check taskActivityParticipantsData.forEach(function(ActivityParticipant p) {
             if p.person_id is int {
                 taskParticipantsIds.push(p.person_id ?: 0);
             }
         });
-
-        
+        check taskActivityParticipantsData.close();
         ActivityInstance|error? taskActivityInstanceRow = check db_client->queryRow(
             `SELECT *
                 FROM activity_instance
@@ -10084,8 +10081,6 @@ AND p.organization_id IN (
         if (taskActivityInstanceRow is ActivityInstance) {
             taskId = taskActivityInstanceRow.task_id ?: 0;
         }
-
-        
         if(taskStatus == "Pending"){
 
          transaction{
@@ -10099,8 +10094,7 @@ AND p.organization_id IN (
                 message = "Failed to update task activity instance record";
             }
             
-            //Update maintenance task participants in activity participant table
-            if taskParticipantsIds is int[] && taskParticipantsIds.length() > 0 {
+            if taskParticipantsIds is int[] && taskParticipantsIds.length() > 0 {//Update maintenance task participants in activity participant table
                 foreach int personId in taskParticipantsIds {
                     sql:ExecutionResult updateTaskActivityParticipantTable = check db_client->execute(
                     `UPDATE activity_participant SET
@@ -10124,11 +10118,9 @@ AND p.organization_id IN (
                 check commit;
                 return new ((),taskActivityInstanceId);
             }
-
           }
 
-        }else if(taskStatus == "InProgress"){
-           
+        }else if(taskStatus == "InProgress"){  
          transaction{
            
             sql:ExecutionResult taskActivityInstanceRes = check db_client->execute(
@@ -10140,8 +10132,7 @@ AND p.organization_id IN (
                 message = "Failed to update task activity instance record";
             }
             
-            //Update maintenance task participants in activity participant table
-            if taskParticipantsIds is int[] && taskParticipantsIds.length() > 0 {
+            if taskParticipantsIds is int[] && taskParticipantsIds.length() > 0 { //Update maintenance task participants in activity participant table
                 foreach int personId in taskParticipantsIds {
                     sql:ExecutionResult updateTaskActivityParticipantTable = check db_client->execute(
                     `UPDATE activity_participant SET
@@ -10169,45 +10160,39 @@ AND p.organization_id IN (
         }else if(taskStatus == "Completed"){
             int[] pendingOrInProgressPersonIds = [];
          transaction{
-            // Update the overall task to Completed
-            sql:ExecutionResult taskActivityInstanceRes = check db_client->execute(
+           
+            sql:ExecutionResult taskActivityInstanceRes = check db_client->execute( // Update the overall task to Completed
                                                 `UPDATE activity_instance SET
                                                     overall_task_status = ${"Completed"}
                                                 WHERE id = ${taskActivityInstanceId} 
                                                 AND activity_id=21;`);
 
             if (taskActivityInstanceRes.affectedRowCount == sql:EXECUTION_FAILED) {
-
                 message ="Failed to update task activity instance record";
             }
 
             stream<ActivityParticipant, error?> incompleteParticipantIds;
-
-            lock {
                 incompleteParticipantIds = db_client->query(
                     `SELECT *
                         from activity_participant
                         where activity_instance_id=${taskActivityInstanceId}
                         AND participant_task_status != 'Completed';`);
-            }
+            
 
             check incompleteParticipantIds.forEach(function(ActivityParticipant p) {
                 if p.person_id is int {
                     pendingOrInProgressPersonIds.push(p.person_id ?: 0);
                 }
             });
-            
-            
+            check incompleteParticipantIds.close();
 
-            //Update maintenance task participants in activity participant table
             if pendingOrInProgressPersonIds is int[] && pendingOrInProgressPersonIds.length() > 0 {
+                
                 foreach int personId in pendingOrInProgressPersonIds {
                     sql:ExecutionResult updateTaskActivityParticipantTable = check db_client->execute(
                     `UPDATE activity_participant SET
                     participant_task_status = ${"Incomplete"}
                     WHERE activity_instance_id = ${taskActivityInstanceId} AND person_id=${personId};`);
-
-
                     if (updateTaskActivityParticipantTable.affectedRowCount == sql:EXECUTION_FAILED) {
                         taskProgressUpdateFailed = true;
                         message = "Failed to update task activity participant.";
@@ -10215,7 +10200,6 @@ AND p.organization_id IN (
 
                 }
             }
-                //Create the future task activity instance
                 string taskFrequency = "";
                 int exceptionDeadlineDaysCount = 0;
                 string|error taskEndDate = "";
@@ -10223,7 +10207,6 @@ AND p.organization_id IN (
                 string taskType = "";
                 boolean is_active = false;
                 int|string? insertTaskActivityInstanceId = null;
-
 
                     MaintenanceTask|error? maintenanceTaskRow = check db_client->queryRow(
                                                                 `SELECT *
@@ -10240,35 +10223,18 @@ AND p.organization_id IN (
 
                     int recurrenceDays = getRecurrenceDays(taskFrequency);
 
-                    //If task is one time do not need to create activity instance
-                    if (taskType == "Recurring" && recurrenceDays != 0 && is_active == true) {
+
+                    if (taskType == "Recurring" && recurrenceDays != 0 && is_active == true) { //If task is one time do not need to create activity instance
                         
                         string|error taskStartDate = getNextTaskStartDate(recurrenceDays);
-                        //current time in utc
-                       // time:Utc currentDateInUtc = time:utcNow();
-
-                        // add 19800 seconds = 5 hours and 30 min(india standard time)
-                       // time:Utc utcAddSeconds = time:utcAddSeconds(currentDateInUtc, 19800);
-
-                        //utc to string
-                       // string formatted = time:utcToString(utcAddSeconds);
-
-                        //transform the date time to this format = YYYY-MM-DDTHH:MM:SSZ
-                       // string formated = regex:replaceAll(formatted, "\\.\\d+Z", "Z");
-
-                       // string remove = removeTandZ(formated);
-
-                        //Calculate and get the task start date
-                       // string|error taskStartDate = addDaysToDate(remove, recurrenceDays);
 
                         if taskStartDate is string {
                             //Calculate and get the task end date
                             taskEndDate = addDaysToDate(taskStartDate, exceptionDeadlineDaysCount);
                         }
 
-
-                        if (taskStartDate is string) && (taskEndDate is string) {
-                            //Save maintenance task in activity instance table
+                        if (taskStartDate is string) && (taskEndDate is string) {   //Save maintenance task in activity instance table
+                          
                             sql:ExecutionResult insertTaskActivityInstanceTable = check db_client->execute(
                                                                             `INSERT INTO activity_instance(
                                                                                 activity_id,
@@ -10292,12 +10258,9 @@ AND p.organization_id IN (
                                 taskProgressUpdateFailed = true;
                                 message = "Failed to save task activity instance.";
                             }
-                        } else if ((taskStartDate is error) || (taskEndDate is error)) {
-                            log:printError(string `Failed to calculate start date or end date`);
                         }
 
-                        //Save maintenance task participants in activity participant table
-                        if taskParticipantsIds is int[] && taskParticipantsIds.length() > 0 {
+                        if taskParticipantsIds is int[] && taskParticipantsIds.length() > 0 { //Save maintenance task participants in activity participant table
                             foreach int personId in taskParticipantsIds {
                                 sql:ExecutionResult insertTaskActivityParticipantTable = check db_client->execute(
                                 `INSERT INTO activity_participant(
@@ -10324,7 +10287,6 @@ AND p.organization_id IN (
                 rollback;
                 return error(message);
             } else {
-                // Commit the transaction if all transactions are successful
                 check commit;
                 return new ((),taskActivityInstanceId);
             }
@@ -11153,7 +11115,7 @@ AND p.organization_id IN (
                     existingFoodWasteIds.push(fw.id ?: 0);
                 }
             });
-            
+            check existing_wastes.close();
             int[] frontendIds = food_wastes.filter(fw => fw.id is int && fw.id != 0).map(fw => <int>fw.id);
             
             int[] deleteIds = [];
@@ -11179,7 +11141,6 @@ AND p.organization_id IN (
                 }
             }
         }
-        
         return new MealServingData(id, ());
     }
 
@@ -11364,7 +11325,7 @@ function updateMaintenanceTaskFinanceInfo
                         existingMaterialCostIds.push(materialCost.id ?: 0);
                     }
                 });
-
+                
                 MaterialCost[] newMaterialCosts = materialCosts.filter(cost => cost.id == 0);
 
                 //need to get the existing cost from the list that coming from the frontend update it in the database
@@ -11381,6 +11342,7 @@ function updateMaintenanceTaskFinanceInfo
                         deleteMaterialCostIds.push(existingMaterialCostId);
                     }
                 }
+                check materialCostsData.close();
                 io:println(`Before executing Material Costs:${newMaterialCosts}`);
 
                 //Add new material cost
