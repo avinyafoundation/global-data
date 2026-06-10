@@ -2022,12 +2022,38 @@ service /graphql on new graphql:Listener(4000) {
                         COUNT(DISTINCT p.id) AS absentCount,
                         GROUP_CONCAT(DISTINCT p.preferred_name ORDER BY p.preferred_name ASC) AS absentNames
                     FROM person p
-                    LEFT JOIN activity_participant_attendance apa ON p.id = apa.person_id 
+                    JOIN (
+                        SELECT COUNT(DISTINCT p2.id) AS total_count
+                        FROM person p2
+                        WHERE
+                            p2.organization_id = ${parent_organization_id}
+                            AND p2.avinya_type_id != 128
+                            AND p2.id != 26
+                            AND p2.avinya_type_id NOT IN (37, 110)
+                            AND EXISTS (
+                                SELECT 1 
+                                FROM activity_participant_attendance apa3
+                                WHERE apa3.person_id = p2.id
+                            )
+                    ) ts
+                    LEFT JOIN activity_participant_attendance apa 
+                        ON p.id = apa.person_id 
                         AND DATE(apa.sign_in_time) = ${date}
-                        AND apa.activity_instance_id IN (SELECT id FROM activity_instance WHERE activity_id = 1)
+                        AND apa.activity_instance_id IN (
+                            SELECT id FROM activity_instance WHERE activity_id = 1
+                        )
                     WHERE 
-                        p.organization_id = ${parent_organization_id} AND p.avinya_type_id !=128
-                        AND apa.id IS NULL;`);
+                        p.organization_id = ${parent_organization_id}
+                        AND p.avinya_type_id != 128
+                        AND p.id != 26
+                        AND p.avinya_type_id NOT IN (37, 110)
+                        AND apa.id IS NULL
+                        AND EXISTS (
+                            SELECT 1 
+                            FROM activity_participant_attendance apa2
+                            WHERE apa2.person_id = p.id
+                        )
+                    GROUP BY ts.total_count;`);
             }
         }
         ActivityParticipantAbsentData[] absentData = [];
@@ -5320,31 +5346,34 @@ AND p.organization_id IN (
 
                     daily_attendance_summary_report_records = db_client->query(
                                     `SELECT
-                                        DATE(pa.sign_in_time) AS sign_in_date,
-                                        COUNT(DISTINCT pa.person_id) AS present_count,
-                                        (ts.total_count - COUNT(DISTINCT pa.person_id)) AS absent_count,
-                                        ts.total_count
+                                            DATE(pa.sign_in_time) AS sign_in_date,
+                                            COUNT(DISTINCT pa.person_id) AS present_count,
+                                            (ts.total_count - COUNT(DISTINCT pa.person_id)) AS absent_count,
+                                            ts.total_count
                                         FROM
-                                        activity_participant_attendance pa
+                                            activity_participant_attendance pa
                                         JOIN person p ON pa.person_id = p.id
                                         JOIN (
-                                            SELECT COUNT(*) AS total_count
-                                            FROM person p
-                                            JOIN organization o ON o.id = p.organization_id
+                                            SELECT COUNT(DISTINCT pa2.person_id) AS total_count
+                                            FROM activity_participant_attendance pa2
+                                            JOIN person p2 ON pa2.person_id = p2.id
                                             WHERE
-                                            p.id != 26 AND p.organization_id = ${parent_organization_id}
-                                            AND p.avinya_type_id !=128
+                                                p2.id != 26
+                                                AND p2.organization_id = ${parent_organization_id}
+                                                AND pa2.activity_instance_id IN (
+                                                    SELECT id FROM activity_instance WHERE activity_id = 1
+                                                )
+                                                AND DATE(pa2.sign_in_time) BETWEEN ${from_date} AND ${to_date}
                                         ) ts
                                         WHERE
-                                        pa.sign_in_time IS NOT NULL
-                                        AND pa.activity_instance_id IN (
-                                            SELECT id
-                                            FROM activity_instance
-                                            WHERE activity_id = 1
-                                        )
-                                        AND p.organization_id = ${parent_organization_id}
-                                        AND DATE(pa.sign_in_time) BETWEEN ${from_date} AND ${to_date}
-                                        GROUP BY DATE(pa.sign_in_time), ts.total_count order by DATE(pa.sign_in_time) desc;`);
+                                            pa.sign_in_time IS NOT NULL
+                                            AND pa.activity_instance_id IN (
+                                                SELECT id FROM activity_instance WHERE activity_id = 1
+                                            )
+                                            AND p.organization_id = ${parent_organization_id}
+                                            AND DATE(pa.sign_in_time) BETWEEN ${from_date} AND ${to_date}
+                                        GROUP BY DATE(pa.sign_in_time), ts.total_count
+                                        ORDER BY DATE(pa.sign_in_time) DESC;`);
                 }
 
             }
