@@ -1,0 +1,1796 @@
+type Query {
+  geo: GeoData!
+  avinya_types: [AvinyaTypeData!]!
+  organization_structure(name: String, id: Int): OrganizationStructureData
+  organizations(level: Int!): OrganizationStructureData
+  organization(name: String, id: Int): OrganizationData
+  organizations_by_avinya_type_and_status(avinya_type: Int, active: Int): [OrganizationData!]
+  student_list_by_parent(parent_organization_id: Int, batch_id: Int): [PersonData!]
+  person(name: String, id: Int): PersonData
+  person_by_digital_id_or_nic(id: String, nic: String): PersonData
+  validatePin(pin: String): PersonData
+  prospect(email: String, phone: Int): ProspectData
+  applicant_consent(email: String, phone: Int): ApplicantConsentData
+  application(person_id: Int!): ApplicationData
+  evaluation(eval_id: Int!): EvaluationData
+  pcti_activities: [ActivityData!]
+  pcti_instance_notes(pcti_instance_id: Int!): [EvaluationData!]
+  pcti_activity_notes(pcti_activity_id: Int!): [EvaluationData!]
+  pcti_activity(project_activity_name: String!, class_activity_name: String!): ActivityData
+  pcti_project_activities(teacher_id: String!): [ActivityData!]
+  pcti_participant_activities(participant_id: Int!): [ActivityData!]
+  activity_instances_today(activity_id: Int!): [ActivityInstanceData!]
+  activity_instances_future(activity_id: Int!): [ActivityInstanceData!]
+  available_teachers(activity_instance_id: Int!): [PersonData!]
+  project_tasks(activity_id: Int!): [ActivityData!]
+  student_applicant(jwt_sub_id: String): PersonData
+  all_evaluations: [EvaluationData!]!
+  activity_evaluations(person_id: Int, activity_id: Int!, from_date: String = "", to_date: String = ""): [EvaluationData!]
+  activity_instance_evaluations(activity_instance_id: Int!): [EvaluationData!]
+  evaluation_meta_data(meta_evaluation_id: Int!): EvaluationMetadataData
+  evaluationCriteria(prompt: String, id: Int): EvaluationCriteriaData!
+  "Description"
+  evaluation_cycle(
+    "Parameter Description"
+    name: String
+    "Parameter Description"
+    id: Int
+  ): EvaluationCycleData!
+  education_experience(id: Int): EducationExperienceData
+  education_experience_byPerson(person_id: Int): [EducationExperienceData!]!
+  work_experience(id: Int): WorkExperienceData
+  work_experience_ByPerson(person_id: Int): [WorkExperienceData!]
+  activity(name: String, id: Int = 0): ActivityData
+  class_attendance_today(organization_id: Int, activity_id: Int): [ActivityParticipantAttendanceData!]
+  person_attendance_today(person_id: Int, activity_id: Int): [ActivityParticipantAttendanceData!]
+  person_attendance_report(person_id: Int, activity_id: Int, result_limit: Int = 0): [ActivityParticipantAttendanceData!]
+  class_attendance_report(batch_id: Int, organization_id: Int, parent_organization_id: Int, activity_id: Int, result_limit: Int = 0, from_date: String = "", to_date: String = ""): [ActivityParticipantAttendanceData!]
+  absent_report(organization_id: Int, parent_organization_id: Int, activity_id: Int, result_limit: Int = 0, date: String, from_date: String, to_date: String): [ActivityParticipantAbsentData!]
+  late_attendance_report(organization_id: Int, parent_organization_id: Int, activity_id: Int, result_limit: Int = 0, date: String, from_date: String, to_date: String): [ActivityParticipantAttendanceDataForLateAttendance!]
+  asset(id: Int, avinya_type_id: Int): [AssetData!]
+  assets: [AssetData!]!
+  supplier(id: Int!): SupplierData
+  suppliers: [SupplierData!]!
+  consumable(id: Int!): ConsumableData
+  consumableByUpdate(updated: String, avinya_type_id: Int): [ConsumableData!]
+  consumables: [ConsumableData!]
+  activeActivityInstance: [ActivityInstanceData!]!
+  resource_property(id: Int!): ResourcePropertyData
+  resource_properties: [ResourcePropertyData!]!
+  supply(id: Int!): SupplyData
+  supplies: [SupplyData!]!
+  resource_allocation(id: Int, person_id: Int): [ResourceAllocationData!]
+  "Get All the Avinya Types for the asset"
+  avinya_types_by_asset: [AvinyaTypeData!]!
+  "Get the Available Assets for the Avinya Type"
+  asset_by_avinya_type(
+    "Avinya Type Id"
+    id: Int
+  ): [AssetData!]
+  resource_allocations: [ResourceAllocationData!]!
+  inventory(id: Int!): InventoryData
+  inventories: [InventoryData!]!
+  resource_allocations_report(organization_id: Int, avinya_type_id: Int): [ResourceAllocationData!]!
+  duty_participants(organization_id: Int): [DutyParticipantData!]!
+  activities_by_avinya_type(avinya_type_id: Int): [ActivityData!]
+  duty_rotation_metadata_by_organization(organization_id: Int): DutyRotationMetaData
+  duty_participants_by_duty_activity_id(organization_id: Int, duty_activity_id: Int): [DutyParticipantData!]!
+  duty_attendance_today(organization_id: Int, activity_id: Int): [ActivityParticipantAttendanceData!]
+  duty_participant(person_id: Int): DutyParticipantData
+  attendance_dashboard_data_by_date(organization_id: Int, parent_organization_id: Int, activity_id: Int, from_date: String = "", to_date: String = ""): [AttendanceDashboardDataMain!]
+  attendance_missed_by_security(organization_id: Int, parent_organization_id: Int, from_date: String = "", to_date: String = ""): [ActivityParticipantAttendanceMissedBySecurityData!]
+  daily_students_attendance_by_parent_org(parent_organization_id: Int, date: String): [DailyActivityParticipantAttendanceByParentOrgData!]
+  total_attendance_count_by_date(organization_id: Int, parent_organization_id: Int, from_date: String = "", to_date: String = ""): [TotalActivityParticipantAttendanceCountByDateData!]
+  studentAttendanceRanking(organization_id: Int, class_id: Int, from_date: String = "", to_date: String = "", limit: Int, sort: String): [PersonData!]
+  calculateClassOrStudentAttendancePercentage(organization_id: Int, class_id: Int, from_date: String = "", to_date: String = "", limit: Int, sort: String): [OrganizationData!]
+  daily_attendance_summary_report(parent_organization_id: Int, organization_id: Int, avinya_type_id: Int, from_date: String = "", to_date: String = ""): [DailyActivityParticipantAttendanceSummaryReportData!]
+  inventory_data_by_organization(organization_id: Int, date: String = ""): [InventoryData!]
+  consumable_weekly_report(organization_id: Int, from_date: String = "", to_date: String = ""): [InventoryData!]
+  consumable_monthly_report(organization_id: Int, year: Int, month: Int): [InventoryData!]
+  consumable_yearly_report(organization_id: Int, consumable_id: Int, year: Int): [InventoryData!]
+  studentCountByOrganization(organization_id: Int!): StudentCountData!
+  studentAgeDistribution(organization_id: Int!): AgeDistributionData!
+  studentDistrictDistribution(organization_id: Int!): DistrictDistributionData!
+  persons(organization_id: Int, avinya_type_id: Int, limit: Int, offset: Int, class_id: Int, search: String): [PersonData!]
+  person_by_id(id: Int): PersonData
+  document_list(id: Int!): [DocumentsData!]
+  districts: [DistrictData!]
+  cities(district_id: Int): [CityData!]
+  all_organizations: [OrganizationData!]
+  monthly_leave_dates_record_by_id(organization_id: Int!, batch_id: Int!, year: Int!, month: Int!): MonthlyLeaveDatesData
+  batch_payment_plan_by_org_id(organization_id: Int!, batch_id: Int!, selected_month_date: String!): BatchPaymentPlanData
+  alumni_education_qualification_by_id(id: Int): AlumniEducationQualificationData
+  alumni_work_experience_by_id(id: Int): AlumniWorkExperienceData
+  upcoming_events(person_id: Int): [ActivityInstanceData!]
+  completed_events(person_id: Int): [ActivityInstanceData!]
+  alumni_persons(parent_organization_id: Int): [PersonData!]
+  alumni_summary(alumni_batch_id: Int): [AlumniData!]
+  job_post(id: Int): JobPostData
+  job_posts(result_limit: Int! = 4, offset: Int! = 0): [JobPostData!]
+  job_categories: [JobCategoryData!]
+  fetchLatestCvRequest(personId: Int!): CvRequestData
+  fetchPersonCV(personId: Int!, driveFileId: String): PersonCvData
+  fetchUserFCMToken(personId: Int): PersonFcmTokenData
+  locationsByOrganization(organizationId: Int): [OrganizationLocationData!]
+  maintenanceTasks(organizationId: Int!, personId: [Int!], fromDate: String, toDate: String, taskStatus: String, financialStatus: String, taskType: String, location: Int, title: String, limit: Int! = 10, offset: Int! = 0, includeFinance: Boolean! = false): [ActivityInstanceData!]
+  overdueMaintenanceTasks(organizationId: Int!): [ActivityInstanceData!]
+  maintenanceTasksByMonthYearStatus(organizationId: Int!, month: Int!, year: Int!, overallTaskStatus: String, limit: Int! = 10, offset: Int! = 0): [ActivityInstanceData!]
+  monthlyMaintenanceReport(organizationId: Int!, year: Int!, month: Int!): MonthlyReportData!
+  monthlyCostSummary(year: Int!, organizationId: Int!): MonthlyCostSummaryData
+  maintenanceTasksByStatus(organizationId: Int!, personId: Int, fromDate: String, toDate: String, taskType: String, location: Int): GroupedTasks!
+  monthlyTaskCostReport(organizationId: Int!, year: Int!, month: Int!): MaintenanceMonthlyTaskCostReportData!
+  activityInstancesByParticipantEndDate(endDate: String!): [ActivityInstanceData!]
+  food_items(meal_type: String): [FoodItemData!]!
+  meal_servings(organizationId: Int!, id: Int, fromDate: String, toDate: String, limit: Int, offset: Int): [MealServingData!]!
+  daily_waste(organizationId: Int!, days: Int! = 7): [DailyWaste!]!
+  top_wasted_items(organizationId: Int!, days: Int! = 7, limit: Int! = 3): [TopWastedFood!]!
+  getAnalyticsData(organizationId: Int!, days: Int = 30): AnalyticsData!
+}
+
+type GeoData {
+  province(name: String!): ProvinceData!
+  district(name: String!): DistrictData!
+  city(name: String!): CityData!
+  address(id: Int!): AddressData!
+}
+
+type ProvinceData {
+  id: Int
+  name: LocalizedName!
+  districts: [DistrictData!]!
+}
+
+"""
+Localized names in English, Sinhala, and Tamil.
+Names are stored with a `name_` prefix, followed
+by the respective ISO 639-1 language code.
+
+This record requires an English name, `name_en`.
+"""
+type LocalizedName {
+  "Name in English"
+  name_en: String
+  "Name in Tamil, தமிழ்"
+  name_ta: String
+  "Name in Sinhala, සිංහල"
+  name_si: String
+}
+
+type DistrictData {
+  name: LocalizedName!
+  id: Int
+  province: ProvinceData!
+  cities: [CityData!]!
+}
+
+type CityData {
+  name: LocalizedName!
+  id: Int
+  district: DistrictData!
+}
+
+type AddressData {
+  city: CityData!
+  street_address: String
+  phone: Int
+  id: Int
+}
+
+type AvinyaTypeData {
+  id: Int
+  active: Boolean!
+  global_type: String!
+  name: String
+  foundation_type: String
+  focus: String
+  level: Int
+  description: String
+}
+
+type Mutation {
+  add_avinya_type(avinya_type: AvinyaType!): AvinyaTypeData
+  update_avinya_type(avinya_type: AvinyaType!): AvinyaTypeData
+  add_educator_applicant(person: Person!): PersonData
+  add_student_applicant(person: Person!): PersonData
+  add_student_applicant_consent(applicantConsent: ApplicantConsent!): ApplicantConsentData
+  add_application(application: Application!): ApplicationData
+  add_evaluations(evaluations: [Evaluation!]!): Int
+  update_evaluation(evaluation: Evaluation!): EvaluationData
+  delete_evaluation(id: Int!): Int
+  add_evaluation_meta_data(metadata: EvaluationMetadata!): EvaluationMetadataData
+  add_evaluation_criteria(evaluationCriteria: EvaluationCriteria!): EvaluationCriteriaData
+  add_evaluation_answer_option(evaluationAnswer: EvaluationCriteriaAnswerOption!): EvaluationCriteriaAnswerOptionData
+  add_evaluation_cycle(evaluationCycle: EvaluationCycle!): Int
+  update_evaluation_cycles(evaluation_cycle: EvaluationCycle!): Int!
+  add_education_experience(education_experience: EducationExperience!): EducationExperienceData
+  add_work_experience(work_experience: WorkExperience!): WorkExperienceData
+  add_address(address: Address!): AddressData
+  add_prospect(prospect: Prospect!): ProspectData
+  add_organization(org: Organization!): OrganizationData
+  add_attendance(attendance: ActivityParticipantAttendance!): ActivityParticipantAttendanceData
+  addBiometricAttendance(attendance: ActivityParticipantAttendance!): ActivityParticipantAttendanceData
+  delete_attendance(id: Int!): Int
+  delete_person_attendance(person_id: Int!): Int
+  add_empower_parent(person: Person!): PersonData
+  update_application_status(applicationStatus: String!, applicationId: Int!): ApplicationStatusData
+  update_person_avinya_type(personId: Int!, newAvinyaId: Int!, transitionDate: String!): PersonData
+  update_person_organization(personId: Int!, newOrgId: Int!, transitionDate: String!): PersonData
+  add_activity(activity: Activity!): ActivityData
+  add_activity_sequence_plan(activitySequencePlan: ActivitySequencePlan!): ActivitySequencePlanData
+  add_activity_instance(activityInstance: ActivityInstance!): ActivityInstanceData
+  add_activity_participant(activityParticipant: ActivityParticipant!): ActivityParticipantData
+  update_attendance(attendanceId: Int!, sign_out_time: String!): ActivityParticipantAttendanceData
+  add_vacancy(vacancy: Vacancy!): VacancyData
+  add_person(person: Person!, avinya_type_id: Int): PersonData
+  add_asset(asset: Asset!): AssetData
+  update_asset(asset: Asset!): AssetData
+  add_supplier(supplier: Supplier!): SupplierData
+  update_supplier(supplier: Supplier!): SupplierData
+  add_consumable(consumable: Consumable!): ConsumableData
+  add_pcti_notes(evaluation: Evaluation!): EvaluationData
+  update_consumable(consumable: Consumable!): ConsumableData
+  add_resource_property(resourceProperty: ResourceProperty!): ResourcePropertyData
+  update_resource_property(resourceProperty: ResourceProperty!): ResourcePropertyData
+  add_supply(supply: Supply!): SupplyData
+  update_supply(supply: Supply!): SupplyData
+  add_resource_allocation(resourceAllocation: ResourceAllocation!): ResourceAllocationData
+  update_resource_allocation(resourceAllocation: ResourceAllocation!): ResourceAllocationData
+  add_inventory(inventory: Inventory!): InventoryData
+  update_inventory(inventory: Inventory!): InventoryData
+  add_duty_for_participant(dutyparticipant: DutyParticipant!): DutyParticipantData
+  delete_duty_for_participant(id: Int!): Int
+  update_duty_rotation_metadata(duty_rotation: DutyRotationMetaDetails!): DutyRotationMetaData
+  add_duty_attendance(duty_attendance: ActivityParticipantAttendance!): ActivityParticipantAttendanceData
+  add_duty_evaluation(duty_evaluation: Evaluation!): EvaluationData
+  consumable_replenishment(person_id: Int!, organization_id: Int!, date: String!, inventories: [Inventory!]!): [InventoryData!]
+  consumable_depletion(person_id: Int!, organization_id: Int!, date: String!, inventories: [Inventory!]!): [InventoryData!]
+  update_consumable_replenishment(inventories: [Inventory!]!): [InventoryData!]
+  update_consumable_depletion(inventories: [Inventory!]!): [InventoryData!]
+  update_person(person: Person!, mailing_address: Address, mailing_address_city: City): PersonData
+  insert_person(person: Person!, mailing_address: Address, mailing_address_city: City): PersonData
+  upload_document(user_document: UserDocument!): DocumentsData
+  add_monthly_leave_dates(monthly_leave_dates: MonthlyLeaveDates!): MonthlyLeaveDatesData
+  update_monthly_leave_dates(monthly_leave_dates: MonthlyLeaveDates!): MonthlyLeaveDatesData
+  create_alumni(person: Person!, mailing_address: Address, mailing_address_city: City, alumni: Alumni!): PersonData
+  update_alumni(person: Person!, mailing_address: Address, mailing_address_city: City, alumni: Alumni!): PersonData
+  create_alumni_education_qualification(alumni_education_qualification: AlumniEducationQualification!): AlumniEducationQualificationData
+  create_alumni_work_experience(alumni_work_experience: AlumniWorkExperience!): AlumniWorkExperienceData
+  update_alumni_education_qualification(alumni_education_qualification: AlumniEducationQualification!): AlumniEducationQualificationData
+  update_alumni_work_experience(alumni_work_experience: AlumniWorkExperience!): AlumniWorkExperienceData
+  delete_alumni_education_qualification_by_id(id: Int): Int
+  delete_alumni_work_experience_by_id(id: Int): Int
+  upload_person_profile_picture(person_profile_picture: PersonProfilePicture!): PersonProfilePictureData
+  delete_person_profile_picture_by_id(id: Int!): Int
+  create_activity_participant(activity_participant: ActivityParticipant!): ActivityParticipantData
+  create_activity_instance_evaluation(activity_instance_evaluation: ActivityInstanceEvaluation!): ActivityInstanceEvaluationData
+  create_job_post(job_post: JobPost!): JobPostData
+  update_job_post(job_post: JobPost!): JobPostData
+  delete_job_post(job_post: JobPost!): Int
+  addCvRequest(personId: Int!, cvRequest: CvRequest!): CvRequestData
+  uploadCV(personId: Int!, personCv: PersonCv!): PersonCvData
+  saveUserFCMToken(personId: Int!, personFCMToken: PersonFcmToken!): PersonFcmTokenData
+  updateUserFCMToken(personId: Int!, personFCMToken: PersonFcmToken!): PersonFcmTokenData
+  saveOrganizationLocation(organizationId: Int!, organizationLocation: OrganizationLocation!): OrganizationLocationData
+  createMaintenanceTask(organizationId: Int, maintenanceTask: MaintenanceTask!, finance: MaintenanceFinance, materialCosts: [MaterialCost!]): MaintenanceTaskData
+  updateMaintenanceTask(organizationId: Int!, maintenanceTaskActivityInstance: ActivityInstance!, maintenanceTask: MaintenanceTask!, maintenanceTaskParticipantList: [Int!]!, finance: MaintenanceFinance, materialCosts: [MaterialCost!]): ActivityInstanceData
+  updateTaskProgress(activityInstanceId: Int!, taskParticipantId: Int!, taskParticipant: ActivityParticipant!): ActivityParticipantData
+  updateTaskInstance(taskActivityInstance: ActivityInstance!): ActivityInstanceData
+  softDeactivateMaintenanceTask(taskId: Int!, modifiedBy: String!): MaintenanceTaskData
+  updateMaintenanceFinance(financeId: Int!, maintenanceFinance: MaintenanceFinance!): MaintenanceFinanceData
+  add_food_item(food_item: FoodItem!): FoodItemData
+  update_food_item(food_item: FoodItem!): FoodItemData
+  delete_food_item(id: Int!): Boolean!
+  add_meal_serving(meal_serving: MealServing!): MealServingData
+  update_meal_serving(meal_serving: MealServing!): MealServingData
+  delete_meal_serving(id: Int!): Boolean!
+  add_food_waste(food_waste: FoodWaste!): FoodWasteData
+  delete_food_waste(id: Int!): Boolean!
+}
+
+input AvinyaType {
+  record_type: String = "avinya_type"
+  id: Int
+  active: Boolean!
+  global_type: String!
+  name: String
+  description: String
+  foundation_type: String
+  focus: String
+  level: Int
+}
+
+type OrganizationStructureData {
+  organizations: [OrganizationData!]
+}
+
+type OrganizationData {
+  id: Int
+  description: String
+  notes: String
+  address: AddressData
+  avinya_type: AvinyaTypeData
+  phone: Int
+  name: LocalizedName!
+  child_organizations: [OrganizationData!]
+  child_organizations_for_dashboard: [OrganizationData!]
+  parent_organizations: [OrganizationData!]
+  people: [PersonData!]
+  vacancies: [VacancyData!]
+  organization_metadata: [OrganizationMetaData!]
+  active: Int
+  attendance_percentage: Decimal
+}
+
+type PersonData {
+  id: Int
+  preferred_name: String
+  full_name: String
+  date_of_birth: String
+  created: String
+  updated: String
+  sex: String
+  asgardeo_id: String
+  jwt_sub_id: String
+  jwt_email: String
+  permanent_address: AddressData
+  mailing_address: AddressData
+  phone: Int
+  organization: OrganizationData
+  avinya_type: AvinyaTypeData
+  avinya_type_id: Int
+  notes: String
+  nic_no: String
+  passport_no: String
+  id_no: String
+  email: String
+  child_students: [PersonData!]
+  parent_students: [PersonData!]
+  street_address: String
+  digital_id: String
+  avinya_phone: Int
+  bank_name: String
+  bank_branch: String
+  bank_account_number: String
+  bank_account_name: String
+  academy_org_id: Int
+  organization_id: Int
+  parent_organization_id: Int
+  branch_code: String
+  current_job: String
+  created_by: Int
+  updated_by: Int
+  documents_id: Int
+  alumni_id: Int
+  alumni: AlumniData
+  is_graduated: Boolean
+  alumni_education_qualifications: [AlumniEducationQualificationData!]
+  alumni_work_experience: [AlumniWorkExperienceData!]
+  profile_picture: PersonProfilePictureData
+  profile_picture_folder_id: String
+  attendance_percentage: Decimal
+}
+
+type AlumniData {
+  id: Int
+  status: String
+  company_name: String
+  job_title: String
+  linkedin_id: String
+  facebook_id: String
+  instagram_id: String
+  tiktok_id: String
+  canva_cv_url: String
+  updated_by: String
+  created: String
+  updated: String
+  person_count: Int
+}
+
+type AlumniEducationQualificationData {
+  id: Int
+  person_id: Int
+  university_name: String
+  course_name: String
+  is_currently_studying: Int
+  start_date: String
+  end_date: String
+  created: String
+  updated: String
+}
+
+type AlumniWorkExperienceData {
+  id: Int
+  person_id: Int
+  company_name: String
+  job_title: String
+  currently_working: Int
+  start_date: String
+  end_date: String
+  created: String
+  updated: String
+}
+
+type PersonProfilePictureData {
+  id: Int
+  person_id: Int
+  profile_picture_drive_id: String
+  uploaded_by: String
+  created: String
+  updated: String
+  picture: String
+}
+
+"The `Decimal` type corresponds to a subset of IEEE 754-2008 128-bit decimal (radix 10) floating point numbers"
+scalar Decimal
+
+type VacancyData {
+  id: Int
+  name: String
+  avinya_type: AvinyaTypeData
+  description: String
+  head_count: Int
+  evaluation_criteria: [EvaluationCriteriaData!]
+}
+
+type EvaluationCriteriaData {
+  prompt: String
+  description: String
+  expected_answer: String
+  evaluation_type: String
+  difficulty: String
+  rating_out_of: Int
+  id: Int
+  answer_options: [EvaluationCriteriaAnswerOptionData!]
+}
+
+type EvaluationCriteriaAnswerOptionData {
+  answer: String
+  expected_answer: Boolean
+  evaluation_criteria_id: Int
+}
+
+type OrganizationMetaData {
+  id: Int
+  organization_id: Int
+  key_name: String
+  value: String
+}
+
+type ProspectData {
+  active: Boolean
+  phone: Int
+  name: String
+  id: Int
+  email: String
+  receive_information_consent: Boolean
+  agree_terms_consent: Boolean
+  created: String
+  street_address: String
+  date_of_birth: String
+  done_ol: Boolean
+  ol_year: Int
+  distance_to_school: Int
+}
+
+type ApplicantConsentData {
+  avinya_type: AvinyaTypeData
+  active: Boolean
+  phone: Int
+  name: String
+  id: Int
+  email: String
+  date_of_birth: String
+  done_ol: String
+  ol_year: Int
+  done_al: String
+  al_year: Int
+  al_stream: String
+  distance_to_school: Int
+  information_correct_consent: Boolean
+  agree_terms_consent: Boolean
+  application_id: Int
+  person_id: Int
+  avinya_type_id: Int
+  organization_id: Int
+}
+
+type ApplicationData {
+  id: Int
+  applicant: PersonData
+  vacancy: VacancyData
+  application_date: String
+  statuses: [ApplicationStatusData!]
+}
+
+type ApplicationStatusData {
+  application_id: Int
+  status: String
+  updated: String
+  is_terminal: Boolean
+}
+
+type EvaluationData {
+  id: Int
+  evaluatee_id: Int
+  evaluator_id: Int
+  activity_instance_id: Int
+  evaluation_criteria_id: Int
+  updated: String
+  created: String
+  notes: String
+  grade: Int
+  response: String
+  child_evaluations: [EvaluationData!]
+  parent_evaluations: [EvaluationData!]
+}
+
+type ActivityData {
+  id: Int
+  name: String
+  description: String
+  avinya_type: AvinyaTypeData
+  notes: String
+  child_activities: [ActivityData!]
+  parent_activities: [ActivityData!]
+  activity_sequence_plan: [ActivitySequencePlanData!]
+  activity_instances: [ActivityInstanceData!]
+}
+
+type ActivitySequencePlanData {
+  id: Int
+  activity_id: Int
+  sequence_number: Int
+  timeslot_number: Int
+  person: PersonData
+  organization: OrganizationData
+  created: String
+  updated: String
+}
+
+type ActivityInstanceData {
+  id: Int
+  name: String
+  location: String
+  description: String
+  activity_id: Int
+  task_id: Int
+  notes: String
+  daily_sequence: Int
+  weekly_sequence: Int
+  monthly_sequence: Int
+  start_time: String
+  end_time: String
+  task: MaintenanceTaskData
+  finance: MaintenanceFinanceData
+  overall_task_status: String
+  overdue_days: Int
+  statusText: String
+  created: String
+  updated: String
+  place: PlaceData
+  organization: OrganizationData
+  activity_participants: [ActivityParticipantData!]
+  activity_participant: ActivityParticipantData
+  activity_participant_attendances: [ActivityParticipantAttendanceData!]
+  evaluations: [EvaluationData!]
+  event_gift: EventGiftData
+  activity_evaluation: ActivityInstanceEvaluationData
+}
+
+type MaintenanceTaskData {
+  id: Int
+  title: String
+  description: String
+  task_type: String
+  frequency: String
+  location_id: Int
+  location: OrganizationLocationData
+  start_date: String
+  exception_deadline: Int
+  has_financial_info: Int
+  modified_by: String
+  is_active: Boolean
+  created: String
+  updated: String
+}
+
+type OrganizationLocationData {
+  id: Int
+  organization_id: Int
+  location_name: String
+  description: String
+}
+
+type MaintenanceFinanceData {
+  id: Int
+  activity_instance_id: Int
+  estimated_cost: Decimal
+  labour_cost: Decimal
+  material_costs: [MaterialCostData!]
+  status: String
+  rejection_reason: String
+  reviewed_by: String
+  reviewed_date: String
+  created: String
+  updated: String
+  total_cost: Decimal!
+}
+
+type MaterialCostData {
+  id: Int
+  financial_id: Int
+  item: String
+  quantity: Decimal
+  unit: String
+  unit_cost: Decimal
+}
+
+type PlaceData {
+  id: Int
+  name: String
+  description: String
+  notes: String
+  display_name: String
+  street_address: String
+  city: CityData
+  suite: String
+  level: Int
+  address: AddressData
+  created: String
+  updated: String
+  child_activities: [PlaceData!]
+  parent_places: [PlaceData!]
+}
+
+type ActivityParticipantData {
+  id: Int
+  activity_instance_id: Int
+  person_id: Int
+  organization_id: Int
+  person: PersonData
+  organization: OrganizationData
+  start_date: String
+  end_date: String
+  participant_task_status: String
+  role: String
+  notes: String
+  is_attending: Int
+  created: String
+  updated: String
+}
+
+type ActivityParticipantAttendanceData {
+  id: Int
+  activity_instance_id: Int
+  person_id: Int
+  person: PersonData
+  sign_in_time: String
+  sign_out_time: String
+  created: String
+  updated: String
+  in_marked_by: String
+  out_marked_by: String
+}
+
+type EventGiftData {
+  id: Int
+  activity_instance_id: Int
+  gift_amount: Decimal
+  no_of_gifts: Int
+  notes: String
+  description: String
+}
+
+type ActivityInstanceEvaluationData {
+  id: Int
+  activity_instance_id: Int
+  evaluator_id: Int
+  feedback: String
+  rating: Int
+  created: String
+  updated: String
+}
+
+input Person {
+  record_type: String = "person"
+  id: Int
+  preferred_name: String
+  full_name: String
+  date_of_birth: String
+  sex: String
+  asgardeo_id: String
+  jwt_sub_id: String
+  jwt_email: String
+  permanent_address_id: Int
+  mailing_address_id: Int
+  phone: Int
+  organization_id: Int
+  parent_organization_id: Int
+  avinya_type_id: Int
+  notes: String
+  nic_no: String
+  passport_no: String
+  id_no: String
+  email: String
+  permanent_address: Address
+  mailing_address: Address
+  alumni: Alumni
+  created: String
+  updated: String
+  child_student: [Int!]
+  parent_student: [Int!]
+  street_address: String
+  digital_id: String
+  avinya_phone: Int
+  bank_name: String
+  bank_branch: String
+  bank_account_number: String
+  bank_account_name: String
+  academy_org_id: Int
+  academy_org_name: String
+  branch_code: String
+  current_job: String
+  documents_id: Int
+  alumni_id: Int
+  created_by: Int
+  updated_by: Int
+  is_graduated: Boolean
+  profile_picture_folder_id: String
+  attendance_percentage: Decimal
+  attendance_percentage_raw: Decimal
+  rank_position: Int
+}
+
+input Address {
+  record_type: String = "address"
+  id: Int
+  street_address: String
+  phone: Int
+  city_id: Int
+  city: City
+}
+
+input City {
+  record_type: String = "city"
+  id: Int
+  district_id: Int
+  suburb_name_en: String
+  suburb_name_ta: String
+  suburb_name_si: String
+  postcode: String
+  name_en: String
+  name_ta: String
+  name_si: String
+  latitude: Decimal
+  longitude: Decimal
+}
+
+input Alumni {
+  record_type: String = "alumni"
+  id: Int
+  status: String
+  company_name: String
+  job_title: String
+  linkedin_id: String
+  facebook_id: String
+  instagram_id: String
+  tiktok_id: String
+  canva_cv_url: String
+  updated_by: String
+  person_count: Int
+  created: String
+  updated: String
+}
+
+input ApplicantConsent {
+  record_type: String = "applicant_consent"
+  id: Int
+  active: Boolean
+  organization_id: Int
+  avinya_type_id: Int
+  person_id: Int
+  application_id: Int
+  name: String
+  date_of_birth: String
+  done_ol: String
+  ol_year: Int
+  done_al: String
+  al_year: Int
+  al_stream: String
+  distance_to_school: Int
+  phone: Int
+  email: String
+  information_correct_consent: Boolean
+  agree_terms_consent: Boolean
+  created: String
+  updated: String
+}
+
+input Application {
+  record_type: String = "application"
+  id: Int
+  person_id: Int
+  vacancy_id: Int
+  application_date: String
+}
+
+input Evaluation {
+  record_type: String = "evaluation"
+  id: Int
+  evaluatee_id: Int
+  evaluator_id: Int
+  evaluation_criteria_id: Int
+  activity_instance_id: Int
+  updated: String
+  created: String
+  response: String
+  notes: String
+  grade: Int
+  child_evaluations: [Int!]
+  parent_evaluations: [Int!]
+}
+
+type EvaluationMetadataData {
+  id: Int
+  evaluation_id: Int
+  location: String
+  on_date_time: String
+  level: Int
+  meta_type: String
+  status: String
+  focus: String
+  metadata: String
+}
+
+input EvaluationMetadata {
+  record_type: String = "metadata"
+  id: Int
+  evaluation_id: Int
+  location: String
+  on_date_time: String
+  level: Int
+  meta_type: String
+  focus: String
+  status: String
+  metadata: String
+}
+
+input EvaluationCriteria {
+  record_type: String = "evaluation_criteria"
+  id: Int
+  prompt: String
+  description: String
+  expected_answer: String
+  evaluation_type: String
+  difficulty: String
+  rating_out_of: Int
+}
+
+input EvaluationCriteriaAnswerOption {
+  record_type: String = "evaluation_criteria_answer_option"
+  id: Int
+  evaluation_criteria_id: Int
+  answer: String
+  expected_answer: Boolean
+}
+
+input EvaluationCycle {
+  record_type: String = "evaluation_cycle"
+  id: Int
+  name: String
+  description: String
+  start_date: String
+  end_date: String
+}
+
+type EvaluationCycleData {
+  name: String
+  description: String
+  start_date: String
+  end_date: String
+}
+
+type EducationExperienceData {
+  person_id: Int
+  school: String
+  start_date: String
+  end_date: String
+  education_evaluations: [EducationExperienceData!]
+}
+
+input EducationExperience {
+  record_type: String = "education_experience"
+  id: Int
+  person_id: Int
+  school: String
+  start_date: String
+  end_date: String
+  evaluation_id: [Int!]
+}
+
+type WorkExperienceData {
+  person_id: Int
+  organization: String
+  start_date: String
+  end_date: String
+}
+
+input WorkExperience {
+  record_type: String = "work_experience"
+  id: Int
+  person_id: Int
+  organization: String
+  start_date: String
+  end_date: String
+  evaluation_id: [Int!]
+}
+
+input Prospect {
+  record_type: String = "prospect"
+  id: Int
+  active: Boolean
+  name: String
+  phone: Int
+  email: String
+  receive_information_consent: Boolean
+  agree_terms_consent: Boolean
+  created: String
+  updated: String
+  street_address: String
+  date_of_birth: String
+  done_ol: Boolean
+  ol_year: Int
+  distance_to_school: Int
+  verified: Boolean
+  contacted: Boolean
+  applied: Boolean
+}
+
+input Organization {
+  record_type: String = "organization"
+  id: Int
+  child_organizations: [Int!]
+  parent_organizations: [Int!]
+  child_organizations_for_dashboard: [Int!]
+  address_id: Int
+  avinya_type: Int
+  phone: Int
+  description: String
+  notes: String
+  active: Int
+  attendance_percentage: Decimal
+  name_en: String
+  name_ta: String
+  name_si: String
+}
+
+input ActivityParticipantAttendance {
+  record_type: String = "activity_participant_attendance"
+  id: Int
+  person_id: Int
+  activity_instance_id: Int
+  event_time: String
+  sign_in_time: String
+  sign_out_time: String
+  in_marked_by: String
+  out_marked_by: String
+  created: String
+  updated: String
+}
+
+type ActivityParticipantAbsentData {
+  absent_count: Int
+  absent_names: String
+}
+
+type ActivityParticipantAttendanceDataForLateAttendance {
+  id: Int
+  activity_instance_id: Int
+  person_id: Int
+  person: PersonData
+  sign_in_time: String
+  description: String
+  preferred_name: String
+  digital_id: String
+  sign_out_time: String
+  label: String
+  student_count: Int
+  student_name: String
+  created: String
+  updated: String
+  in_marked_by: String
+  out_marked_by: String
+}
+
+input Activity {
+  record_type: String = "activity"
+  id: Int
+  name: String
+  description: String
+  avinya_type_id: Int
+  notes: String
+  created: String
+  updated: String
+  child_activities: [Int!]
+  parent_activities: [Int!]
+}
+
+input ActivitySequencePlan {
+  record_type: String = "activity_sequence_plan"
+  id: Int
+  activity_id: Int
+  sequence_number: Int
+  timeslot_number: Int
+  person_id: Int
+  organization_id: Int
+  created: String
+  updated: String
+}
+
+input ActivityInstance {
+  record_type: String = "activity_instance"
+  id: Int
+  activity_id: Int
+  task_id: Int
+  name: String
+  place_id: Int
+  location: String
+  organization_id: Int
+  daily_sequence: Int
+  weekly_sequence: Int
+  monthly_sequence: Int
+  description: String
+  notes: String
+  start_time: String
+  end_time: String
+  overall_task_status: String
+  created: String
+  updated: String
+  task: MaintenanceTask
+  finance: MaintenanceFinance
+  activity_participants: [ActivityParticipant!]
+}
+
+input MaintenanceTask {
+  record_type: String = "maintenance_task"
+  id: Int
+  title: String
+  description: String
+  task_type: String
+  frequency: String
+  location_id: Int
+  start_date: String
+  exception_deadline: Int
+  has_financial_info: Int
+  modified_by: String
+  is_active: Boolean
+  created: String
+  updated: String
+  person_id_list: [Int!]
+  finance: MaintenanceFinance
+}
+
+input MaintenanceFinance {
+  record_type: String = "maintenance_finance"
+  id: Int
+  activity_instance_id: Int
+  estimated_cost: Decimal
+  labour_cost: Decimal
+  total_cost: Decimal
+  status: String
+  rejection_reason: String
+  reviewed_by: String
+  reviewed_date: String
+  created: String
+  updated: String
+  materialCosts: [MaterialCost!]
+}
+
+input MaterialCost {
+  record_type: String = "material_cost"
+  id: Int
+  financial_id: Int
+  item: String
+  quantity: Decimal
+  unit: String
+  unit_cost: Decimal
+}
+
+input ActivityParticipant {
+  record_type: String = "activity_participant"
+  id: Int
+  activity_instance_id: Int
+  person_id: Int
+  organization_id: Int
+  start_date: String
+  end_date: String
+  participant_task_status: String
+  role: String
+  notes: String
+  is_attending: Int
+  created: String
+  updated: String
+  person: Person
+}
+
+input Vacancy {
+  record_type: String = "vacancy"
+  id: Int
+  name: String
+  description: String
+  organization_id: Int
+  avinya_type_id: Int
+  evaluation_cycle_id: Int
+  head_count: Int
+}
+
+type AssetData {
+  id: Int
+  name: String
+  manufacturer: String
+  model: String
+  serial_number: String
+  registration_number: String
+  description: String
+  avinya_type: AvinyaTypeData
+  avinya_type_id: Int
+  created: String
+  updated: String
+}
+
+input Asset {
+  record_type: String = "asset"
+  id: Int
+  name: String
+  manufacturer: String
+  model: String
+  serial_number: String
+  registration_number: String
+  description: String
+  avinya_type_id: Int
+  created: String
+  updated: String
+}
+
+type SupplierData {
+  id: Int
+  name: String
+  description: String
+  phone: Int
+  email: String
+  address: AddressData
+  created: String
+  updated: String
+}
+
+input Supplier {
+  record_type: String = "supplier"
+  id: Int
+  name: String
+  description: String
+  phone: Int
+  email: String
+  address_id: Int
+  created: String
+  updated: String
+}
+
+type ConsumableData {
+  id: Int
+  avinya_type: AvinyaTypeData
+  name: String
+  description: String
+  manufacturer: String
+  model: String
+  serial_number: String
+  threshold: Decimal
+  created: String
+  updated: String
+}
+
+input Consumable {
+  record_type: String = "consumable"
+  id: Int
+  avinya_type_id: Int
+  name: String
+  description: String
+  manufacturer: String
+  model: String
+  serial_number: String
+  threshold: Decimal
+  created: String
+  updated: String
+}
+
+type ResourcePropertyData {
+  id: Int
+  asset: AssetData
+  consumable: ConsumableData
+  property: String
+  value: String
+}
+
+input ResourceProperty {
+  record_type: String = "resource_property"
+  id: Int
+  asset_id: Int
+  consumable_id: Int
+  property: String
+  value: String
+}
+
+type SupplyData {
+  id: Int
+  asset: AssetData
+  consumable: ConsumableData
+  supplier: SupplierData
+  person: PersonData
+  order_date: String
+  delivery_date: String
+  order_id: String
+  order_amount: Int
+  created: String
+  updated: String
+}
+
+input Supply {
+  record_type: String = "supply"
+  id: Int
+  asset_id: Int
+  consumable_id: Int
+  supplier_id: Int
+  person_id: Int
+  order_date: String
+  delivery_date: String
+  order_id: String
+  order_amount: Int
+  created: String
+  updated: String
+}
+
+type ResourceAllocationData {
+  id: Int
+  requested: Boolean
+  approved: Boolean
+  allocated: Boolean
+  asset: AssetData
+  consumable: ConsumableData
+  organization: OrganizationData
+  person: PersonData
+  quantity: Int
+  start_date: String
+  end_date: String
+  created: String
+  updated: String
+  resource_properties: [ResourcePropertyData!]!
+}
+
+input ResourceAllocation {
+  record_type: String = "resource_allocation"
+  id: Int
+  requested: Boolean
+  approved: Boolean
+  allocated: Boolean
+  asset_id: Int
+  consumable_id: Int
+  organization_id: Int
+  person_id: Int
+  quantity: Int
+  start_date: String
+  end_date: String
+  created: String
+  updated: String
+  resource_properties: [ResourceProperty!]
+}
+
+type InventoryData {
+  id: Int
+  avinya_type: AvinyaTypeData
+  avinya_type_id: Int
+  asset: AssetData
+  consumable: ConsumableData
+  consumable_id: Int
+  organization: OrganizationData
+  person: PersonData
+  quantity: Decimal
+  quantity_in: Decimal
+  quantity_out: Decimal
+  prev_quantity: Decimal
+  resource_property: ResourcePropertyData
+  name: String
+  month_name: String
+  description: String
+  manufacturer: String
+  is_below_threshold: Int
+  created: String
+  updated: String
+}
+
+input Inventory {
+  record_type: String = "inventory"
+  id: Int
+  avinya_type_id: Int
+  asset_id: Int
+  consumable_id: Int
+  name: String
+  month_name: String
+  description: String
+  manufacturer: String
+  organization_id: Int
+  person_id: Int
+  quantity: Decimal
+  quantity_in: Decimal
+  quantity_out: Decimal
+  prev_quantity: Decimal
+  resource_property_id: Int
+  resource_property_value: String
+  is_below_threshold: Int
+  created: String
+  updated: String
+}
+
+type DutyParticipantData {
+  id: Int
+  person_id: Int
+  person: PersonData
+  activity: ActivityData
+  activity_id: Int
+  role: String
+  created: String
+  updated: String
+}
+
+input DutyParticipant {
+  record_type: String = "duty_participant"
+  id: Int
+  activity_id: Int
+  activity: Activity
+  person_id: Int
+  person: Person
+  role: String
+  created: String
+  updated: String
+}
+
+type DutyRotationMetaData {
+  id: Int
+  start_date: String
+  end_date: String
+  organization_id: Int
+}
+
+input DutyRotationMetaDetails {
+  record_type: String = "duty_rotation_metadata"
+  id: Int
+  start_date: String
+  end_date: String
+  organization_id: Int
+}
+
+type AttendanceDashboardDataMain {
+  record_type: String
+  attendance_dashboard_data: AttendanceDashboardData
+}
+
+type AttendanceDashboardData {
+  record_type: String
+  title: String
+  numOfFiles: Int
+  svgSrc: String
+  color: String
+  percentage: Decimal
+}
+
+type ActivityParticipantAttendanceMissedBySecurityData {
+  sign_in_time: String
+  description: String
+  preferred_name: String
+  digital_id: String
+}
+
+type DailyActivityParticipantAttendanceByParentOrgData {
+  id: Int
+  description: String
+  present_count: Int
+  total_student_count: Int
+  svg_src: String
+  color: String
+}
+
+type TotalActivityParticipantAttendanceCountByDateData {
+  attendance_date: String
+  daily_total: Int
+}
+
+type DailyActivityParticipantAttendanceSummaryReportData {
+  sign_in_date: String
+  present_count: Int
+  absent_count: Int
+  late_count: Int
+  total_count: Int
+  present_attendance_percentage: Decimal
+  absent_attendance_percentage: Decimal
+  late_attendance_percentage: Decimal
+}
+
+type StudentCountData {
+  current_student_count: Int!
+  male_student_count: Int!
+  female_student_count: Int!
+  dropout_student_count: Int!
+}
+
+type AgeDistributionData {
+  age_groups: [AgeGroupData!]!
+  total_students: Int!
+}
+
+type AgeGroupData {
+  age_group: String!
+  count: Int!
+}
+
+type DistrictDistributionData {
+  districts: [DistrictStudentCount!]!
+  total_students: Int!
+}
+
+type DistrictStudentCount {
+  district_name: String!
+  count: Int!
+}
+
+type DocumentsData {
+  id: Int
+  folder_id: String
+  nic_front_id: String
+  nic_back_id: String
+  birth_certificate_front_id: String
+  birth_certificate_back_id: String
+  ol_certificate_id: String
+  al_certificate_id: String
+  additional_certificate_01_id: String
+  additional_certificate_02_id: String
+  additional_certificate_03_id: String
+  additional_certificate_04_id: String
+  additional_certificate_05_id: String
+  document_type: String
+  document: String
+}
+
+input UserDocument {
+  record_type: String = "user_document"
+  id: Int
+  folder_id: String
+  nic_front_id: String
+  nic_back_id: String
+  birth_certificate_front_id: String
+  birth_certificate_back_id: String
+  ol_certificate_id: String
+  al_certificate_id: String
+  additional_certificate_01_id: String
+  additional_certificate_02_id: String
+  additional_certificate_03_id: String
+  additional_certificate_04_id: String
+  additional_certificate_05_id: String
+  document_type: String
+  document: String
+}
+
+type MonthlyLeaveDatesData {
+  id: Int
+  year: Int
+  month: Int
+  organization_id: Int
+  batch_id: Int
+  leave_dates_list: [Int!]
+  daily_amount: Decimal
+  created: String
+  updated: String
+}
+
+input MonthlyLeaveDates {
+  record_type: String = "monthly_leave_dates"
+  id: Int
+  year: Int
+  month: Int
+  total_days_in_month: Int
+  organization_id: Int
+  batch_id: Int
+  leave_dates_list: [Int!]!
+  leave_dates: String
+  daily_amount: Decimal
+  monthly_payment_amount: Decimal
+  created: String
+  updated: String
+}
+
+type BatchPaymentPlanData {
+  id: Int
+  organization_id: Int
+  batch_id: Int
+  monthly_payment_amount: Decimal
+  valid_from: String
+  valid_to: String
+  created: String
+}
+
+input AlumniEducationQualification {
+  record_type: String = "alumni_education_qualification"
+  id: Int
+  person_id: Int
+  university_name: String
+  course_name: String
+  is_currently_studying: Int
+  start_date: String
+  end_date: String
+  created: String
+  updated: String
+}
+
+input AlumniWorkExperience {
+  record_type: String = "alumni_work_experience"
+  id: Int
+  person_id: Int
+  company_name: String
+  job_title: String
+  currently_working: Int
+  start_date: String
+  end_date: String
+  created: String
+  updated: String
+}
+
+input PersonProfilePicture {
+  record_type: String = "person_profile_pictures"
+  id: Int
+  person_id: Int
+  profile_picture_drive_id: String
+  picture: String
+  nic_no: String
+  uploaded_by: String
+  created: String
+  updated: String
+}
+
+input ActivityInstanceEvaluation {
+  record_type: String = "activity_instance_evaluation"
+  id: Int
+  activity_instance_id: Int
+  evaluator_id: Int
+  feedback: String
+  rating: Int
+  created: String
+  updated: String
+}
+
+type JobPostData {
+  id: Int
+  job_type: String
+  job_text: String
+  job_link: String
+  job_image_drive_id: String
+  job_category_id: Int
+  application_deadline: String
+  uploaded_by: String
+  job_post_image: String
+  created: String
+  updated: String
+}
+
+input JobPost {
+  record_type: String = "job_post"
+  id: Int
+  job_type: String
+  job_text: String
+  job_link: String
+  job_image_drive_id: String
+  job_post_image: String
+  current_date_time: String
+  job_category: String
+  job_category_id: Int
+  application_deadline: String
+  uploaded_by: String
+  created: String
+  updated: String
+}
+
+type JobCategoryData {
+  id: Int
+  name: String
+  description: String
+}
+
+type CvRequestData {
+  id: Int
+  person_id: Int
+  phone: Int
+  status: String
+  created: String
+  updated: String
+}
+
+input CvRequest {
+  record_type: String = "cv_request"
+  id: Int
+  person_id: Int
+  phone: Int
+  status: String
+  created: String
+  updated: String
+}
+
+type PersonCvData {
+  id: Int
+  person_id: Int
+  drive_file_id: String
+  file_content: String
+  uploaded_by: String
+  created: String
+  updated: String
+}
+
+input PersonCv {
+  record_type: String = "person_cv"
+  id: Int
+  person_id: Int
+  file_content: String
+  nic_no: String
+  drive_file_id: String
+  uploaded_by: String
+  created: String
+  updated: String
+}
+
+type PersonFcmTokenData {
+  id: Int
+  person_id: Int
+  fcm_token: String
+  created: String
+  updated: String
+}
+
+input PersonFcmToken {
+  record_type: String = "person_fcm_token"
+  id: Int
+  person_id: Int
+  fcm_token: String
+  created: String
+  updated: String
+}
+
+input OrganizationLocation {
+  record_type: String = "organization_location"
+  id: Int
+  organization_id: Int
+  location_name: String
+  description: String
+}
+
+type MonthlyReportData {
+  totalTasks: Int
+  completedTasks: Int
+  pendingTasks: Int
+  inProgressTasks: Int
+  totalCosts: Decimal
+  totalUpcomingTasks: Int
+  nextMonthlyEstimatedCost: Decimal
+}
+
+type MonthlyCostSummaryData {
+  year: Int
+  monthly_costs: [MonthlyCostData!]
+}
+
+type MonthlyCostData {
+  month: Int
+  estimated_cost: Decimal
+  actual_cost: Decimal
+}
+
+type GroupedTasks {
+  groups: [TaskGroup!]!
+}
+
+type TaskGroup {
+  groupId: String!
+  groupName: String!
+  tasks: [ActivityInstanceData!]!
+}
+
+type MaintenanceMonthlyTaskCostReportData {
+  organizationId: Int!
+  year: Int!
+  month: Int!
+  totalActualCost: Decimal!
+  totalEstimatedCost: Decimal!
+  tasks: [MaintenanceTaskCostSummaryData!]!
+}
+
+type MaintenanceTaskCostSummaryData {
+  taskId: Int!
+  taskTitle: String!
+  actualCost: Decimal!
+  estimatedCost: Decimal!
+}
+
+type FoodItemData {
+  id: Int
+  name: String!
+  cost_per_portion: Decimal!
+  meal_type: String!
+  created: String
+  updated: String
+  is_deleted: Int
+}
+
+input FoodItem {
+  id: Int
+  name: String!
+  cost_per_portion: Decimal!
+  meal_type: String!
+  created: String
+  updated: String
+  is_deleted: Int
+}
+
+type MealServingData {
+  id: Int
+  serving_date: String!
+  meal_type: String!
+  organization_id: Int
+  served_count: Int!
+  notes: String
+  created: String
+  updated: String
+  food_wastes: [FoodWasteData!]!
+}
+
+type FoodWasteData {
+  id: Int
+  meal_serving_id: Int!
+  food_item_id: Int!
+  wasted_portions: Int!
+  created: String
+  updated: String
+  food_item: FoodItemData!
+  meal_serving: MealServingData!
+}
+
+input MealServing {
+  id: Int
+  serving_date: String!
+  meal_type: String!
+  served_count: Int!
+  organization_id: Int
+  notes: String
+  created: String
+  updated: String
+  food_wastes: [FoodWaste!]
+}
+
+input FoodWaste {
+  id: Int
+  meal_serving_id: Int
+  food_item_id: Int!
+  wasted_portions: Int!
+  created: String
+  updated: String
+}
+
+type DailyWaste {
+  date: String!
+  total_waste: Decimal
+}
+
+type TopWastedFood {
+  food_item_id: Int!
+  food_name: String!
+  total_portions: Int!
+  total_cost: Decimal!
+}
+
+type AnalyticsData {
+  average_daily_waste_cost: Decimal!
+  weekly_total_cost: Decimal!
+}

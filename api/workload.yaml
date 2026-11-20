@@ -1,0 +1,76 @@
+# OpenChoreo Workload Descriptor
+
+apiVersion: openchoreo.dev/v1alpha1
+
+metadata:
+  # +required Name of the workload
+  name: global-data-graphql
+
+# +optional Incoming connection details for the component
+endpoints:
+  - # +required Unique name for the endpoint, referenced by dependent components
+    name: graphql
+    # +required Numeric port value that gets exposed via the endpoint
+    port: 4000
+    # +required Type of traffic that the endpoint is accepting
+    # Allowed values: GraphQL, gRPC, TCP, UDP, HTTP, Websocket
+    type: GraphQL
+    # +optional Path the service actually serves on.
+    # The gateway matches /<component>-<endpoint> and rewrites that prefix to
+    # this value, so omitting it would rewrite to "/" and miss /graphql/... .
+    basePath: /graphql
+    # +optional Visibility of the endpoint
+    # Allowed values: project, namespace, internal, external
+    # Namespace scope: the catalog lives in its own project (shop-catalog) and
+    # is consumed across projects by the three BFFs in ballerina-shop. Every
+    # endpoint also keeps implicit project visibility. Still never published
+    # at the gateway — no `internal`/`external`.
+    visibility:
+      - namespace
+    # +optional Schema definition, relative to this file.
+    # Regenerate with: bal graphql -i service.bal -s /graphql
+    schemaFile: schema_graphql.graphql   #there is no file called service.bal
+
+# +optional Environment and file configuration for the container.
+#
+# This uses the mounted-file pattern rather than inline BAL_CONFIG_DATA, because
+# the service now carries secrets. Non-secret settings stay in a plain file that
+# is readable in review; the secrets come from a SecretReference.
+configurations:
+  env:
+    # Read left to right, and the FIRST file to define a key wins, so the secret
+    # overlay is listed before the plain defaults. A path that does not exist is
+    # skipped rather than failing startup, which is why the service still boots
+    # when the secret is not mounted.
+    - name: BAL_CONFIG_FILES
+      value: /mnt/secrets/Secrets.toml:/mnt/config/Config.toml
+
+  files:
+    # Non-secret settings. `mountPath` is the directory and `name` is the
+    # filename, so this lands at /mnt/config/Config.toml.
+    #
+    # Every key must match a `configurable` in config.bal — Ballerina fails
+    # startup on an unused configuration value.
+    - name: Config.toml
+      mountPath: /mnt/config
+      value: |
+        MAX_OPEN_CONNECTIONS = 80
+        MAX_CONNECTION_LIFE_TIME = 1800.0
+        MIN_IDLE_CONNECTIONS = 10
+        ALUMNI_CV_REQUEST_EMAIL = "lahiru@avinya.edu.lk"
+        ALUMNI_CV_REQUEST_SENDER_EMAIL = "lahiru@avinya.edu.lk"
+        ALUMNI_CV_REQUEST_SENDER_EMAIL_APP_PASSWORD = ""
+
+    # The dummy test secrets. Resolved from a SecretReference at deploy time and
+    # mounted at /mnt/secrets/Secrets.toml.
+    #
+    # Confirm they arrived without exposing them:
+    #   { configStatus { name configured fingerprint } }
+    # The fingerprint is sha256(value)[0:12], so compare it against
+    #   printf '%s' '<value>' | shasum -a 256 | cut -c1-12
+    - name: Secrets.toml
+      mountPath: /mnt/secrets
+      valueFrom:
+        secretKeyRef:
+          name: global-data-graphql-secrets
+          key: Secrets.toml
